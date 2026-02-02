@@ -169,12 +169,20 @@ async function showCreateObjectModal() {
     
     if (!modal || !overlay) return;
     
+    // Clear previous form data
+    window.currentObjectForm = null;
+    const formContainer = document.getElementById('object-form-container');
+    if (formContainer) {
+        formContainer.innerHTML = '';
+    }
+    
     // Load object types
     try {
         const types = await ObjectTypesAPI.getAll();
         const typeSelect = document.getElementById('object-type-select');
         
         if (typeSelect) {
+            typeSelect.disabled = false;
             typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
                 types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
             
@@ -205,7 +213,7 @@ async function showCreateObjectModal() {
 async function editObject(objectId) {
     try {
         const object = await ObjectsAPI.getById(objectId);
-        const typeData = await ObjectTypesAPI.getById(object.object_type_id);
+        const typeData = await ObjectTypesAPI.getById(object.object_type.id);
         
         const modal = document.getElementById('object-modal');
         const overlay = document.getElementById('modal-overlay');
@@ -241,6 +249,16 @@ async function saveObject(event) {
     const modal = document.getElementById('object-modal');
     const mode = modal.dataset.mode;
     const objectId = modal.dataset.objectId;
+    
+    // Check if object type is selected (for create mode)
+    const typeSelect = document.getElementById('object-type-select');
+    if (mode === 'create' && typeSelect) {
+        const typeValue = typeSelect.value;
+        if (!typeValue) {
+            showToast('Välj en objekttyp först', 'error');
+            return;
+        }
+    }
     
     if (!window.currentObjectForm) {
         showToast('Formulär ej tillgängligt', 'error');
@@ -280,7 +298,12 @@ async function saveObject(event) {
         }
     } catch (error) {
         console.error('Failed to save object:', error);
-        showToast(error.message || 'Kunde inte spara objekt', 'error');
+        // If error has details (from backend validation), show them
+        let errorMessage = error.message || 'Kunde inte spara objekt';
+        if (error.details && Array.isArray(error.details) && error.details.length > 0) {
+            errorMessage = error.details.join(', ');
+        }
+        showToast(errorMessage, 'error');
     }
 }
 
