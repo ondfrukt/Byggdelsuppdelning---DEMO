@@ -254,7 +254,7 @@ async function saveObject(event) {
     const typeSelect = document.getElementById('object-type-select');
     if (mode === 'create' && typeSelect) {
         const typeValue = typeSelect.value;
-        if (!typeValue || typeValue === '') {
+        if (!typeValue) {
             showToast('Välj en objekttyp först', 'error');
             return;
         }
