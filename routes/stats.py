@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from models import db, Product, Component, BOM, ProductRelation
+from models import db, Object, ObjectType
 from sqlalchemy import func
 
 stats_bp = Blueprint('stats', __name__)
@@ -22,50 +22,27 @@ def health_check():
 
 @stats_bp.route('/stats', methods=['GET'])
 def get_stats():
-    """Get statistics about the PLM system"""
+    """Get statistics about the object-based system"""
     try:
-        # Total counts
-        total_products = Product.query.count()
-        total_components = Component.query.count()
-        total_bom_items = BOM.query.count()
-        total_relations = ProductRelation.query.count()
+        # Total object count
+        total_objects = Object.query.count()
         
-        # Products by status
-        status_counts = db.session.query(
-            Product.status,
-            func.count(Product.id)
-        ).group_by(Product.status).all()
-        
-        products_by_status = {status: count for status, count in status_counts}
-        
-        # Components by type
+        # Objects by type
         type_counts = db.session.query(
-            Component.type,
-            func.count(Component.id)
-        ).group_by(Component.type).all()
+            ObjectType.name,
+            func.count(Object.id)
+        ).join(Object, Object.object_type_id == ObjectType.id)\
+         .group_by(ObjectType.name).all()
         
-        components_by_type = {comp_type: count for comp_type, count in type_counts}
+        objects_by_type = {name: count for name, count in type_counts}
         
-        # Relations by type
-        relation_counts = db.session.query(
-            ProductRelation.relation_type,
-            func.count(ProductRelation.id)
-        ).group_by(ProductRelation.relation_type).all()
-        
-        relations_by_type = {rel_type: count for rel_type, count in relation_counts}
-        
-        # Recent products
-        recent_products = Product.query.order_by(Product.updated_at.desc()).limit(5).all()
+        # Recent objects
+        recent_objects = Object.query.order_by(Object.created_at.desc()).limit(10).all()
         
         return jsonify({
-            'total_products': total_products,
-            'total_components': total_components,
-            'total_bom_items': total_bom_items,
-            'total_relations': total_relations,
-            'products_by_status': products_by_status,
-            'components_by_type': components_by_type,
-            'relations_by_type': relations_by_type,
-            'recent_products': [product.to_dict() for product in recent_products]
+            'total_objects': total_objects,
+            'objects_by_type': objects_by_type,
+            'recent_objects': [obj.to_dict(include_data=True) for obj in recent_objects]
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
