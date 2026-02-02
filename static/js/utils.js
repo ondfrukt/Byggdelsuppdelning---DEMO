@@ -81,6 +81,32 @@ function getRelationTypeLabel(type) {
     return labels[type] || type;
 }
 
+// Get object type color
+function getObjectTypeColor(typeName) {
+    const colors = {
+        'Byggdel': '#3498db',
+        'Produkt': '#2ecc71',
+        'Kravställning': '#e74c3c',
+        'Anslutning': '#f39c12',
+        'Ritningsobjekt': '#9b59b6',
+        'Egenskap': '#1abc9c',
+        'Anvisning': '#34495e'
+    };
+    return colors[typeName] || '#95a5a6';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 // Confirmation dialog
 function confirmAction(message) {
     return confirm(message);
@@ -92,8 +118,8 @@ function openModal(modalId) {
     const modal = document.getElementById(modalId);
     
     if (overlay && modal) {
-        overlay.classList.add('active');
-        modal.classList.add('active');
+        overlay.style.display = 'block';
+        modal.style.display = 'block';
     }
 }
 
@@ -102,16 +128,32 @@ function closeModal() {
     const modals = document.querySelectorAll('.modal');
     
     if (overlay) {
-        overlay.classList.remove('active');
+        overlay.style.display = 'none';
     }
     
     modals.forEach(modal => {
-        modal.classList.remove('active');
+        modal.style.display = 'none';
+        modal.dataset.mode = '';
+        modal.dataset.objectId = '';
+        modal.dataset.typeId = '';
+        modal.dataset.fieldId = '';
     });
     
     // Reset forms
     const forms = document.querySelectorAll('.modal form');
     forms.forEach(form => form.reset());
+    
+    // Clear dynamic content
+    const objectFormContainer = document.getElementById('object-form-container');
+    if (objectFormContainer) {
+        objectFormContainer.innerHTML = '';
+    }
+    
+    // Re-enable type select if it was disabled
+    const typeSelect = document.getElementById('object-type-select');
+    if (typeSelect) {
+        typeSelect.disabled = false;
+    }
 }
 
 // Show/hide views

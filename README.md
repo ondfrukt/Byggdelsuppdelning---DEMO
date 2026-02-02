@@ -1,76 +1,85 @@
-# PLM Demo System
+# Byggdelssystem - Flexibelt Byggnadsinformationssystem
 
-Ett fullstack Product Lifecycle Management (PLM) demonstrationssystem byggt med Flask och PostgreSQL. Systemet visar produktdatahantering, BOM-strukturer (Bill of Materials) och produktrelationer.
+Ett kraftfullt, flexibelt byggnadsinformationssystem byggt med Flask och PostgreSQL. Systemet möjliggör dynamisk hantering av byggdelar, produkter, kravställningar, anslutningar och andra objekt med anpassningsbara metadatafält.
 
-![PLM Demo System](https://img.shields.io/badge/Status-Production-green)
+![Status](https://img.shields.io/badge/Status-Production-green)
 ![Python](https://img.shields.io/badge/Python-3.10-blue)
 ![Flask](https://img.shields.io/badge/Flask-3.0-lightgrey)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-blue)
 
 ## 🚀 Live Demo
 
-**[Se live-demo här](https://byggdelsuppdelning-demo.onrender.com)** *(Uppdatera med din Render URL)*
+**[Se live-demo här](https://byggdelsuppdelning-demo.onrender.com)**
 
 *Notera: Vid första besöket kan det ta 30-60 sekunder att starta på Render's gratis tier.*
 
 ## 📋 Översikt
 
-PLM (Product Lifecycle Management) hanterar hela livscykeln för produkter från koncept till obsolescens. Detta demosystem visar:
+Byggdelssystemet är ett BIM-liknande informationshanteringssystem som ger användaren full flexibilitet att:
 
-- **Produktdatahantering** - Skapa, redigera och hantera produkter med versionshantering och statusflöde
-- **BOM (Bill of Materials)** - Definiera vilka komponenter som ingår i varje produkt med kvantiteter
-- **Komponentbibliotek** - Centraliserad hantering av återanvändbara komponenter
-- **Produktrelationer** - Visualisera samband mellan produkter (består av, varianter, ersättningar)
-- **Sökning & Filtrering** - Snabb åtkomst till produkter och komponenter
-- **Responsiv Design** - Fungerar på desktop, tablet och mobil
+- **Skapa egna objekttyper** - Definiera nya typer av objekt med anpassade metadatafält
+- **Hantera byggdelar** - Skapa, redigera och organisera byggnadselement
+- **Koppla samman objekt** - Dynamiska relationer mellan alla typer av objekt
+- **Dokumentera** - Bifoga filer och dokument till objekt
+- **Sök och filtrera** - Snabb åtkomst till all information
+- **Administrera** - Anpassa systemet efter behov genom admin-gränssnittet
 
-## ✨ Funktioner
+## ✨ Kärnfunktioner
 
-### Produkthantering
-- ✅ CRUD-operationer (Create, Read, Update, Delete)
-- ✅ Statusflöde: Koncept → Under utveckling → Godkänd → Obsolete
-- ✅ Versionshantering
-- ✅ Artikelnummer och beskrivningar
-- ✅ Sök- och filterfunktioner
+### Flexibel Objekthantering
+- ✅ **7 förkonfigurerade objekttyper**: Byggdel, Produkt, Kravställning, Anslutning, Ritningsobjekt, Egenskap, Anvisning
+- ✅ **Skapa egna objekttyper** med anpassade fält
+- ✅ **Dynamiska formulär** genereras automatiskt baserat på fältdefinitioner
+- ✅ **Auto-genererade ID:n** (BYG-001, PROD-023, etc.)
+- ✅ **Versionshantering** med created_at/updated_at
 
-### BOM (Bill of Materials)
-- ✅ Lägg till komponenter till produkter
-- ✅ Ange kvantiteter och positioner
-- ✅ Anteckningar per komponent
-- ✅ Översikt över alla ingående delar
+### Metadatafält
+- ✅ **8 fälttyper**: text, textarea, number, date, select, file, boolean, json
+- ✅ **Obligatoriska fält** med validering
+- ✅ **Dropdown-alternativ** för select-fält
+- ✅ **Anpassad sortering** av fält
 
-### Komponenthantering
-- ✅ Återanvändbara komponenter
-- ✅ Kategorisering (Mekanik, Elektronik, Material, Programvara)
-- ✅ Specifikationer och enheter
-- ✅ Se var komponenter används
+### Relationshantering
+- ✅ **Flexibla kopplingar** mellan alla objekttyper
+- ✅ **Fördefinierade relationstyper**: har_egenskap, har_krav, har_produkt, har_anslutning, har_anvisning, ansluter_objekt_1/2
+- ✅ **Beskrivningar** på relationer
+- ✅ **Navigering** mellan relaterade objekt
 
-### Produktrelationer
-- ✅ **Består av** - Produkthierarki
-- ✅ **Variant av** - Produktvarianter
-- ✅ **Ersätter** - Versionshantering
-- ✅ **Ersätts av** - Deprecated produkter
+### Dokumenthantering
+- ✅ **Filuppladdning** (PDF, PNG, JPG, DOCX, XLSX)
+- ✅ **Drag-and-drop** support
+- ✅ **Nedladdning** av bifogade filer
+- ✅ **Max 10MB** per fil
+- ✅ **MIME-type** detektion
 
-### Dashboard
-- ✅ Översiktsstatistik
-- ✅ Produkter per status
-- ✅ Senast uppdaterade produkter
-- ✅ Snabblänkar
+### Admin-gränssnitt
+- ✅ **Objekttyphantering** - Skapa, redigera, ta bort typer
+- ✅ **Fälthantering** - Lägg till, redigera, ta bort fält
+- ✅ **System-skydd** - System-typer kan inte tas bort
+- ✅ **Valideringsregler** för dataintegritet
+
+### Dashboard & Sökning
+- ✅ **Översiktsstatistik** per objekttyp
+- ✅ **Global sökning** över alla objekt
+- ✅ **Filter** per objekttyp
+- ✅ **Färgkodning** för visuell identifiering
 
 ## 🛠️ Teknisk Stack
 
 ### Backend
 - **Python 3.10+**
 - **Flask 3.0** - Web framework
-- **SQLAlchemy** - ORM för databashantering
-- **PostgreSQL** - Relationsdatabas
+- **SQLAlchemy** - ORM med flexibel datamodell
+- **PostgreSQL** - Relationsdatabas med JSONB-support
+- **Werkzeug** - Filuppladdning
 - **Gunicorn** - Production WSGI server
 
 ### Frontend
-- **HTML5** - Struktur
-- **CSS3** - Modern styling med CSS Grid & Flexbox
-- **Vanilla JavaScript (ES6+)** - Interaktivitet utan ramverk
+- **HTML5** - Semantisk struktur
+- **CSS3** - Modern styling med färgkodning
+- **Vanilla JavaScript (ES6+)** - Modulär arkitektur utan ramverk
 - **Fetch API** - RESTful kommunikation
+- **Dynamic Forms** - Genereras från metadata
 
 ### Hosting
 - **Render.com** - Cloud platform
@@ -78,104 +87,131 @@ PLM (Product Lifecycle Management) hanterar hela livscykeln för produkter från
 
 ## 📊 Datamodell
 
-### Products (Produkter)
+### ObjectTypes (Objekttyper) - META-tabell
 ```sql
-- id: Primary Key
-- name: Produktnamn
-- article_number: Unikt artikelnummer
-- version: Version (t.ex. "1.0", "2.5")
-- status: Koncept | Under utveckling | Godkänd | Obsolete
-- description: Beskrivning
-- created_at: Skapad datum
-- updated_at: Uppdaterad datum
+- id: SERIAL PRIMARY KEY
+- name: VARCHAR(100) UNIQUE (Ex: 'Byggdel', 'Produkt')
+- description: TEXT
+- icon: VARCHAR(50) (Font Awesome icon)
+- created_at: TIMESTAMP
+- is_system: BOOLEAN (true = kan inte raderas)
 ```
 
-### Components (Komponenter)
+### ObjectFields (Metadatafält)
 ```sql
-- id: Primary Key
-- name: Komponentnamn
-- type: Mekanik | Elektronik | Programvara | Material
-- specifications: Tekniska specifikationer
-- unit: Enhet (st, kg, meter, liter)
-- created_at: Skapad datum
+- id: SERIAL PRIMARY KEY
+- object_type_id: FK → ObjectTypes
+- field_name: VARCHAR(100) (Ex: 'Namn', 'Beskrivning')
+- field_type: VARCHAR(50) (text, textarea, number, date, select, etc.)
+- field_options: JSONB (för select-alternativ)
+- is_required: BOOLEAN
+- display_order: INTEGER
 ```
 
-### BOM (Bill of Materials)
+### Objects (Alla objekt)
 ```sql
-- id: Primary Key
-- product_id: Foreign Key → Products
-- component_id: Foreign Key → Components
-- quantity: Kvantitet
-- position: Sorteringsposition
-- notes: Anteckningar
+- id: SERIAL PRIMARY KEY
+- object_type_id: FK → ObjectTypes
+- auto_id: VARCHAR(50) UNIQUE (Ex: 'BYG-001')
+- created_at: TIMESTAMP
+- updated_at: TIMESTAMP
+- created_by: VARCHAR(100)
 ```
 
-### Product_Relations (Produktrelationer)
+### ObjectData (Flexibel metadata)
 ```sql
-- id: Primary Key
-- parent_product_id: Foreign Key → Products
-- child_product_id: Foreign Key → Products
-- relation_type: består_av | variant_av | ersätter | ersätts_av
-- description: Beskrivning
+- id: SERIAL PRIMARY KEY
+- object_id: FK → Objects
+- field_id: FK → ObjectFields
+- value_text: TEXT
+- value_number: DECIMAL(15,4)
+- value_date: DATE
+- value_boolean: BOOLEAN
+- value_json: JSONB
+UNIQUE(object_id, field_id)
+```
+
+### ObjectRelations (Kopplingar)
+```sql
+- id: SERIAL PRIMARY KEY
+- source_object_id: FK → Objects
+- target_object_id: FK → Objects
+- relation_type: VARCHAR(100)
+- description: TEXT
+- relation_metadata: JSONB
+INDEX: source_object_id, target_object_id, relation_type
+```
+
+### Documents (Dokument)
+```sql
+- id: SERIAL PRIMARY KEY
+- object_id: FK → Objects
+- filename: VARCHAR(255)
+- original_filename: VARCHAR(255)
+- file_path: VARCHAR(500)
+- file_size: INTEGER
+- mime_type: VARCHAR(100)
+- uploaded_at: TIMESTAMP
 ```
 
 ## 🔌 API Dokumentation
 
-### Health Check
+### ObjectTypes
 ```bash
-GET /api/health
+GET    /api/object-types              # Lista alla objekttyper
+POST   /api/object-types              # Skapa ny objekttyp
+GET    /api/object-types/{id}         # Hämta objekttyp med fält
+PUT    /api/object-types/{id}         # Uppdatera objekttyp
+DELETE /api/object-types/{id}         # Ta bort objekttyp
+
+# Field Management
+GET    /api/object-types/{id}/fields  # Lista fält
+POST   /api/object-types/{id}/fields  # Lägg till fält
+PUT    /api/fields/{id}               # Uppdatera fält
+DELETE /api/fields/{id}               # Ta bort fält
 ```
 
-### Products
+### Objects
 ```bash
-GET    /api/products              # Lista alla produkter
-GET    /api/products?status=Godkänd&search=cykel
-GET    /api/products/{id}         # Hämta specifik produkt
-POST   /api/products              # Skapa produkt
-PUT    /api/products/{id}         # Uppdatera produkt
-DELETE /api/products/{id}         # Ta bort produkt
-```
-
-### Components
-```bash
-GET    /api/components            # Lista alla komponenter
-GET    /api/components?type=Elektronik
-GET    /api/components/{id}       # Hämta specifik komponent
-POST   /api/components            # Skapa komponent
-PUT    /api/components/{id}       # Uppdatera komponent
-DELETE /api/components/{id}       # Ta bort komponent
-```
-
-### BOM
-```bash
-GET    /api/products/{id}/bom     # Hämta BOM för produkt
-POST   /api/products/{id}/bom     # Lägg till i BOM
-PUT    /api/bom/{id}              # Uppdatera BOM-rad
-DELETE /api/bom/{id}              # Ta bort från BOM
+GET    /api/objects                   # Lista objekt (?type=Byggdel&search=text)
+POST   /api/objects                   # Skapa objekt
+GET    /api/objects/{id}              # Hämta objekt med data och relationer
+PUT    /api/objects/{id}              # Uppdatera objekt
+DELETE /api/objects/{id}              # Ta bort objekt
 ```
 
 ### Relations
 ```bash
-GET    /api/products/{id}/relations  # Hämta relationer
-POST   /api/products/{id}/relations  # Skapa relation
-DELETE /api/relations/{id}           # Ta bort relation
+GET    /api/objects/{id}/relations    # Hämta relationer
+POST   /api/objects/{id}/relations    # Skapa relation
+PUT    /api/relations/{id}            # Uppdatera relation
+DELETE /api/relations/{id}            # Ta bort relation
 ```
 
-### Statistics
+### Documents
 ```bash
-GET    /api/stats                 # Hämta statistik
+GET    /api/objects/{id}/documents    # Lista dokument
+POST   /api/objects/{id}/documents    # Ladda upp (multipart/form-data)
+GET    /api/documents/{id}/download   # Ladda ner
+DELETE /api/documents/{id}            # Ta bort
 ```
 
-### Exempel: Skapa produkt
+### Search & Stats
 ```bash
-curl -X POST https://your-app.onrender.com/api/products \
+GET    /api/search?q=text&type=Byggdel&field=Namn
+GET    /api/stats                     # Statistik per objekttyp
+```
+
+### Exempel: Skapa objekt med dynamisk data
+```bash
+curl -X POST https://your-app.onrender.com/api/objects \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Min Produkt",
-    "article_number": "PROD-001",
-    "version": "1.0",
-    "status": "Koncept",
-    "description": "En testprodukt"
+    "object_type_id": 1,
+    "data": {
+      "Namn": "Yttervägg typ 2",
+      "Beskrivning": "Tvåskikts träregelvägg"
+    }
   }'
 ```
 
@@ -197,12 +233,9 @@ cd Byggdelsuppdelning---DEMO
 2. **Skapa virtuell miljö**
 ```bash
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
+source venv/bin/activate  # macOS/Linux
+# eller
+venv\Scripts\activate  # Windows
 ```
 
 3. **Installera dependencies**
@@ -212,24 +245,14 @@ pip install -r requirements.txt
 
 4. **Konfigurera miljövariabler**
 ```bash
-# Windows
-set DATABASE_URL=postgresql://localhost/plm_demo
-set SECRET_KEY=your-secret-key-here
-set FLASK_ENV=development
-
-# macOS/Linux
-export DATABASE_URL=postgresql://localhost/plm_demo
+export DATABASE_URL=postgresql://localhost/byggdel_demo
 export SECRET_KEY=your-secret-key-here
 export FLASK_ENV=development
 ```
 
 5. **Skapa databas**
 ```bash
-# PostgreSQL
-createdb plm_demo
-
-# Eller via psql
-psql -c "CREATE DATABASE plm_demo;"
+createdb byggdel_demo
 ```
 
 6. **Kör applikationen**
@@ -244,185 +267,194 @@ http://localhost:5000
 
 ## 🚀 Deployment till Render.com
 
-### Steg 1: Förberedelser
-1. Pusha din kod till GitHub
-2. Logga in på [Render.com](https://render.com)
+### Steg 1: Skapa PostgreSQL-databas
+1. Logga in på [Render.com](https://render.com)
+2. Klicka **"New +"** → **"PostgreSQL"**
+3. Namnge: `byggdel-db`
+4. Välj **Free** tier
+5. Kopiera **"Internal Database URL"**
 
-### Steg 2: Skapa PostgreSQL-databas
-1. Klicka **"New +"** → **"PostgreSQL"**
-2. Namnge databasen: `plm-demo-db`
-3. Välj **Free** tier
-4. Klicka **"Create Database"**
-5. Kopiera **"Internal Database URL"** (används i nästa steg)
-
-### Steg 3: Skapa Web Service
+### Steg 2: Skapa Web Service
 1. Klicka **"New +"** → **"Web Service"**
-2. Anslut ditt GitHub repository
+2. Anslut GitHub repository
 3. Konfigurera:
-   - **Name**: `plm-demo`
-   - **Region**: Frankfurt (EU Central)
-   - **Branch**: `main`
+   - **Name**: `byggdelssystem`
    - **Runtime**: Python 3
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app:app`
-   - **Instance Type**: Free
 
-### Steg 4: Environment Variables
-Lägg till följande under **"Environment"**:
-
+### Steg 3: Environment Variables
 | Key | Value |
 |-----|-------|
-| `DATABASE_URL` | (Klistra in Internal Database URL från Steg 2) |
+| `DATABASE_URL` | (Internal Database URL från Steg 1) |
 | `SECRET_KEY` | (Generera med: `python -c "import secrets; print(secrets.token_hex(32))"`) |
 | `FLASK_ENV` | `production` |
 
-### Steg 5: Deploy
-1. Klicka **"Create Web Service"**
-2. Vänta 3-5 minuter medan Render bygger och deployas
-3. När status är **"Live"** - din app är redo! 🎉
-
-### Steg 6: Verifiera
-1. Klicka på URL:en (t.ex. `https://plm-demo-xxxx.onrender.com`)
-2. Databasen initialiseras automatiskt med seed-data vid första körningen
-3. Testa funktionaliteten
-
-### Troubleshooting
-
-**Problem: "Application failed to respond"**
-- Kontrollera att `DATABASE_URL` är korrekt satt
-- Verifiera att PostgreSQL-databasen körs
-- Kolla loggar under "Logs" i Render dashboard
-
-**Problem: "Module not found"**
-- Säkerställ att `requirements.txt` innehåller alla dependencies
-- Triggera en rebuild
-
-**Problem: Långsam första laddning**
-- Detta är normalt för Render's free tier (cold start)
-- Efter första laddningen är appen snabbare
+### Steg 4: Deploy
+Klicka **"Create Web Service"** och vänta 3-5 minuter.
 
 ## 📁 Projektstruktur
 
 ```
 /
-├── app.py                      # Flask-applikation (entry point)
-├── config.py                   # Konfiguration
-├── models.py                   # SQLAlchemy-modeller
-├── database.py                 # Databas-setup och seed-data
-├── requirements.txt            # Python dependencies
-├── runtime.txt                 # Python version
-├── .gitignore                  # Git ignore-regler
-├── README.md                   # Denna fil
-├── routes/                     # API routes
+├── app.py                          # Flask app entry point
+├── config.py                       # Konfiguration
+├── new_database.py                 # Databas-setup och seed-data
+├── requirements.txt
+├── runtime.txt
+├── models/                         # SQLAlchemy-modeller
 │   ├── __init__.py
-│   ├── products.py
-│   ├── components.py
-│   ├── bom.py
-│   ├── relations.py
-│   └── stats.py
-├── templates/                  # HTML templates
+│   ├── object_type.py
+│   ├── object_field.py
+│   ├── object.py
+│   ├── object_data.py
+│   ├── relation.py
+│   └── document.py
+├── routes/                         # API routes
+│   ├── __init__.py
+│   ├── object_types.py
+│   ├── objects.py
+│   ├── object_relations.py
+│   ├── documents.py
+│   └── search.py
+├── utils/                          # Verktyg
+│   ├── auto_id_generator.py
+│   └── validators.py
+├── templates/
 │   └── index.html
-└── static/                     # Statiska filer
+└── static/
     ├── css/
-    │   ├── style.css
-    │   └── components.css
-    └── js/
-        ├── api.js
-        ├── app.js
-        ├── products.js
-        ├── components.js
-        ├── bom.js
-        ├── relations.js
-        └── utils.js
+    │   └── style.css
+    ├── js/
+    │   ├── api.js
+    │   ├── app.js
+    │   ├── utils.js
+    │   ├── components/
+    │   │   ├── object-list.js
+    │   │   ├── object-detail.js
+    │   │   ├── object-form.js
+    │   │   ├── relation-manager.js
+    │   │   └── file-upload.js
+    │   └── admin/
+    │       └── object-type-manager.js
+    └── uploads/                    # Uppladdade filer
 ```
 
 ## 🧪 Demo-data
 
-Vid första körningen skapas automatiskt exempel-data:
+Vid första körningen skapas automatiskt:
 
-### Produkter (7 st)
-- Cykel Modell X (Godkänd)
-- Elcykel Pro (Under utveckling)
-- Cykelram Standard (Godkänd)
-- Cykelram Carbon (Under utveckling)
-- Hjulset 28" (Godkänd)
-- Elmotorkit 250W (Godkänd)
-- Cykel Modell X - Gammal (Obsolete)
+### 7 Objekttyper (System)
+1. **Byggdel** - Byggnadselement (blå)
+2. **Produkt** - Produkter och artiklar (grön)
+3. **Kravställning** - Krav och specifikationer (röd)
+4. **Anslutning** - Kopplingar mellan byggdelar (orange)
+5. **Ritningsobjekt** - Ritningar och dokument (lila)
+6. **Egenskap** - Egenskaper och värden (turkos)
+7. **Anvisning** - Instruktioner (mörkgrå)
 
-### Komponenter (12 st)
-- Stålrör, Aluminiumrör, Kolfiberark
-- Hjul, Bromssystem, Växelsystem
-- Elmotor, Batteri, Styrdator
-- Sadel, Pedaler
+### Exempel-objekt
+- 3 Byggdelar (Yttervägg, Bjälklag, Grund)
+- 6 Egenskaper (U-värde, Brand, Ljud, etc.)
+- 4 Kravställningar
+- 5 Produkter
+- 2 Anslutningar
+- 2 Anvisningar
 
-### BOM & Relationer
-- Kompletta BOM-strukturer för alla produkter
-- Produktrelationer som visar hierarki och varianter
+### Relationer
+Kompletta exempel på hur objekt kopplas samman.
 
 ## 🎨 Design & UX
 
-### Färgkodning
-- 🟦 **Koncept** - Grå (idéstadiet)
-- 🔵 **Under utveckling** - Blå (aktivt arbete)
-- 🟢 **Godkänd** - Grön (klar för produktion)
-- 🔴 **Obsolete** - Röd (utgången)
+### Färgkodning per Objekttyp
+```css
+Byggdel:       #3498db (blå)
+Produkt:       #2ecc71 (grön)
+Kravställning: #e74c3c (röd)
+Anslutning:    #f39c12 (orange)
+Ritningsobjekt:#9b59b6 (lila)
+Egenskap:      #1abc9c (turkos)
+Anvisning:     #34495e (mörkgrå)
+```
 
-### Responsiv Design
-- **Desktop** (>768px) - Full funktionalitet med sidobar
-- **Tablet** (768px) - Anpassad layout
-- **Mobil** (<768px) - Touch-optimerad
+### Ikoner (Font Awesome)
+- Byggdel: `fa-building`
+- Produkt: `fa-box`
+- Kravställning: `fa-clipboard-check`
+- Anslutning: `fa-link`
+- Ritningsobjekt: `fa-file-pdf`
+- Egenskap: `fa-tag`
+- Anvisning: `fa-book`
 
 ## 🔒 Säkerhet
 
 - ✅ SQL Injection-skydd via SQLAlchemy ORM
+- ✅ XSS-skydd med HTML escaping
 - ✅ CORS konfigurerat
-- ✅ Environment variables för känslig data
-- ✅ Input-validering på API-nivå
-- ✅ Error handling utan att exponera systemdetaljer
+- ✅ Input-validering på både klient och server
+- ✅ Säker filuppladdning med whitelist
+- ✅ CodeQL security scan (0 alerts)
 
 ## 🚧 Framtida Förbättringar
 
 ### Planerade Features
-- [ ] Användarautentisering & behörigheter
-- [ ] Dokumenthantering (PDF, bilder)
-- [ ] Komplett versionshistorik med ändringslogg
-- [ ] Change management workflow
-- [ ] Visualiseringar (grafer för BOM-träd)
+- [ ] Användarautentisering & roller
+- [ ] Behörighetshantering per objekttyp
+- [ ] Komplett ändringshistorik
+- [ ] Versionshantering av objekt
 - [ ] Export/Import (CSV, Excel, JSON)
-- [ ] Avancerad sökning med filter
+- [ ] Visualisering (grafer för relationer)
 - [ ] Email-notifikationer
-- [ ] Aktivitetslogg
-- [ ] Rapportgenerering
+- [ ] Avancerad rapportgenerering
+- [ ] Real-time collaboration
+- [ ] S3-kompatibel fillagring
 
-### Tekniska Förbättringar
-- [ ] Enhetstester (pytest)
-- [ ] Integrationstester
-- [ ] CI/CD pipeline
-- [ ] Docker support
-- [ ] Redis för caching
-- [ ] API rate limiting
-- [ ] GraphQL endpoint
-- [ ] WebSocket för realtidsuppdateringar
+## 📝 Användningsexempel
 
-## 📝 Licens
+### Skapa en ny Byggdel
+1. Gå till **"Objekt"** i menyn
+2. Välj **"Byggdel"** i dropdown
+3. Klicka **"Skapa nytt objekt"**
+4. Fyll i namn och beskrivning
+5. Klicka **"Spara"**
 
-Detta är ett demonstrationsprojekt. Fri att använda för utbildning och utveckling.
+### Lägg till Egenskaper
+1. Öppna byggdelen
+2. Gå till fliken **"Relationer"**
+3. Klicka **"Lägg till relation"**
+4. Välj typ: **"har_egenskap"**
+5. Välj egenskap från listan
+6. Klicka **"Lägg till"**
 
-## 👥 Författare
+### Ladda upp Dokument
+1. Öppna objektet
+2. Gå till fliken **"Dokument"**
+3. Dra och släpp fil eller klicka för att välja
+4. Filen laddas upp automatiskt
 
-Skapat som en demonstration av fullstack PLM-system.
-
-## 🤝 Bidra
-
-Förslag och förbättringar är välkomna! Öppna en issue eller pull request.
+### Skapa Anpassad Objekttyp (Admin)
+1. Gå till **"Admin"** i menyn
+2. Klicka **"Skapa objekttyp"**
+3. Ange namn och beskrivning
+4. Klicka **"Spara"**
+5. Lägg till fält med **"Lägg till fält"**
+6. Definiera fälttyp och alternativ
 
 ## 📞 Support
 
 Vid frågor eller problem:
-1. Kontrollera README:n
+1. Kontrollera denna README
 2. Kolla Render logs
 3. Öppna en GitHub Issue
 
+## 👥 Bidrag
+
+Förslag och förbättringar är välkomna! Öppna en issue eller pull request.
+
+## 📄 Licens
+
+Detta är ett demonstrationsprojekt. Fri att använda för utbildning och utveckling.
+
 ---
 
-**Byggd med ❤️ för att demonstrera modern PLM-hantering**
+**Byggd med ❤️ för att demonstrera flexibel byggnadsinformationshantering**
