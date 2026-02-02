@@ -11,6 +11,7 @@ class ObjectListComponent {
         this.objects = [];
         this.searchTerm = '';
         this.selectedType = objectType;
+        this.tableSortInstance = null;
     }
     
     async render() {
@@ -162,8 +163,15 @@ class ObjectListComponent {
             table.id = `object-table-${this.containerId}`;
             table.classList.add('sortable-table');
         }
+        
+        // Clean up previous TableSort instance if exists
+        if (this.tableSortInstance) {
+            this.tableSortInstance = null;
+        }
+        
+        // Initialize new TableSort instance
         if (typeof TableSort !== 'undefined' && table.id) {
-            new TableSort(table.id);
+            this.tableSortInstance = new TableSort(table.id);
         }
     }
     

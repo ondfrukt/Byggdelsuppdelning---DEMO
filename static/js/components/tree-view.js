@@ -9,6 +9,7 @@ class TreeView {
         this.data = [];
         this.expandedNodes = new Set();
         this.onNodeClick = null;
+        this.tableSortInstance = null;
     }
     
     async loadData() {
@@ -55,9 +56,14 @@ class TreeView {
         
         this.attachEventListeners();
         
+        // Clean up previous TableSort instance if it exists
+        if (this.tableSortInstance) {
+            this.tableSortInstance = null;
+        }
+        
         // Initialize sorting after render
         if (typeof TableSort !== 'undefined') {
-            new TableSort('tree-table');
+            this.tableSortInstance = new TableSort('tree-table');
         }
     }
     
