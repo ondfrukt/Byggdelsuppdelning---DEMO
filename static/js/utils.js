@@ -81,6 +81,32 @@ function getRelationTypeLabel(type) {
     return labels[type] || type;
 }
 
+// Get object type color
+function getObjectTypeColor(typeName) {
+    const colors = {
+        'Byggdel': '#3498db',
+        'Produkt': '#2ecc71',
+        'Kravställning': '#e74c3c',
+        'Anslutning': '#f39c12',
+        'Ritningsobjekt': '#9b59b6',
+        'Egenskap': '#1abc9c',
+        'Anvisning': '#34495e'
+    };
+    return colors[typeName] || '#95a5a6';
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
+
 // Confirmation dialog
 function confirmAction(message) {
     return confirm(message);

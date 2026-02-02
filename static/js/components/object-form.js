@@ -1,0 +1,226 @@
+/**
+ * Object Form Component
+ * Dynamically generates forms based on ObjectType fields
+ */
+
+class ObjectFormComponent {
+    constructor(objectType, existingObject = null) {
+        this.objectType = objectType;
+        this.existingObject = existingObject;
+        this.fields = [];
+    }
+    
+    async loadFields() {
+        try {
+            const typeData = await ObjectTypesAPI.getById(this.objectType.id);
+            this.fields = typeData.fields || [];
+        } catch (error) {
+            console.error('Failed to load fields:', error);
+            throw error;
+        }
+    }
+    
+    async render(containerId) {
+        await this.loadFields();
+        
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const formHtml = this.fields.map(field => this.renderField(field)).join('');
+        
+        container.innerHTML = `
+            <form id="object-form" onsubmit="return false;">
+                ${formHtml}
+            </form>
+        `;
+    }
+    
+    renderField(field) {
+        const value = this.existingObject?.data?.[field.name] || '';
+        const required = field.required ? 'required' : '';
+        const label = `${field.display_name || field.name}${field.required ? ' *' : ''}`;
+        
+        let inputHtml = '';
+        
+        switch (field.field_type) {
+            case 'text':
+                inputHtml = `
+                    <input type="text" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${escapeHtml(value)}"
+                           ${required}
+                           class="form-control">
+                `;
+                break;
+                
+            case 'textarea':
+                inputHtml = `
+                    <textarea id="field-${field.name}" 
+                              name="${field.name}"
+                              rows="4"
+                              ${required}
+                              class="form-control">${escapeHtml(value)}</textarea>
+                `;
+                break;
+                
+            case 'number':
+                inputHtml = `
+                    <input type="number" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${value}"
+                           step="any"
+                           ${required}
+                           class="form-control">
+                `;
+                break;
+                
+            case 'decimal':
+                inputHtml = `
+                    <input type="number" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${value}"
+                           step="0.01"
+                           ${required}
+                           class="form-control">
+                `;
+                break;
+                
+            case 'date':
+                const dateValue = value ? formatDateForInput(value) : '';
+                inputHtml = `
+                    <input type="date" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${dateValue}"
+                           ${required}
+                           class="form-control">
+                `;
+                break;
+                
+            case 'datetime':
+                const datetimeValue = value ? formatDateTimeForInput(value) : '';
+                inputHtml = `
+                    <input type="datetime-local" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${datetimeValue}"
+                           ${required}
+                           class="form-control">
+                `;
+                break;
+                
+            case 'boolean':
+                const checked = value === true || value === 'true' ? 'checked' : '';
+                inputHtml = `
+                    <div class="checkbox-wrapper">
+                        <input type="checkbox" 
+                               id="field-${field.name}" 
+                               name="${field.name}"
+                               ${checked}
+                               class="form-checkbox">
+                        <label for="field-${field.name}" class="checkbox-label">
+                            ${field.help_text || 'Aktivera'}
+                        </label>
+                    </div>
+                `;
+                break;
+                
+            case 'select':
+                const options = this.parseOptions(field.options);
+                const optionsHtml = options.map(opt => 
+                    `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>
+                        ${escapeHtml(opt)}
+                    </option>`
+                ).join('');
+                inputHtml = `
+                    <select id="field-${field.name}" 
+                            name="${field.name}"
+                            ${required}
+                            class="form-control">
+                        <option value="">Välj...</option>
+                        ${optionsHtml}
+                    </select>
+                `;
+                break;
+                
+            default:
+                inputHtml = `
+                    <input type="text" 
+                           id="field-${field.name}" 
+                           name="${field.name}"
+                           value="${escapeHtml(value)}"
+                           ${required}
+                           class="form-control">
+                `;
+        }
+        
+        return `
+            <div class="form-group">
+                <label for="field-${field.name}">${label}</label>
+                ${inputHtml}
+                ${field.help_text ? `<small class="form-help">${escapeHtml(field.help_text)}</small>` : ''}
+            </div>
+        `;
+    }
+    
+    parseOptions(optionsString) {
+        if (!optionsString) return [];
+        try {
+            // Try parsing as JSON array first
+            return JSON.parse(optionsString);
+        } catch {
+            // Fall back to comma-separated
+            return optionsString.split(',').map(s => s.trim()).filter(s => s);
+        }
+    }
+    
+    getFormData() {
+        const form = document.getElementById('object-form');
+        if (!form) return null;
+        
+        const data = {};
+        
+        this.fields.forEach(field => {
+            const input = form.elements[field.name];
+            if (!input) return;
+            
+            let value;
+            
+            if (field.field_type === 'boolean') {
+                value = input.checked;
+            } else if (field.field_type === 'number' || field.field_type === 'decimal') {
+                value = input.value ? parseFloat(input.value) : null;
+            } else {
+                value = input.value || null;
+            }
+            
+            data[field.name] = value;
+        });
+        
+        return data;
+    }
+    
+    validate() {
+        const form = document.getElementById('object-form');
+        if (!form) return false;
+        
+        return form.checkValidity();
+    }
+}
+
+// Helper function to format date for input
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+}
+
+// Helper function to format datetime for input
+function formatDateTimeForInput(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().slice(0, 16);
+}

@@ -46,121 +46,168 @@ async function getStats() {
     return fetchAPI('/stats');
 }
 
-// Products API
-const ProductsAPI = {
-    getAll: (filters = {}) => {
-        const params = new URLSearchParams();
-        if (filters.status) params.append('status', filters.status);
-        if (filters.search) params.append('search', filters.search);
-        
-        const query = params.toString();
-        return fetchAPI(`/products${query ? '?' + query : ''}`);
+// Object Types API
+const ObjectTypesAPI = {
+    getAll: (includeFields = false) => {
+        const params = includeFields ? '?include_fields=true' : '';
+        return fetchAPI(`/object-types${params}`);
     },
     
     getById: (id) => {
-        return fetchAPI(`/products/${id}`);
+        return fetchAPI(`/object-types/${id}`);
     },
     
     create: (data) => {
-        return fetchAPI('/products', {
+        return fetchAPI('/object-types', {
             method: 'POST',
             body: JSON.stringify(data),
         });
     },
     
     update: (id, data) => {
-        return fetchAPI(`/products/${id}`, {
+        return fetchAPI(`/object-types/${id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         });
     },
     
     delete: (id) => {
-        return fetchAPI(`/products/${id}`, {
+        return fetchAPI(`/object-types/${id}`, {
+            method: 'DELETE',
+        });
+    },
+    
+    // Field management
+    addField: (typeId, fieldData) => {
+        return fetchAPI(`/object-types/${typeId}/fields`, {
+            method: 'POST',
+            body: JSON.stringify(fieldData),
+        });
+    },
+    
+    updateField: (typeId, fieldId, fieldData) => {
+        return fetchAPI(`/object-types/${typeId}/fields/${fieldId}`, {
+            method: 'PUT',
+            body: JSON.stringify(fieldData),
+        });
+    },
+    
+    deleteField: (typeId, fieldId) => {
+        return fetchAPI(`/object-types/${typeId}/fields/${fieldId}`, {
             method: 'DELETE',
         });
     },
 };
 
-// Components API
-const ComponentsAPI = {
+// Objects API
+const ObjectsAPI = {
     getAll: (filters = {}) => {
         const params = new URLSearchParams();
         if (filters.type) params.append('type', filters.type);
         if (filters.search) params.append('search', filters.search);
         
         const query = params.toString();
-        return fetchAPI(`/components${query ? '?' + query : ''}`);
+        return fetchAPI(`/objects${query ? '?' + query : ''}`);
     },
     
     getById: (id) => {
-        return fetchAPI(`/components/${id}`);
+        return fetchAPI(`/objects/${id}`);
     },
     
     create: (data) => {
-        return fetchAPI('/components', {
+        return fetchAPI('/objects', {
             method: 'POST',
             body: JSON.stringify(data),
         });
     },
     
     update: (id, data) => {
-        return fetchAPI(`/components/${id}`, {
+        return fetchAPI(`/objects/${id}`, {
             method: 'PUT',
             body: JSON.stringify(data),
         });
     },
     
     delete: (id) => {
-        return fetchAPI(`/components/${id}`, {
+        return fetchAPI(`/objects/${id}`, {
+            method: 'DELETE',
+        });
+    },
+    
+    // Relations
+    getRelations: (objectId) => {
+        return fetchAPI(`/objects/${objectId}/relations`);
+    },
+    
+    addRelation: (objectId, relationData) => {
+        return fetchAPI(`/objects/${objectId}/relations`, {
+            method: 'POST',
+            body: JSON.stringify(relationData),
+        });
+    },
+    
+    deleteRelation: (objectId, relationId) => {
+        return fetchAPI(`/objects/${objectId}/relations/${relationId}`, {
+            method: 'DELETE',
+        });
+    },
+    
+    // Documents
+    getDocuments: (objectId) => {
+        return fetchAPI(`/objects/${objectId}/documents`);
+    },
+    
+    uploadDocument: async (objectId, file, metadata = {}) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (metadata.description) {
+            formData.append('description', metadata.description);
+        }
+        if (metadata.document_type) {
+            formData.append('document_type', metadata.document_type);
+        }
+        
+        const url = `${API_BASE_URL}/objects/${objectId}/documents`;
+        try {
+            showLoading();
+            const response = await fetch(url, {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Upload failed');
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('Upload Error:', error);
+            throw error;
+        } finally {
+            hideLoading();
+        }
+    },
+    
+    downloadDocument: (objectId, documentId) => {
+        window.open(`${API_BASE_URL}/objects/${objectId}/documents/${documentId}`, '_blank');
+    },
+    
+    deleteDocument: (objectId, documentId) => {
+        return fetchAPI(`/objects/${objectId}/documents/${documentId}`, {
             method: 'DELETE',
         });
     },
 };
 
-// BOM API
-const BOMAPI = {
-    getForProduct: (productId) => {
-        return fetchAPI(`/products/${productId}/bom`);
-    },
-    
-    addItem: (productId, data) => {
-        return fetchAPI(`/products/${productId}/bom`, {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-    
-    updateItem: (bomId, data) => {
-        return fetchAPI(`/bom/${bomId}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
-    },
-    
-    deleteItem: (bomId) => {
-        return fetchAPI(`/bom/${bomId}`, {
-            method: 'DELETE',
-        });
-    },
-};
-
-// Relations API
-const RelationsAPI = {
-    getForProduct: (productId) => {
-        return fetchAPI(`/products/${productId}/relations`);
-    },
-    
-    create: (productId, data) => {
-        return fetchAPI(`/products/${productId}/relations`, {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
-    
-    delete: (relationId) => {
-        return fetchAPI(`/relations/${relationId}`, {
-            method: 'DELETE',
-        });
+// Search API
+const SearchAPI = {
+    search: (query, filters = {}) => {
+        const params = new URLSearchParams();
+        if (query) params.append('q', query);
+        if (filters.type) params.append('type', filters.type);
+        
+        const queryString = params.toString();
+        return fetchAPI(`/search${queryString ? '?' + queryString : ''}`);
     },
 };

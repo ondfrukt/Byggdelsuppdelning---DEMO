@@ -1,132 +1,272 @@
 /**
- * Main Application Module
- * Initializes the PLM Demo System and handles routing
+ * Main Application - Object-based Byggdelssystem
  */
 
-// Initialize the application
+let currentView = 'dashboard';
+let currentObjectId = null;
+let currentObjectListComponent = null;
+let currentObjectDetailComponent = null;
+
+// Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
-    console.log('PLM Demo System starting...');
-    
-    // Setup navigation
-    setupNavigation();
-    
-    // Setup tab navigation
-    setupTabs();
-    
-    // Setup filters
-    setupProductFilters();
-    setupComponentFilters();
-    
-    // Load dashboard by default
-    loadDashboard();
-    
-    // Check API health
     try {
-        const health = await checkHealth();
-        console.log('API Health:', health);
+        await checkHealth();
+        console.log('API is healthy');
     } catch (error) {
-        console.error('API Health Check failed:', error);
-        showToast('Varning: Kunde inte ansluta till API', 'warning');
+        console.error('API health check failed:', error);
+        showToast('API anslutning misslyckades', 'error');
     }
+    
+    initializeNavigation();
+    await loadDashboard();
 });
 
-// Setup main navigation
-function setupNavigation() {
+// Initialize navigation
+function initializeNavigation() {
     const navBtns = document.querySelectorAll('.nav-btn');
     
     navBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
             const view = btn.dataset.view;
-            
-            switch (view) {
-                case 'dashboard':
-                    loadDashboard();
-                    break;
-                case 'products':
-                    showProductsView();
-                    break;
-                case 'components':
-                    showComponentsView();
-                    break;
-            }
+            await switchView(view);
         });
     });
 }
 
-// Setup tab navigation in product detail view
-function setupTabs() {
-    const tabBtns = document.querySelectorAll('.tab-btn');
+// Switch between views
+async function switchView(viewName) {
+    currentView = viewName;
+    updateNavigation(viewName);
+    showView(`${viewName}-view`);
     
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const tabName = btn.dataset.tab;
-            
-            // Remove active class from all tabs
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            
-            // Add active class to clicked tab
-            btn.classList.add('active');
-            document.getElementById(`tab-${tabName}`).classList.add('active');
-        });
-    });
+    switch (viewName) {
+        case 'dashboard':
+            await loadDashboard();
+            break;
+        case 'objects':
+            await loadObjectsView();
+            break;
+        case 'admin':
+            await loadAdminView();
+            break;
+    }
 }
 
-// Load dashboard
+// Load dashboard with object type stats
 async function loadDashboard() {
-    showView('dashboard-view');
-    updateNavigation('dashboard');
-    
     try {
         const stats = await getStats();
-        displayStats(stats);
+        const objectTypes = await ObjectTypesAPI.getAll();
+        
+        const statsContainer = document.getElementById('stats-grid');
+        if (statsContainer) {
+            // Create stat cards for each object type
+            statsContainer.innerHTML = objectTypes.map(type => {
+                const count = stats.objects_by_type?.[type.name] || 0;
+                const color = getObjectTypeColor(type.name);
+                return `
+                    <div class="stat-card" style="border-top: 4px solid ${color}">
+                        <h3>${count}</h3>
+                        <p>${type.name}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Show recent objects
+        const recentContainer = document.getElementById('recent-objects');
+        if (recentContainer && stats.recent_objects) {
+            recentContainer.innerHTML = stats.recent_objects.map(obj => {
+                const displayName = obj.data?.namn || obj.data?.name || obj.auto_id;
+                const color = getObjectTypeColor(obj.object_type?.name);
+                return `
+                    <div class="recent-item" onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
+                        <div>
+                            <strong>${displayName}</strong>
+                            <br>
+                            <small>${obj.auto_id} • ${obj.object_type?.name}</small>
+                        </div>
+                        <span class="object-type-badge" style="background-color: ${color}">
+                            ${obj.object_type?.name}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
     } catch (error) {
-        showToast('Fel vid laddning av statistik: ' + error.message, 'error');
+        console.error('Failed to load dashboard:', error);
+        showToast('Kunde inte ladda dashboard', 'error');
     }
 }
 
-// Display statistics on dashboard
-function displayStats(stats) {
-    // Update stat cards
-    document.getElementById('stat-products').textContent = stats.total_products || 0;
-    document.getElementById('stat-components').textContent = stats.total_components || 0;
-    document.getElementById('stat-bom-items').textContent = stats.total_bom_items || 0;
-    document.getElementById('stat-relations').textContent = stats.total_relations || 0;
+// Load objects view
+async function loadObjectsView() {
+    const container = document.getElementById('objects-container');
+    if (!container) return;
     
-    // Display products by status
-    const statusDiv = document.getElementById('products-by-status');
-    if (stats.products_by_status && Object.keys(stats.products_by_status).length > 0) {
-        statusDiv.innerHTML = Object.entries(stats.products_by_status).map(([status, count]) => `
-            <div class="status-item">
-                <span class="status-badge ${getStatusClass(status)}">${status}</span>
-                <strong>${count} produkter</strong>
-            </div>
-        `).join('');
+    currentObjectListComponent = new ObjectListComponent('objects-container');
+    await currentObjectListComponent.render();
+}
+
+// Load admin view
+async function loadAdminView() {
+    if (!adminManager) {
+        initializeAdminPanel();
     } else {
-        statusDiv.innerHTML = '<p class="empty-state">Ingen data tillgänglig</p>';
-    }
-    
-    // Display recent products
-    const recentDiv = document.getElementById('recent-products');
-    if (stats.recent_products && stats.recent_products.length > 0) {
-        recentDiv.innerHTML = stats.recent_products.map(product => `
-            <div class="recent-item" onclick="showProductDetail(${product.id})" style="cursor: pointer;">
-                <div>
-                    <strong>${product.name}</strong>
-                    <p style="color: var(--text-secondary); font-size: 0.875rem;">${product.article_number}</p>
-                </div>
-                <span class="status-badge ${getStatusClass(product.status)}">${product.status}</span>
-            </div>
-        `).join('');
-    } else {
-        recentDiv.innerHTML = '<p class="empty-state">Inga produkter ännu</p>';
+        await adminManager.render();
     }
 }
 
-// Error handler for uncaught errors
-window.addEventListener('error', (event) => {
-    console.error('Uncaught error:', event.error);
-});
+// View object detail
+async function viewObjectDetail(objectId) {
+    currentObjectId = objectId;
+    showView('object-detail-view');
+    
+    currentObjectDetailComponent = new ObjectDetailComponent('object-detail-container', objectId);
+    await currentObjectDetailComponent.render();
+}
 
-// Log when app is ready
-console.log('PLM Demo System loaded successfully');
+// Create new object
+async function showCreateObjectModal() {
+    const modal = document.getElementById('object-modal');
+    const overlay = document.getElementById('modal-overlay');
+    
+    if (!modal || !overlay) return;
+    
+    // Load object types
+    try {
+        const types = await ObjectTypesAPI.getAll();
+        const typeSelect = document.getElementById('object-type-select');
+        
+        if (typeSelect) {
+            typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
+                types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
+            
+            // Listen for type selection
+            typeSelect.onchange = async (e) => {
+                const typeId = e.target.value;
+                if (typeId) {
+                    const type = types.find(t => t.id == typeId);
+                    if (type) {
+                        const formComponent = new ObjectFormComponent(type);
+                        await formComponent.render('object-form-container');
+                        window.currentObjectForm = formComponent;
+                    }
+                }
+            };
+        }
+        
+        modal.dataset.mode = 'create';
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+    } catch (error) {
+        console.error('Failed to load object types:', error);
+        showToast('Kunde inte ladda objekttyper', 'error');
+    }
+}
+
+// Edit object
+async function editObject(objectId) {
+    try {
+        const object = await ObjectsAPI.getById(objectId);
+        const typeData = await ObjectTypesAPI.getById(object.object_type_id);
+        
+        const modal = document.getElementById('object-modal');
+        const overlay = document.getElementById('modal-overlay');
+        
+        if (!modal || !overlay) return;
+        
+        // Set type select (disabled for edit)
+        const typeSelect = document.getElementById('object-type-select');
+        if (typeSelect) {
+            typeSelect.innerHTML = `<option value="${typeData.id}" selected>${typeData.name}</option>`;
+            typeSelect.disabled = true;
+        }
+        
+        // Render form with existing data
+        const formComponent = new ObjectFormComponent(typeData, object);
+        await formComponent.render('object-form-container');
+        window.currentObjectForm = formComponent;
+        
+        modal.dataset.mode = 'edit';
+        modal.dataset.objectId = objectId;
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+    } catch (error) {
+        console.error('Failed to load object for editing:', error);
+        showToast('Kunde inte ladda objekt', 'error');
+    }
+}
+
+// Save object (create or update)
+async function saveObject(event) {
+    event.preventDefault();
+    
+    const modal = document.getElementById('object-modal');
+    const mode = modal.dataset.mode;
+    const objectId = modal.dataset.objectId;
+    
+    if (!window.currentObjectForm) {
+        showToast('Formulär ej tillgängligt', 'error');
+        return;
+    }
+    
+    if (!window.currentObjectForm.validate()) {
+        showToast('Fyll i alla obligatoriska fält', 'error');
+        return;
+    }
+    
+    const typeId = parseInt(document.getElementById('object-type-select').value);
+    const formData = window.currentObjectForm.getFormData();
+    
+    const data = {
+        object_type_id: typeId,
+        data: formData
+    };
+    
+    try {
+        if (mode === 'create') {
+            await ObjectsAPI.create(data);
+            showToast('Objekt skapat', 'success');
+        } else {
+            await ObjectsAPI.update(objectId, data);
+            showToast('Objekt uppdaterat', 'success');
+        }
+        
+        closeModal();
+        
+        // Refresh current view
+        if (currentObjectListComponent) {
+            await currentObjectListComponent.refresh();
+        }
+        if (currentObjectDetailComponent) {
+            await currentObjectDetailComponent.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to save object:', error);
+        showToast(error.message || 'Kunde inte spara objekt', 'error');
+    }
+}
+
+// Delete object
+async function deleteObject(objectId) {
+    if (!confirm('Är du säker på att du vill ta bort detta objekt?')) {
+        return;
+    }
+    
+    try {
+        await ObjectsAPI.delete(objectId);
+        showToast('Objekt borttaget', 'success');
+        
+        // Go back to list view
+        await switchView('objects');
+    } catch (error) {
+        console.error('Failed to delete object:', error);
+        showToast(error.message || 'Kunde inte ta bort objekt', 'error');
+    }
+}
+
+// Go back to previous view
+function goBack() {
+    switchView('objects');
+}
