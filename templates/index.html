@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLM Demo System - Product Lifecycle Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">PLM Demo System</h1>
+            <nav class="nav">
+                <button class="nav-btn active" data-view="dashboard">Dashboard</button>
+                <button class="nav-btn" data-view="products">Produkter</button>
+                <button class="nav-btn" data-view="components">Komponenter</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view active">
+                <h2>Översikt</h2>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3 id="stat-products">0</h3>
+                        <p>Produkter</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="stat-components">0</h3>
+                        <p>Komponenter</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="stat-bom-items">0</h3>
+                        <p>BOM-rader</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="stat-relations">0</h3>
+                        <p>Relationer</p>
+                    </div>
+                </div>
+
+                <div class="dashboard-sections">
+                    <section class="dashboard-section">
+                        <h3>Produkter per Status</h3>
+                        <div id="products-by-status" class="status-list"></div>
+                    </section>
+
+                    <section class="dashboard-section">
+                        <h3>Senaste Produkter</h3>
+                        <div id="recent-products" class="recent-list"></div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Products View -->
+            <div id="products-view" class="view">
+                <div class="view-header">
+                    <h2>Produkter</h2>
+                    <button class="btn btn-primary" onclick="showCreateProductModal()">
+                        Skapa Produkt
+                    </button>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="product-search" placeholder="Sök produkt..." class="search-input">
+                    <select id="product-status-filter" class="filter-select">
+                        <option value="">Alla statusar</option>
+                        <option value="Koncept">Koncept</option>
+                        <option value="Under utveckling">Under utveckling</option>
+                        <option value="Godkänd">Godkänd</option>
+                        <option value="Obsolete">Obsolete</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Artikelnummer</th>
+                                <th>Namn</th>
+                                <th>Version</th>
+                                <th>Status</th>
+                                <th>Skapad</th>
+                                <th>Åtgärder</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table-body">
+                            <tr>
+                                <td colspan="6" class="loading">Laddar produkter...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Components View -->
+            <div id="components-view" class="view">
+                <div class="view-header">
+                    <h2>Komponenter</h2>
+                    <button class="btn btn-primary" onclick="showCreateComponentModal()">
+                        Skapa Komponent
+                    </button>
+                </div>
+
+                <div class="filters">
+                    <input type="text" id="component-search" placeholder="Sök komponent..." class="search-input">
+                    <select id="component-type-filter" class="filter-select">
+                        <option value="">Alla typer</option>
+                        <option value="Mekanik">Mekanik</option>
+                        <option value="Elektronik">Elektronik</option>
+                        <option value="Programvara">Programvara</option>
+                        <option value="Material">Material</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Namn</th>
+                                <th>Typ</th>
+                                <th>Specifikationer</th>
+                                <th>Enhet</th>
+                                <th>Åtgärder</th>
+                            </tr>
+                        </thead>
+                        <tbody id="components-table-body">
+                            <tr>
+                                <td colspan="5" class="loading">Laddar komponenter...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Product Detail View -->
+            <div id="product-detail-view" class="view">
+                <div class="view-header">
+                    <button class="btn btn-secondary" onclick="showProductsView()">
+                        ← Tillbaka
+                    </button>
+                    <h2 id="product-detail-title">Produktdetaljer</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="editCurrentProduct()">
+                            Redigera
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteCurrentProduct()">
+                            Ta bort
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="info">Grundinfo</button>
+                    <button class="tab-btn" data-tab="bom">BOM</button>
+                    <button class="tab-btn" data-tab="relations">Relationer</button>
+                </div>
+
+                <div id="tab-info" class="tab-content active">
+                    <div class="detail-grid" id="product-info"></div>
+                </div>
+
+                <div id="tab-bom" class="tab-content">
+                    <div class="view-header">
+                        <h3>Bill of Materials (BOM)</h3>
+                        <button class="btn btn-primary" onclick="showAddBomItemModal()">
+                            Lägg till Komponent
+                        </button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Komponent</th>
+                                    <th>Typ</th>
+                                    <th>Kvantitet</th>
+                                    <th>Enhet</th>
+                                    <th>Anteckningar</th>
+                                    <th>Åtgärder</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bom-table-body">
+                                <tr>
+                                    <td colspan="7" class="loading">Laddar BOM...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-relations" class="tab-content">
+                    <div class="view-header">
+                        <h3>Produktrelationer</h3>
+                        <button class="btn btn-primary" onclick="showAddRelationModal()">
+                            Skapa Relation
+                        </button>
+                    </div>
+                    <div id="relations-container">
+                        <div class="loading">Laddar relationer...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Component Detail View -->
+            <div id="component-detail-view" class="view">
+                <div class="view-header">
+                    <button class="btn btn-secondary" onclick="showComponentsView()">
+                        ← Tillbaka
+                    </button>
+                    <h2 id="component-detail-title">Komponentdetaljer</h2>
+                    <div>
+                        <button class="btn btn-primary" onclick="editCurrentComponent()">
+                            Redigera
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteCurrentComponent()">
+                            Ta bort
+                        </button>
+                    </div>
+                </div>
+
+                <div class="detail-grid" id="component-info"></div>
+
+                <div class="section">
+                    <h3>Används i produkter</h3>
+                    <div id="component-usage" class="usage-list"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay" onclick="closeModal()"></div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="product-modal-title">Skapa Produkt</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="product-form" onsubmit="saveProduct(event)">
+                <div class="form-group">
+                    <label for="product-name">Namn *</label>
+                    <input type="text" id="product-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-article-number">Artikelnummer *</label>
+                    <input type="text" id="product-article-number" required>
+                </div>
+                <div class="form-group">
+                    <label for="product-version">Version</label>
+                    <input type="text" id="product-version" value="1.0">
+                </div>
+                <div class="form-group">
+                    <label for="product-status">Status</label>
+                    <select id="product-status">
+                        <option value="Koncept">Koncept</option>
+                        <option value="Under utveckling">Under utveckling</option>
+                        <option value="Godkänd">Godkänd</option>
+                        <option value="Obsolete">Obsolete</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="product-description">Beskrivning</label>
+                    <textarea id="product-description" rows="4"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Spara
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Component Modal -->
+    <div id="component-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="component-modal-title">Skapa Komponent</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="component-form" onsubmit="saveComponent(event)">
+                <div class="form-group">
+                    <label for="component-name">Namn *</label>
+                    <input type="text" id="component-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="component-type">Typ</label>
+                    <select id="component-type">
+                        <option value="Mekanik">Mekanik</option>
+                        <option value="Elektronik">Elektronik</option>
+                        <option value="Programvara">Programvara</option>
+                        <option value="Material">Material</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="component-specifications">Specifikationer</label>
+                    <textarea id="component-specifications" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="component-unit">Enhet</label>
+                    <input type="text" id="component-unit" value="st">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Spara
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BOM Item Modal -->
+    <div id="bom-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Lägg till Komponent i BOM</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="bom-form" onsubmit="saveBomItem(event)">
+                <div class="form-group">
+                    <label for="bom-component">Komponent *</label>
+                    <select id="bom-component" required>
+                        <option value="">Välj komponent...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="bom-quantity">Kvantitet *</label>
+                    <input type="number" id="bom-quantity" step="0.01" min="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="bom-position">Position</label>
+                    <input type="number" id="bom-position" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="bom-notes">Anteckningar</label>
+                    <textarea id="bom-notes" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Lägg till
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Relation Modal -->
+    <div id="relation-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Skapa Produktrelation</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="relation-form" onsubmit="saveRelation(event)">
+                <div class="form-group">
+                    <label for="relation-product">Relaterad Produkt *</label>
+                    <select id="relation-product" required>
+                        <option value="">Välj produkt...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="relation-type">Relationstyp *</label>
+                    <select id="relation-type" required>
+                        <option value="består_av">Består av</option>
+                        <option value="variant_av">Variant av</option>
+                        <option value="ersätter">Ersätter</option>
+                        <option value="ersätts_av">Ersätts av</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="relation-description">Beskrivning</label>
+                    <textarea id="relation-description" rows="3"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Skapa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="loading-spinner" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/products.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bom.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/relations.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
