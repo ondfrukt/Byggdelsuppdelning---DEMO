@@ -56,7 +56,9 @@ class TreeView {
         
         this.attachEventListeners();
         
-        // Clean up previous TableSort instance if it exists
+        // Clean up previous TableSort instance
+        // Note: Since innerHTML is replaced, old DOM elements and their event listeners 
+        // are automatically garbage collected. We just null the reference here.
         if (this.tableSortInstance) {
             this.tableSortInstance = null;
         }
@@ -88,7 +90,7 @@ class TreeView {
                     </td>
                     <td></td>
                     <td>
-                        <span class="tree-count">(${node.children ? node.children.length : 0})</span>
+                        <span class="tree-count">(${node.children?.length || 0})</span>
                     </td>
                 </tr>
             `;

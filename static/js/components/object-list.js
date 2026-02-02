@@ -164,7 +164,8 @@ class ObjectListComponent {
             table.classList.add('sortable-table');
         }
         
-        // Clean up previous TableSort instance if exists
+        // Clean up previous TableSort instance
+        // Note: tbody.innerHTML replacement removes old DOM and event listeners automatically
         if (this.tableSortInstance) {
             this.tableSortInstance = null;
         }

@@ -228,8 +228,8 @@ class ObjectFormComponent {
             }
             
             const value = input.value;
-            // Check for empty strings, ensure select fields don't have empty/default values
-            if (!value || value.trim() === '' || (field.field_type === 'select' && !value.trim())) {
+            // Check for empty values (covers both empty strings and whitespace)
+            if (!value || value.trim() === '') {
                 isValid = false;
                 missingFields.push(field.field_name);
                 // Add error styling
