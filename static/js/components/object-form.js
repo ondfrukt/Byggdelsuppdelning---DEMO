@@ -170,13 +170,41 @@ class ObjectFormComponent {
     
     parseOptions(optionsString) {
         if (!optionsString) return [];
-        try {
-            // Try parsing as JSON array first
-            return JSON.parse(optionsString);
-        } catch {
-            // Fall back to comma-separated
-            return optionsString.split(',').map(s => s.trim()).filter(s => s);
+        
+        // If it's already an array, return it directly
+        if (Array.isArray(optionsString)) {
+            return optionsString;
         }
+        
+        // If it's an object (but not an array), try to extract values
+        if (typeof optionsString === 'object') {
+            // If it has a values property that's an array, use that
+            if (Array.isArray(optionsString.values)) {
+                return optionsString.values;
+            }
+            // Otherwise, try to get Object.values
+            return Object.values(optionsString).filter(v => v !== null && v !== undefined);
+        }
+        
+        // If it's a string, try parsing or splitting
+        if (typeof optionsString === 'string') {
+            try {
+                // Try parsing as JSON array first
+                const parsed = JSON.parse(optionsString);
+                if (Array.isArray(parsed)) {
+                    return parsed;
+                }
+                // If parsed as object, return its values
+                if (typeof parsed === 'object') {
+                    return Object.values(parsed).filter(v => v !== null && v !== undefined);
+                }
+            } catch {
+                // Fall back to comma-separated
+                return optionsString.split(',').map(s => s.trim()).filter(s => s);
+            }
+        }
+        
+        return [];
     }
     
     getFormData() {
