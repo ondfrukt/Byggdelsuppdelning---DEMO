@@ -260,9 +260,9 @@ def get_tree():
                     # Note: Checking both 'Namn' and 'namn' for backwards compatibility
                     # Some data may use different casing conventions
                     children_by_type[type_name].append({
-                        'id': target.id,
-                        'auto_id': target.auto_id,
-                        'name': target.data.get('Namn') or target.data.get('namn') or target.auto_id,
+                        'id': str(target.id),  # Ensure string for consistency
+                        'auto_id': target.auto_id,  # This is the ID column
+                        'name': target.data.get('Namn') or target.data.get('namn') or target.auto_id,  # This is the name
                         'type': type_name,
                         'relation_type': relation.relation_type
                     })
@@ -270,7 +270,7 @@ def get_tree():
             # Create type groups as children
             for type_name, objects in children_by_type.items():
                 children.append({
-                    'id': f'type-{byggdel.id}-{type_name}',
+                    'id': f'group-{byggdel.id}-{type_name}',  # Different prefix for groups
                     'name': type_name,
                     'type': 'group',
                     'children': objects
@@ -278,7 +278,7 @@ def get_tree():
             
             display_name = byggdel.data.get('Namn') or byggdel.data.get('namn') or byggdel.auto_id
             tree.append({
-                'id': byggdel.id,
+                'id': str(byggdel.id),  # Ensure string for consistency
                 'auto_id': byggdel.auto_id,
                 'name': display_name,
                 'type': 'Byggdel',
