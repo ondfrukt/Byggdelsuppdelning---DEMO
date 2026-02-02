@@ -49,6 +49,7 @@ def create_object_type():
             name=data['name'],
             description=data.get('description'),
             icon=data.get('icon'),
+            id_prefix=data.get('id_prefix'),
             is_system=False  # User-created types are never system types
         )
         
@@ -83,6 +84,9 @@ def update_object_type(id):
         
         if 'icon' in data:
             object_type.icon = data['icon']
+        
+        if 'id_prefix' in data:
+            object_type.id_prefix = data['id_prefix']
         
         db.session.commit()
         
@@ -154,9 +158,11 @@ def add_field(id):
         field = ObjectField(
             object_type_id=id,
             field_name=data['field_name'],
+            display_name=data.get('display_name'),
             field_type=data['field_type'],
             field_options=data.get('field_options'),
             is_required=data.get('is_required', False),
+            help_text=data.get('help_text'),
             display_order=data.get('display_order')
         )
         
@@ -190,6 +196,9 @@ def update_field(field_id):
                 return jsonify({'error': 'Field with this name already exists for this object type'}), 400
             field.field_name = data['field_name']
         
+        if 'display_name' in data:
+            field.display_name = data['display_name']
+        
         if 'field_type' in data:
             field.field_type = data['field_type']
         
@@ -198,6 +207,9 @@ def update_field(field_id):
         
         if 'is_required' in data:
             field.is_required = data['is_required']
+        
+        if 'help_text' in data:
+            field.help_text = data['help_text']
         
         if 'display_order' in data:
             field.display_order = data['display_order']

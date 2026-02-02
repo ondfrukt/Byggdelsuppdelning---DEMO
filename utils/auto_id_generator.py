@@ -1,4 +1,4 @@
-from models import db, Object
+from models import db, Object, ObjectType
 from sqlalchemy import func, Integer, cast
 
 def generate_auto_id(object_type_name):
@@ -11,17 +11,24 @@ def generate_auto_id(object_type_name):
     Returns:
         str: Generated ID (e.g., 'BYG-001', 'PROD-042')
     """
-    prefix_map = {
-        'Byggdel': 'BYG',
-        'Produkt': 'PROD',
-        'Kravställning': 'KRAV',
-        'Anslutning': 'ANS',
-        'Ritningsobjekt': 'RIT',
-        'Egenskap': 'EG',
-        'Anvisning': 'ANV'
-    }
+    # Get object type from database
+    object_type = ObjectType.query.filter_by(name=object_type_name).first()
     
-    prefix = prefix_map.get(object_type_name, 'OBJ')
+    # Use id_prefix from database if available, otherwise use default mapping
+    if object_type and object_type.id_prefix:
+        prefix = object_type.id_prefix
+    else:
+        # Default prefix mapping as fallback
+        prefix_map = {
+            'Byggdel': 'BYG',
+            'Produkt': 'PROD',
+            'Kravställning': 'KRAV',
+            'Anslutning': 'ANS',
+            'Ritningsobjekt': 'RIT',
+            'Egenskap': 'EG',
+            'Anvisning': 'ANV'
+        }
+        prefix = prefix_map.get(object_type_name, 'OBJ')
     
     # Get the highest number for this type
     try:

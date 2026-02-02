@@ -28,6 +28,14 @@ def create_app():
     # Create tables and seed data
     with app.app_context():
         init_db(app)
+        
+        # Run migrations
+        try:
+            from migrations.add_id_prefix_and_field_columns import run_migration
+            run_migration(db)
+        except Exception as e:
+            logger.warning(f"Migration may have already run: {str(e)}")
+        
         seed_data(app)
     
     # Register blueprints
