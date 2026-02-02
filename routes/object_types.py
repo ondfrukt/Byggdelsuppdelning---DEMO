@@ -177,9 +177,64 @@ def add_field(id):
         return jsonify({'error': 'Failed to add field'}), 500
 
 
+@bp.route('/<int:type_id>/fields/<int:field_id>', methods=['PUT'])
+def update_field_with_type(type_id, field_id):
+    """Update a field (with type_id in path for compatibility)"""
+    try:
+        # Verify the object type exists
+        object_type = ObjectType.query.get_or_404(type_id)
+        
+        field = ObjectField.query.get_or_404(field_id)
+        
+        # Verify the field belongs to this object type
+        if field.object_type_id != type_id:
+            return jsonify({'error': 'Field does not belong to this object type'}), 400
+        
+        data = request.get_json()
+        
+        # Update field properties
+        if 'field_name' in data:
+            # Check if new name already exists for this type
+            existing = ObjectField.query.filter(
+                ObjectField.object_type_id == field.object_type_id,
+                ObjectField.field_name == data['field_name'],
+                ObjectField.id != field_id
+            ).first()
+            if existing:
+                return jsonify({'error': 'Field with this name already exists for this object type'}), 400
+            field.field_name = data['field_name']
+        
+        if 'display_name' in data:
+            field.display_name = data['display_name']
+        
+        if 'field_type' in data:
+            field.field_type = data['field_type']
+        
+        if 'field_options' in data:
+            field.field_options = data['field_options']
+        
+        if 'is_required' in data:
+            field.is_required = data['is_required']
+        
+        if 'help_text' in data:
+            field.help_text = data['help_text']
+        
+        if 'display_order' in data:
+            field.display_order = data['display_order']
+        
+        db.session.commit()
+        
+        logger.info(f"Updated field {field.field_name} for object type {object_type.name}")
+        return jsonify(field.to_dict()), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating field: {str(e)}")
+        return jsonify({'error': 'Failed to update field'}), 500
+
+
 @bp.route('/fields/<int:field_id>', methods=['PUT'])
 def update_field(field_id):
-    """Update a field"""
+    """Update a field (legacy route without type_id)"""
     try:
         field = ObjectField.query.get_or_404(field_id)
         data = request.get_json()
@@ -222,6 +277,34 @@ def update_field(field_id):
         db.session.rollback()
         logger.error(f"Error updating field: {str(e)}")
         return jsonify({'error': 'Failed to update field'}), 500
+
+
+@bp.route('/<int:type_id>/fields/<int:field_id>', methods=['DELETE'])
+def delete_field_with_type(type_id, field_id):
+    """Delete a field (with type_id in path for compatibility)"""
+    try:
+        # Verify the object type exists
+        object_type = ObjectType.query.get_or_404(type_id)
+        
+        field = ObjectField.query.get_or_404(field_id)
+        
+        # Verify the field belongs to this object type
+        if field.object_type_id != type_id:
+            return jsonify({'error': 'Field does not belong to this object type'}), 400
+        
+        # Check if there are object data entries using this field
+        if len(field.object_data) > 0:
+            return jsonify({'error': 'Cannot delete field that has data'}), 400
+        
+        db.session.delete(field)
+        db.session.commit()
+        
+        logger.info(f"Deleted field {field.field_name} from object type {object_type.name}")
+        return jsonify({'message': 'Field deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting field: {str(e)}")
+        return jsonify({'error': 'Failed to delete field'}), 500
 
 
 @bp.route('/fields/<int:field_id>', methods=['DELETE'])
