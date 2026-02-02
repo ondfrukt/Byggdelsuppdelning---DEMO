@@ -37,8 +37,8 @@ class ObjectFormComponent {
     
     renderField(field) {
         const value = this.existingObject?.data?.[field.field_name] || '';
-        const required = field.required ? 'required' : '';
-        const label = `${field.display_name || field.field_name}${field.required ? ' *' : ''}`;
+        const required = field.is_required ? 'required' : '';
+        const label = `${field.display_name || field.field_name}${field.is_required ? ' *' : ''}`;
         
         let inputHtml = '';
         
@@ -129,7 +129,7 @@ class ObjectFormComponent {
                 break;
                 
             case 'select':
-                const options = this.parseOptions(field.options);
+                const options = this.parseOptions(field.field_options || field.options);
                 const optionsHtml = options.map(opt => 
                     `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>
                         ${escapeHtml(opt)}

@@ -136,7 +136,7 @@ class ObjectTypeManager {
             <div class="field-item">
                 <div class="field-info">
                     <strong>${field.display_name || field.name}</strong>
-                    ${field.required ? '<span class="required-badge">Obligatorisk</span>' : ''}
+                    ${field.is_required ? '<span class="required-badge">Obligatorisk</span>' : ''}
                     <br>
                     <small>
                         Typ: ${field.field_type} • 
@@ -240,7 +240,7 @@ class ObjectTypeManager {
         document.getElementById('field-name').value = field.name;
         document.getElementById('field-display-name').value = field.display_name || '';
         document.getElementById('field-type').value = field.field_type;
-        document.getElementById('field-required').checked = field.required;
+        document.getElementById('field-required').checked = field.is_required;
         document.getElementById('field-help-text').value = field.help_text || '';
         document.getElementById('field-options').value = field.options || '';
         
@@ -322,7 +322,7 @@ async function saveField(event) {
         name: document.getElementById('field-name').value,
         display_name: document.getElementById('field-display-name').value,
         field_type: document.getElementById('field-type').value,
-        required: document.getElementById('field-required').checked,
+        is_required: document.getElementById('field-required').checked,
         help_text: document.getElementById('field-help-text').value,
         options: document.getElementById('field-options').value
     };
