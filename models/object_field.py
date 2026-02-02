@@ -9,9 +9,11 @@ class ObjectField(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='CASCADE'), nullable=False)
     field_name = db.Column(db.String(100), nullable=False)
+    display_name = db.Column(db.String(200))
     field_type = db.Column(db.String(50), nullable=False)  # text, textarea, number, date, select, file, boolean
     field_options = db.Column(JSONB)  # For select/dropdown options
     is_required = db.Column(db.Boolean, default=False)
+    help_text = db.Column(db.String(500))
     display_order = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -24,9 +26,11 @@ class ObjectField(db.Model):
             'id': self.id,
             'object_type_id': self.object_type_id,
             'field_name': self.field_name,
+            'display_name': self.display_name,
             'field_type': self.field_type,
             'field_options': self.field_options,
             'is_required': self.is_required,
+            'help_text': self.help_text,
             'display_order': self.display_order,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

@@ -65,7 +65,7 @@ class ObjectTypeManager {
                      style="border-left: 4px solid ${color}">
                     <h4>${type.name}</h4>
                     <p>${type.description || 'Ingen beskrivning'}</p>
-                    <small>${type.fields?.length || 0} fält • ${type.auto_id_prefix || 'AUTO'}-XXX</small>
+                    <small>${type.fields?.length || 0} fält • ${type.id_prefix || 'AUTO'}-001</small>
                 </div>
             `;
         }).join('');
@@ -104,7 +104,7 @@ class ObjectTypeManager {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">ID-prefix</span>
-                        <span class="detail-value">${this.selectedType.auto_id_prefix || 'AUTO'}</span>
+                        <span class="detail-value">${this.selectedType.id_prefix || 'AUTO'}</span>
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Nästa ID-nummer</span>
@@ -135,12 +135,12 @@ class ObjectTypeManager {
         return `
             <div class="field-item">
                 <div class="field-info">
-                    <strong>${field.display_name || field.name}</strong>
+                    <strong>${field.display_name || field.field_name}</strong>
                     ${field.is_required ? '<span class="required-badge">Obligatorisk</span>' : ''}
                     <br>
                     <small>
                         Typ: ${field.field_type} • 
-                        Namn: ${field.name}
+                        Namn: ${field.field_name}
                         ${field.help_text ? ` • ${field.help_text}` : ''}
                     </small>
                 </div>
@@ -237,12 +237,12 @@ class ObjectTypeManager {
         if (!modal || !overlay) return;
         
         document.getElementById('field-modal-title').textContent = 'Redigera Fält';
-        document.getElementById('field-name').value = field.name;
+        document.getElementById('field-name').value = field.field_name;
         document.getElementById('field-display-name').value = field.display_name || '';
         document.getElementById('field-type').value = field.field_type;
         document.getElementById('field-required').checked = field.is_required;
         document.getElementById('field-help-text').value = field.help_text || '';
-        document.getElementById('field-options').value = field.options || '';
+        document.getElementById('field-options').value = field.field_options || '';
         
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = this.selectedType.id;
@@ -289,7 +289,7 @@ async function saveObjectType(event) {
     const data = {
         name: document.getElementById('type-name').value,
         description: document.getElementById('type-description').value,
-        auto_id_prefix: document.getElementById('type-prefix').value
+        id_prefix: document.getElementById('type-prefix').value
     };
     
     try {
@@ -319,12 +319,12 @@ async function saveField(event) {
     const fieldId = modal.dataset.fieldId;
     
     const data = {
-        name: document.getElementById('field-name').value,
+        field_name: document.getElementById('field-name').value,
         display_name: document.getElementById('field-display-name').value,
         field_type: document.getElementById('field-type').value,
         is_required: document.getElementById('field-required').checked,
         help_text: document.getElementById('field-help-text').value,
-        options: document.getElementById('field-options').value
+        field_options: document.getElementById('field-options').value
     };
     
     try {

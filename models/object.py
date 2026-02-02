@@ -21,6 +21,23 @@ class Object(db.Model):
                                       back_populates='target_object', cascade='all, delete-orphan')
     documents = db.relationship('Document', back_populates='object', cascade='all, delete-orphan')
     
+    @property
+    def data(self):
+        """Get object data as a dictionary"""
+        data = {}
+        for od in self.object_data:
+            if od.field:
+                field_type = od.field.field_type
+                if field_type == 'number':
+                    data[od.field.field_name] = float(od.value_number) if od.value_number is not None else None
+                elif field_type == 'date':
+                    data[od.field.field_name] = od.value_date.isoformat() if od.value_date else None
+                elif field_type == 'boolean':
+                    data[od.field.field_name] = od.value_boolean
+                else:
+                    data[od.field.field_name] = od.value_text
+        return data
+    
     def to_dict(self, include_data=True, include_relations=False, include_documents=False):
         result = {
             'id': self.id,
@@ -32,19 +49,7 @@ class Object(db.Model):
         }
         
         if include_data:
-            data = {}
-            for od in self.object_data:
-                if od.field:
-                    field_type = od.field.field_type
-                    if field_type == 'number':
-                        data[od.field.field_name] = float(od.value_number) if od.value_number is not None else None
-                    elif field_type == 'date':
-                        data[od.field.field_name] = od.value_date.isoformat() if od.value_date else None
-                    elif field_type == 'boolean':
-                        data[od.field.field_name] = od.value_boolean
-                    else:
-                        data[od.field.field_name] = od.value_text
-            result['data'] = data
+            result['data'] = self.data
         
         if include_relations:
             relations = {}

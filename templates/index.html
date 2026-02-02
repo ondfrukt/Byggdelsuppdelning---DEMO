@@ -39,11 +39,24 @@
             <div id="objects-view" class="view">
                 <div class="view-header">
                     <h2>Objekt</h2>
-                    <button class="btn btn-primary" onclick="showCreateObjectModal()">
-                        Skapa Objekt
-                    </button>
+                    <div>
+                        <button class="btn btn-secondary" onclick="toggleTreeView()">
+                            Trädvy
+                        </button>
+                        <button class="btn btn-primary" onclick="showCreateObjectModal()">
+                            Skapa Objekt
+                        </button>
+                    </div>
                 </div>
                 <div id="objects-container"></div>
+                <div id="tree-container" class="two-column-layout" style="display: none;">
+                    <div class="column-left">
+                        <div id="tree-view-container"></div>
+                    </div>
+                    <div class="column-right">
+                        <div id="side-panel-container"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Object Detail View -->
@@ -240,6 +253,9 @@
     <script src="{{ url_for('static', filename='js/components/object-form.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/relation-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/file-upload.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/tree-view.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/side-panel.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/table-sort.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin/object-type-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
