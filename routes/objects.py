@@ -257,6 +257,8 @@ def get_tree():
                     if type_name not in children_by_type:
                         children_by_type[type_name] = []
                     
+                    # Note: Checking both 'Namn' and 'namn' for backwards compatibility
+                    # Some data may use different casing conventions
                     children_by_type[type_name].append({
                         'id': target.id,
                         'auto_id': target.auto_id,

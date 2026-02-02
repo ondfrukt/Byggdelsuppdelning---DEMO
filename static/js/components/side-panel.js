@@ -101,6 +101,7 @@ class SidePanel {
         
         let html = '<div class="detail-list">';
         
+        // Note: escapeHtml is defined in utils.js which is loaded before this component
         for (const [key, value] of Object.entries(data)) {
             if (value !== null && value !== undefined) {
                 html += `

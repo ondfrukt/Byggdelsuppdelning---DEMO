@@ -209,6 +209,7 @@ class ObjectFormComponent {
         
         // Check if all required fields have values
         let isValid = true;
+        const missingFields = [];
         
         this.fields.forEach(field => {
             if (!field.is_required) return;
@@ -216,6 +217,8 @@ class ObjectFormComponent {
             const input = form.elements[field.field_name];
             if (!input) {
                 isValid = false;
+                missingFields.push(field.field_name);
+                console.warn(`Required field not found in form: ${field.field_name}`);
                 return;
             }
             
@@ -227,6 +230,7 @@ class ObjectFormComponent {
             const value = input.value;
             if (!value || value.trim() === '') {
                 isValid = false;
+                missingFields.push(field.field_name);
                 // Add error styling
                 input.classList.add('error');
             } else {
@@ -234,6 +238,10 @@ class ObjectFormComponent {
                 input.classList.remove('error');
             }
         });
+        
+        if (!isValid && missingFields.length > 0) {
+            console.warn('Form validation failed. Missing or empty required fields:', missingFields);
+        }
         
         return isValid;
     }

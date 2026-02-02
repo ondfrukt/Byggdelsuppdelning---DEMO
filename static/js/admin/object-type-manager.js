@@ -65,7 +65,7 @@ class ObjectTypeManager {
                      style="border-left: 4px solid ${color}">
                     <h4>${type.name}</h4>
                     <p>${type.description || 'Ingen beskrivning'}</p>
-                    <small>${type.fields?.length || 0} fält • ${type.id_prefix || 'AUTO'}-XXX</small>
+                    <small>${type.fields?.length || 0} fält • ${type.id_prefix || 'AUTO'}-001</small>
                 </div>
             `;
         }).join('');
