@@ -2,7 +2,7 @@ from flask import Flask, render_template
 from flask_cors import CORS
 from config import Config
 from models import db
-from database import init_db, seed_data
+from new_database import init_db, seed_data
 from routes import register_blueprints
 import logging
 import os
@@ -40,9 +40,9 @@ def create_app():
     
     @app.route('/health')
     def health():
-        return {'status': 'healthy', 'message': 'Application is running'}, 200
+        return {'status': 'healthy', 'message': 'Byggdelssystem is running'}, 200
     
-    logger.info("PLM Demo Application started successfully")
+    logger.info("Byggdelssystem Application started successfully")
     
     return app
 
