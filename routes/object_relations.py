@@ -50,7 +50,7 @@ def create_relation(id):
             target_object_id=data['target_object_id'],
             relation_type=data['relation_type'],
             description=data.get('description'),
-            metadata=data.get('metadata')
+            relation_metadata=data.get('metadata')
         )
         
         db.session.add(relation)
@@ -93,7 +93,7 @@ def update_relation(relation_id):
             relation.description = data['description']
         
         if 'metadata' in data:
-            relation.metadata = data['metadata']
+            relation.relation_metadata = data['metadata']
         
         db.session.commit()
         

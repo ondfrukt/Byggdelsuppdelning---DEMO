@@ -11,7 +11,7 @@ class ObjectRelation(db.Model):
     target_object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     relation_type = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    metadata = db.Column(JSONB)
+    relation_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -32,7 +32,7 @@ class ObjectRelation(db.Model):
             'target_object_id': self.target_object_id,
             'relation_type': self.relation_type,
             'description': self.description,
-            'metadata': self.metadata,
+            'metadata': self.relation_metadata,  # Return as 'metadata' in API
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
         
