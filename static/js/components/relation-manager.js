@@ -80,7 +80,7 @@ class RelationManagerComponent {
                 <div class="relation-info">
                     <span class="relation-type">${this.formatRelationType(relation.relation_type)}</span>
                     <strong>${displayName}</strong>
-                    ${relation.metadata?.description ? `<p>${escapeHtml(relation.metadata.description)}</p>` : ''}
+                    ${relation.relation_metadata?.description ? `<p>${escapeHtml(relation.relation_metadata.description)}</p>` : ''}
                     <small>Typ: ${targetObject.object_type?.name || 'N/A'}</small>
                 </div>
                 <div class="relation-actions">

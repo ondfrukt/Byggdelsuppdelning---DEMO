@@ -5,6 +5,7 @@
 
 class ObjectListComponent {
     constructor(containerId, objectType = null) {
+        this.containerId = containerId;
         this.container = document.getElementById(containerId);
         this.objectType = objectType;
         this.objects = [];

@@ -179,6 +179,7 @@ class ObjectDetailComponent {
             `relations-container-${this.objectId}`,
             this.objectId
         );
+        window.currentRelationManager = relationManager;
         await relationManager.render();
     }
     
@@ -190,6 +191,7 @@ class ObjectDetailComponent {
             `documents-container-${this.objectId}`,
             this.objectId
         );
+        window.currentFileUpload = fileUpload;
         await fileUpload.render();
     }
     

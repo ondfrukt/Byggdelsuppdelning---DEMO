@@ -15,14 +15,8 @@ def get_relations(id):
         # Get all relations where this object is the source
         relations = ObjectRelation.query.filter_by(source_object_id=id).all()
         
-        # Group by relation type
-        grouped = {}
-        for rel in relations:
-            if rel.relation_type not in grouped:
-                grouped[rel.relation_type] = []
-            grouped[rel.relation_type].append(rel.to_dict(include_objects=True))
-        
-        return jsonify(grouped), 200
+        # Return flat list with full object details
+        return jsonify([rel.to_dict(include_objects=True) for rel in relations]), 200
     except Exception as e:
         logger.error(f"Error getting relations: {str(e)}")
         return jsonify({'error': 'Failed to get relations'}), 500
@@ -64,16 +58,20 @@ def create_relation(id):
         return jsonify({'error': 'Failed to create relation'}), 500
 
 
-@bp.route('/relations/<int:relation_id>', methods=['DELETE'])
-def delete_relation(relation_id):
+@bp.route('/<int:id>/relations/<int:relation_id>', methods=['DELETE'])
+def delete_relation(id, relation_id):
     """Delete a relation"""
     try:
-        relation = ObjectRelation.query.get_or_404(relation_id)
+        # Verify the relation belongs to this object
+        relation = ObjectRelation.query.filter_by(
+            id=relation_id,
+            source_object_id=id
+        ).first_or_404()
         
         db.session.delete(relation)
         db.session.commit()
         
-        logger.info(f"Deleted relation {relation_id}")
+        logger.info(f"Deleted relation {relation_id} from object {id}")
         return jsonify({'message': 'Relation deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
@@ -81,11 +79,15 @@ def delete_relation(relation_id):
         return jsonify({'error': 'Failed to delete relation'}), 500
 
 
-@bp.route('/relations/<int:relation_id>', methods=['PUT'])
-def update_relation(relation_id):
+@bp.route('/<int:id>/relations/<int:relation_id>', methods=['PUT'])
+def update_relation(id, relation_id):
     """Update a relation"""
     try:
-        relation = ObjectRelation.query.get_or_404(relation_id)
+        # Verify the relation belongs to this object
+        relation = ObjectRelation.query.filter_by(
+            id=relation_id,
+            source_object_id=id
+        ).first_or_404()
         data = request.get_json()
         
         # Update fields
@@ -97,7 +99,7 @@ def update_relation(relation_id):
         
         db.session.commit()
         
-        logger.info(f"Updated relation {relation_id}")
+        logger.info(f"Updated relation {relation_id} for object {id}")
         return jsonify(relation.to_dict(include_objects=True)), 200
     except Exception as e:
         db.session.rollback()

@@ -36,9 +36,9 @@ class ObjectFormComponent {
     }
     
     renderField(field) {
-        const value = this.existingObject?.data?.[field.name] || '';
+        const value = this.existingObject?.data?.[field.field_name] || '';
         const required = field.required ? 'required' : '';
-        const label = `${field.display_name || field.name}${field.required ? ' *' : ''}`;
+        const label = `${field.display_name || field.field_name}${field.required ? ' *' : ''}`;
         
         let inputHtml = '';
         
@@ -46,8 +46,8 @@ class ObjectFormComponent {
             case 'text':
                 inputHtml = `
                     <input type="text" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${escapeHtml(value)}"
                            ${required}
                            class="form-control">
@@ -56,8 +56,8 @@ class ObjectFormComponent {
                 
             case 'textarea':
                 inputHtml = `
-                    <textarea id="field-${field.name}" 
-                              name="${field.name}"
+                    <textarea id="field-${field.field_name}" 
+                              name="${field.field_name}"
                               rows="4"
                               ${required}
                               class="form-control">${escapeHtml(value)}</textarea>
@@ -67,8 +67,8 @@ class ObjectFormComponent {
             case 'number':
                 inputHtml = `
                     <input type="number" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${value}"
                            step="any"
                            ${required}
@@ -79,8 +79,8 @@ class ObjectFormComponent {
             case 'decimal':
                 inputHtml = `
                     <input type="number" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${value}"
                            step="0.01"
                            ${required}
@@ -92,8 +92,8 @@ class ObjectFormComponent {
                 const dateValue = value ? formatDateForInput(value) : '';
                 inputHtml = `
                     <input type="date" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${dateValue}"
                            ${required}
                            class="form-control">
@@ -104,8 +104,8 @@ class ObjectFormComponent {
                 const datetimeValue = value ? formatDateTimeForInput(value) : '';
                 inputHtml = `
                     <input type="datetime-local" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${datetimeValue}"
                            ${required}
                            class="form-control">
@@ -117,11 +117,11 @@ class ObjectFormComponent {
                 inputHtml = `
                     <div class="checkbox-wrapper">
                         <input type="checkbox" 
-                               id="field-${field.name}" 
-                               name="${field.name}"
+                               id="field-${field.field_name}" 
+                               name="${field.field_name}"
                                ${checked}
                                class="form-checkbox">
-                        <label for="field-${field.name}" class="checkbox-label">
+                        <label for="field-${field.field_name}" class="checkbox-label">
                             ${field.help_text || 'Aktivera'}
                         </label>
                     </div>
@@ -136,8 +136,8 @@ class ObjectFormComponent {
                     </option>`
                 ).join('');
                 inputHtml = `
-                    <select id="field-${field.name}" 
-                            name="${field.name}"
+                    <select id="field-${field.field_name}" 
+                            name="${field.field_name}"
                             ${required}
                             class="form-control">
                         <option value="">Välj...</option>
@@ -149,8 +149,8 @@ class ObjectFormComponent {
             default:
                 inputHtml = `
                     <input type="text" 
-                           id="field-${field.name}" 
-                           name="${field.name}"
+                           id="field-${field.field_name}" 
+                           name="${field.field_name}"
                            value="${escapeHtml(value)}"
                            ${required}
                            class="form-control">
@@ -159,7 +159,7 @@ class ObjectFormComponent {
         
         return `
             <div class="form-group">
-                <label for="field-${field.name}">${label}</label>
+                <label for="field-${field.field_name}">${label}</label>
                 ${inputHtml}
                 ${field.help_text ? `<small class="form-help">${escapeHtml(field.help_text)}</small>` : ''}
             </div>
@@ -184,7 +184,7 @@ class ObjectFormComponent {
         const data = {};
         
         this.fields.forEach(field => {
-            const input = form.elements[field.name];
+            const input = form.elements[field.field_name];
             if (!input) return;
             
             let value;
@@ -197,7 +197,7 @@ class ObjectFormComponent {
                 value = input.value || null;
             }
             
-            data[field.name] = value;
+            data[field.field_name] = value;
         });
         
         return data;
