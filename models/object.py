@@ -1,5 +1,8 @@
 from models import db
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Object(db.Model):
     """Object model - represents all objects of all types"""
@@ -39,8 +42,6 @@ class Object(db.Model):
                         data[od.field.field_name] = od.value_text
             except Exception as e:
                 # Log but don't fail - skip problematic field
-                import logging
-                logger = logging.getLogger(__name__)
                 logger.warning(f"Error processing field data for object {self.id}, field {od.field_id if od else 'unknown'}: {str(e)}")
                 continue
         return data

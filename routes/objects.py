@@ -65,7 +65,7 @@ def get_object(id):
             # Try without relations and documents as fallback
             try:
                 result = obj.to_dict(include_data=True, include_relations=False, include_documents=False)
-                logger.warning(f"Returned object {id} without relations/documents due to serialization error")
+                logger.warning(f"Returned object {id} with data only (excluded relations and documents) due to serialization error")
                 return jsonify(result), 200
             except Exception as fallback_error:
                 logger.error(f"Error in fallback serialization for object {id}: {str(fallback_error)}", exc_info=True)
