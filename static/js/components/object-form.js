@@ -231,7 +231,9 @@ class ObjectFormComponent {
             if (!input) {
                 isValid = false;
                 missingFields.push({
-                    name: field.field_name,
+                    name: field.display_name || field.field_name,
+                    type: field.field_type,
+                    value: null,
                     reason: 'Element not found in form'
                 });
                 console.warn(`Required field not found in form: ${field.field_name}`);
@@ -265,7 +267,11 @@ class ObjectFormComponent {
             console.warn('Form validation failed. Missing or empty required fields:', missingFields);
             console.warn('Please ensure all fields marked with * are filled in:');
             missingFields.forEach(field => {
-                console.warn(`  - ${field.name} (${field.type}): current value = "${field.value}"`);
+                if (field.reason) {
+                    console.warn(`  - ${field.name}: ${field.reason}`);
+                } else {
+                    console.warn(`  - ${field.name} (${field.type}): current value = "${field.value}"`);
+                }
             });
         }
         

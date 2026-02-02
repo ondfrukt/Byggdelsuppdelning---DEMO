@@ -177,6 +177,41 @@ def add_field(id):
         return jsonify({'error': 'Failed to add field'}), 500
 
 
+def _update_field_data(field, field_id, data):
+    """Helper function to update field properties"""
+    # Update field properties
+    if 'field_name' in data:
+        # Check if new name already exists for this type
+        existing = ObjectField.query.filter(
+            ObjectField.object_type_id == field.object_type_id,
+            ObjectField.field_name == data['field_name'],
+            ObjectField.id != field_id
+        ).first()
+        if existing:
+            return {'error': 'Field with this name already exists for this object type'}, 400
+        field.field_name = data['field_name']
+    
+    if 'display_name' in data:
+        field.display_name = data['display_name']
+    
+    if 'field_type' in data:
+        field.field_type = data['field_type']
+    
+    if 'field_options' in data:
+        field.field_options = data['field_options']
+    
+    if 'is_required' in data:
+        field.is_required = data['is_required']
+    
+    if 'help_text' in data:
+        field.help_text = data['help_text']
+    
+    if 'display_order' in data:
+        field.display_order = data['display_order']
+    
+    return None, None
+
+
 @bp.route('/<int:type_id>/fields/<int:field_id>', methods=['PUT'])
 def update_field_with_type(type_id, field_id):
     """Update a field (with type_id in path for compatibility)"""
@@ -192,35 +227,10 @@ def update_field_with_type(type_id, field_id):
         
         data = request.get_json()
         
-        # Update field properties
-        if 'field_name' in data:
-            # Check if new name already exists for this type
-            existing = ObjectField.query.filter(
-                ObjectField.object_type_id == field.object_type_id,
-                ObjectField.field_name == data['field_name'],
-                ObjectField.id != field_id
-            ).first()
-            if existing:
-                return jsonify({'error': 'Field with this name already exists for this object type'}), 400
-            field.field_name = data['field_name']
-        
-        if 'display_name' in data:
-            field.display_name = data['display_name']
-        
-        if 'field_type' in data:
-            field.field_type = data['field_type']
-        
-        if 'field_options' in data:
-            field.field_options = data['field_options']
-        
-        if 'is_required' in data:
-            field.is_required = data['is_required']
-        
-        if 'help_text' in data:
-            field.help_text = data['help_text']
-        
-        if 'display_order' in data:
-            field.display_order = data['display_order']
+        # Update field using helper function
+        error_response, status_code = _update_field_data(field, field_id, data)
+        if error_response:
+            return jsonify(error_response), status_code
         
         db.session.commit()
         
@@ -239,35 +249,10 @@ def update_field(field_id):
         field = ObjectField.query.get_or_404(field_id)
         data = request.get_json()
         
-        # Update field properties
-        if 'field_name' in data:
-            # Check if new name already exists for this type
-            existing = ObjectField.query.filter(
-                ObjectField.object_type_id == field.object_type_id,
-                ObjectField.field_name == data['field_name'],
-                ObjectField.id != field_id
-            ).first()
-            if existing:
-                return jsonify({'error': 'Field with this name already exists for this object type'}), 400
-            field.field_name = data['field_name']
-        
-        if 'display_name' in data:
-            field.display_name = data['display_name']
-        
-        if 'field_type' in data:
-            field.field_type = data['field_type']
-        
-        if 'field_options' in data:
-            field.field_options = data['field_options']
-        
-        if 'is_required' in data:
-            field.is_required = data['is_required']
-        
-        if 'help_text' in data:
-            field.help_text = data['help_text']
-        
-        if 'display_order' in data:
-            field.display_order = data['display_order']
+        # Update field using helper function
+        error_response, status_code = _update_field_data(field, field_id, data)
+        if error_response:
+            return jsonify(error_response), status_code
         
         db.session.commit()
         
