@@ -1,0 +1,168 @@
+/**
+ * Utility Functions
+ */
+
+// Show loading spinner
+function showLoading() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) {
+        spinner.style.display = 'flex';
+    }
+}
+
+// Hide loading spinner
+function hideLoading() {
+    const spinner = document.getElementById('loading-spinner');
+    if (spinner) {
+        spinner.style.display = 'none';
+    }
+}
+
+// Show toast notification
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    
+    container.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            container.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+// Format date
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('sv-SE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+}
+
+// Format datetime
+function formatDateTime(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('sv-SE', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+// Get status badge class
+function getStatusClass(status) {
+    const statusMap = {
+        'Koncept': 'koncept',
+        'Under utveckling': 'under-utveckling',
+        'Godkänd': 'godkand',
+        'Obsolete': 'obsolete'
+    };
+    return statusMap[status] || 'koncept';
+}
+
+// Get relation type label in Swedish
+function getRelationTypeLabel(type) {
+    const labels = {
+        'består_av': 'Består av',
+        'variant_av': 'Variant av',
+        'ersätter': 'Ersätter',
+        'ersätts_av': 'Ersätts av'
+    };
+    return labels[type] || type;
+}
+
+// Confirmation dialog
+function confirmAction(message) {
+    return confirm(message);
+}
+
+// Modal functions
+function openModal(modalId) {
+    const overlay = document.getElementById('modal-overlay');
+    const modal = document.getElementById(modalId);
+    
+    if (overlay && modal) {
+        overlay.classList.add('active');
+        modal.classList.add('active');
+    }
+}
+
+function closeModal() {
+    const overlay = document.getElementById('modal-overlay');
+    const modals = document.querySelectorAll('.modal');
+    
+    if (overlay) {
+        overlay.classList.remove('active');
+    }
+    
+    modals.forEach(modal => {
+        modal.classList.remove('active');
+    });
+    
+    // Reset forms
+    const forms = document.querySelectorAll('.modal form');
+    forms.forEach(form => form.reset());
+}
+
+// Show/hide views
+function showView(viewId) {
+    const views = document.querySelectorAll('.view');
+    views.forEach(view => {
+        view.classList.remove('active');
+    });
+    
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+        targetView.classList.add('active');
+    }
+}
+
+// Update navigation buttons
+function updateNavigation(activeView) {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    navBtns.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.view === activeView) {
+            btn.classList.add('active');
+        }
+    });
+}
+
+// Debounce function for search
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Add keyframe for slideOut animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+    }
+`;
+document.head.appendChild(style);
