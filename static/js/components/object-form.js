@@ -28,10 +28,12 @@ class ObjectFormComponent {
         
         const formHtml = this.fields.map(field => this.renderField(field)).join('');
         
+        // Don't create a nested form - just render the fields directly
+        // The parent form in index.html (object-main-form) will handle submission
         container.innerHTML = `
-            <form id="object-form" onsubmit="return false;">
+            <div id="object-form-fields">
                 ${formHtml}
-            </form>
+            </div>
         `;
     }
     
@@ -178,7 +180,8 @@ class ObjectFormComponent {
     }
     
     getFormData() {
-        const form = document.getElementById('object-form');
+        // Get the parent form (object-main-form) which contains all fields
+        const form = document.getElementById('object-main-form');
         if (!form) return null;
         
         const data = {};
@@ -204,8 +207,18 @@ class ObjectFormComponent {
     }
     
     validate() {
-        const form = document.getElementById('object-form');
-        if (!form) return false;
+        // Get the parent form (object-main-form) which contains all fields
+        const form = document.getElementById('object-main-form');
+        if (!form) {
+            console.error('Validation failed: form element not found');
+            return false;
+        }
+        
+        // Check if fields are loaded
+        if (!this.fields || this.fields.length === 0) {
+            console.error('Validation failed: no fields defined');
+            return false;
+        }
         
         // Check if all required fields have values
         let isValid = true;
@@ -217,7 +230,12 @@ class ObjectFormComponent {
             const input = form.elements[field.field_name];
             if (!input) {
                 isValid = false;
-                missingFields.push(field.field_name);
+                missingFields.push({
+                    name: field.display_name || field.field_name,
+                    type: field.field_type,
+                    value: null,
+                    reason: 'Element not found in form'
+                });
                 console.warn(`Required field not found in form: ${field.field_name}`);
                 return;
             }
@@ -229,9 +247,14 @@ class ObjectFormComponent {
             
             const value = input.value;
             // Check for empty values (covers both empty strings and whitespace)
-            if (!value || value.trim() === '') {
+            // For text-based inputs, also check trimmed value to catch whitespace-only entries
+            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
                 isValid = false;
-                missingFields.push(field.field_name);
+                missingFields.push({
+                    name: field.display_name || field.field_name,
+                    type: field.field_type,
+                    value: value
+                });
                 // Add error styling
                 input.classList.add('error');
             } else {
@@ -242,6 +265,14 @@ class ObjectFormComponent {
         
         if (!isValid && missingFields.length > 0) {
             console.warn('Form validation failed. Missing or empty required fields:', missingFields);
+            console.warn('Please ensure all fields marked with * are filled in:');
+            missingFields.forEach(field => {
+                if (field.reason) {
+                    console.warn(`  - ${field.name}: ${field.reason}`);
+                } else {
+                    console.warn(`  - ${field.name} (${field.type}): current value = "${field.value}"`);
+                }
+            });
         }
         
         return isValid;
