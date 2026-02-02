@@ -32,7 +32,12 @@ async function fetchAPI(endpoint, options = {}) {
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'An error occurred');
+            const error = new Error(data.error || 'An error occurred');
+            // Preserve additional error details from backend
+            if (data.details) {
+                error.details = data.details;
+            }
+            throw error;
         }
         
         return data;

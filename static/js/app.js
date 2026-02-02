@@ -250,6 +250,16 @@ async function saveObject(event) {
     const mode = modal.dataset.mode;
     const objectId = modal.dataset.objectId;
     
+    // Check if object type is selected (for create mode)
+    const typeSelect = document.getElementById('object-type-select');
+    if (mode === 'create' && typeSelect) {
+        const typeValue = typeSelect.value;
+        if (!typeValue || typeValue === '') {
+            showToast('Välj en objekttyp först', 'error');
+            return;
+        }
+    }
+    
     if (!window.currentObjectForm) {
         showToast('Formulär ej tillgängligt', 'error');
         return;
@@ -288,7 +298,12 @@ async function saveObject(event) {
         }
     } catch (error) {
         console.error('Failed to save object:', error);
-        showToast(error.message || 'Kunde inte spara objekt', 'error');
+        // If error has details (from backend validation), show them
+        let errorMessage = error.message || 'Kunde inte spara objekt';
+        if (error.details && Array.isArray(error.details) && error.details.length > 0) {
+            errorMessage = error.details.join(', ');
+        }
+        showToast(errorMessage, 'error');
     }
 }
 
