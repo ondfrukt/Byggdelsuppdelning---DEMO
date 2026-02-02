@@ -154,6 +154,9 @@ function closeModal() {
     if (typeSelect) {
         typeSelect.disabled = false;
     }
+    
+    // Clear current form reference
+    window.currentObjectForm = null;
 }
 
 // Show/hide views

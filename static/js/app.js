@@ -169,12 +169,20 @@ async function showCreateObjectModal() {
     
     if (!modal || !overlay) return;
     
+    // Clear previous form data
+    window.currentObjectForm = null;
+    const formContainer = document.getElementById('object-form-container');
+    if (formContainer) {
+        formContainer.innerHTML = '';
+    }
+    
     // Load object types
     try {
         const types = await ObjectTypesAPI.getAll();
         const typeSelect = document.getElementById('object-type-select');
         
         if (typeSelect) {
+            typeSelect.disabled = false;
             typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
                 types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
             
@@ -205,7 +213,7 @@ async function showCreateObjectModal() {
 async function editObject(objectId) {
     try {
         const object = await ObjectsAPI.getById(objectId);
-        const typeData = await ObjectTypesAPI.getById(object.object_type_id);
+        const typeData = await ObjectTypesAPI.getById(object.object_type.id);
         
         const modal = document.getElementById('object-modal');
         const overlay = document.getElementById('modal-overlay');
