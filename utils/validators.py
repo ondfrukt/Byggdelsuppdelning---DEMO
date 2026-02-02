@@ -52,8 +52,16 @@ def validate_object_data(fields, data):
         
         elif field_type == 'select':
             if field.field_options:
-                valid_options = field.field_options if isinstance(field.field_options, list) else []
-                if value not in valid_options:
+                # Handle both list and string formats for field_options
+                valid_options = []
+                if isinstance(field.field_options, list):
+                    valid_options = field.field_options
+                elif isinstance(field.field_options, str):
+                    # Parse comma-separated string
+                    valid_options = [opt.strip() for opt in field.field_options.split(',') if opt.strip()]
+                
+                # Only validate if we have valid options
+                if valid_options and value not in valid_options:
                     errors.append(f"Field '{field_name}' must be one of: {', '.join(valid_options)}")
     
     return len(errors) == 0, errors

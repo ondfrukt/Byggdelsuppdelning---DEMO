@@ -55,9 +55,23 @@ def get_object(id):
     """Get a specific object with all data and relations"""
     try:
         obj = Object.query.get_or_404(id)
-        return jsonify(obj.to_dict(include_data=True, include_relations=True, include_documents=True)), 200
+        
+        # Try to serialize the object with detailed error handling
+        try:
+            result = obj.to_dict(include_data=True, include_relations=True, include_documents=True)
+            return jsonify(result), 200
+        except Exception as serialize_error:
+            logger.error(f"Error serializing object {id}: {str(serialize_error)}", exc_info=True)
+            # Try without relations and documents as fallback
+            try:
+                result = obj.to_dict(include_data=True, include_relations=False, include_documents=False)
+                logger.warning(f"Returned object {id} with data only (excluded relations and documents) due to serialization error")
+                return jsonify(result), 200
+            except Exception as fallback_error:
+                logger.error(f"Error in fallback serialization for object {id}: {str(fallback_error)}", exc_info=True)
+                raise
     except Exception as e:
-        logger.error(f"Error getting object: {str(e)}")
+        logger.error(f"Error getting object {id}: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to get object'}), 500
 
 
