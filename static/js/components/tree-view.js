@@ -9,6 +9,7 @@ class TreeView {
         this.data = [];
         this.expandedNodes = new Set();
         this.onNodeClick = null;
+        this.tableSortInstance = null;
     }
     
     async loadData() {
@@ -38,11 +39,34 @@ class TreeView {
         
         this.container.innerHTML = `
             <div class="tree-view">
-                ${treeHtml}
+                <table class="tree-table sortable-table" id="tree-table">
+                    <thead>
+                        <tr>
+                            <th data-sortable data-sort-type="text" style="width: 50%;">Namn</th>
+                            <th data-sortable data-sort-type="text" style="width: 20%;">ID</th>
+                            <th data-sortable data-sort-type="text" style="width: 30%;">Typ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${treeHtml}
+                    </tbody>
+                </table>
             </div>
         `;
         
         this.attachEventListeners();
+        
+        // Clean up previous TableSort instance
+        // Note: Since innerHTML is replaced, old DOM elements and their event listeners 
+        // are automatically garbage collected. We just null the reference here.
+        if (this.tableSortInstance) {
+            this.tableSortInstance = null;
+        }
+        
+        // Initialize sorting after render
+        if (typeof TableSort !== 'undefined') {
+            this.tableSortInstance = new TableSort('tree-table');
+        }
     }
     
     renderNode(node, level) {
@@ -55,38 +79,46 @@ class TreeView {
         if (node.type === 'group') {
             // Type group node
             html += `
-                <div class="tree-node tree-node-group" style="padding-left: ${indent}px" data-node-id="${node.id}">
-                    ${hasChildren ? `
-                        <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
-                            ${isExpanded ? '▼' : '▶'}
-                        </span>
-                    ` : '<span class="tree-spacer"></span>'}
-                    <span class="tree-label tree-label-group">${node.name}</span>
-                    <span class="tree-count">(${node.children.length})</span>
-                </div>
+                <tr class="tree-node tree-node-group" data-node-id="${node.id}">
+                    <td style="padding-left: ${indent}px">
+                        ${hasChildren ? `
+                            <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
+                                ${isExpanded ? '▼' : '▶'}
+                            </span>
+                        ` : '<span class="tree-spacer"></span>'}
+                        <span class="tree-label tree-label-group">${node.name}</span>
+                    </td>
+                    <td></td>
+                    <td>
+                        <span class="tree-count">(${node.children?.length || 0})</span>
+                    </td>
+                </tr>
             `;
         } else {
-            // Regular node
+            // Regular node - display as table row with columns
             html += `
-                <div class="tree-node" style="padding-left: ${indent}px" data-node-id="${node.id}" data-node-type="${node.type}">
-                    ${hasChildren ? `
-                        <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
-                            ${isExpanded ? '▼' : '▶'}
-                        </span>
-                    ` : '<span class="tree-spacer"></span>'}
-                    <span class="tree-label">${node.name}</span>
-                    <span class="tree-badge">${node.auto_id || node.type}</span>
-                </div>
+                <tr class="tree-node" data-node-id="${node.id}" data-node-type="${node.type}">
+                    <td style="padding-left: ${indent}px">
+                        ${hasChildren ? `
+                            <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
+                                ${isExpanded ? '▼' : '▶'}
+                            </span>
+                        ` : '<span class="tree-spacer"></span>'}
+                        <span class="tree-label">${node.name}</span>
+                    </td>
+                    <td>
+                        <span class="tree-badge">${node.auto_id || ''}</span>
+                    </td>
+                    <td>${node.type || ''}</td>
+                </tr>
             `;
         }
         
         // Render children if expanded
         if (hasChildren && isExpanded) {
-            html += '<div class="tree-children">';
             node.children.forEach(child => {
                 html += this.renderNode(child, level + 1);
             });
-            html += '</div>';
         }
         
         return html;

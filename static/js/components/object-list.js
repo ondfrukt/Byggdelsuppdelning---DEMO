@@ -11,6 +11,7 @@ class ObjectListComponent {
         this.objects = [];
         this.searchTerm = '';
         this.selectedType = objectType;
+        this.tableSortInstance = null;
     }
     
     async render() {
@@ -113,12 +114,12 @@ class ObjectListComponent {
             return;
         }
         
-        // Render headers
+        // Render headers with sortable attributes
         thead.innerHTML = `
-            <th>ID</th>
-            <th>Typ</th>
-            <th>Namn</th>
-            <th>Skapad</th>
+            <th data-sortable data-sort-type="text">ID</th>
+            <th data-sortable data-sort-type="text">Typ</th>
+            <th data-sortable data-sort-type="text">Namn</th>
+            <th data-sortable data-sort-type="date">Skapad</th>
             <th>Åtgärder</th>
         `;
         
@@ -134,17 +135,17 @@ class ObjectListComponent {
             });
         }
         
-        // Render rows
+        // Render rows with data-value attributes for sorting
         tbody.innerHTML = filteredObjects.map(obj => `
             <tr onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
-                <td><strong>${obj.auto_id}</strong></td>
-                <td>
+                <td data-value="${obj.auto_id}"><strong>${obj.auto_id}</strong></td>
+                <td data-value="${obj.object_type?.name || ''}">
                     <span class="object-type-badge" style="background-color: ${getObjectTypeColor(obj.object_type?.name)}">
                         ${obj.object_type?.name || 'N/A'}
                     </span>
                 </td>
-                <td>${this.getObjectDisplayName(obj)}</td>
-                <td>${formatDate(obj.created_at)}</td>
+                <td data-value="${this.getObjectDisplayName(obj)}">${this.getObjectDisplayName(obj)}</td>
+                <td data-value="${obj.created_at}">${formatDate(obj.created_at)}</td>
                 <td onclick="event.stopPropagation()">
                     <button class="btn btn-sm btn-primary" onclick="editObject(${obj.id})">
                         Redigera
@@ -155,6 +156,24 @@ class ObjectListComponent {
                 </td>
             </tr>
         `).join('');
+        
+        // Initialize table sorting after rendering
+        const table = tbody.closest('table');
+        if (table && !table.id) {
+            table.id = `object-table-${this.containerId}`;
+            table.classList.add('sortable-table');
+        }
+        
+        // Clean up previous TableSort instance
+        // Note: tbody.innerHTML replacement removes old DOM and event listeners automatically
+        if (this.tableSortInstance) {
+            this.tableSortInstance = null;
+        }
+        
+        // Initialize new TableSort instance
+        if (typeof TableSort !== 'undefined' && table.id) {
+            this.tableSortInstance = new TableSort(table.id);
+        }
     }
     
     getObjectDisplayName(obj) {

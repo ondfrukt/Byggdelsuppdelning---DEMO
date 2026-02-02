@@ -27,14 +27,22 @@ def get_stats():
         # Total object count
         total_objects = Object.query.count()
         
-        # Objects by type
+        # Get all object types first
+        all_types = ObjectType.query.all()
+        
+        # Objects by type - initialize all types with 0
+        objects_by_type = {ot.name: 0 for ot in all_types}
+        
+        # Get actual counts
         type_counts = db.session.query(
             ObjectType.name,
             func.count(Object.id)
         ).join(Object, Object.object_type_id == ObjectType.id)\
          .group_by(ObjectType.name).all()
         
-        objects_by_type = {name: count for name, count in type_counts}
+        # Update with actual counts
+        for name, count in type_counts:
+            objects_by_type[name] = count
         
         # Recent objects
         recent_objects = Object.query.order_by(Object.created_at.desc()).limit(10).all()

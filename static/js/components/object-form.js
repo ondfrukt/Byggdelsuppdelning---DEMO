@@ -228,6 +228,7 @@ class ObjectFormComponent {
             }
             
             const value = input.value;
+            // Check for empty values (covers both empty strings and whitespace)
             if (!value || value.trim() === '') {
                 isValid = false;
                 missingFields.push(field.field_name);
