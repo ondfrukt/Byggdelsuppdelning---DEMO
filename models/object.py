@@ -26,16 +26,23 @@ class Object(db.Model):
         """Get object data as a dictionary"""
         data = {}
         for od in self.object_data:
-            if od.field:
-                field_type = od.field.field_type
-                if field_type == 'number':
-                    data[od.field.field_name] = float(od.value_number) if od.value_number is not None else None
-                elif field_type == 'date':
-                    data[od.field.field_name] = od.value_date.isoformat() if od.value_date else None
-                elif field_type == 'boolean':
-                    data[od.field.field_name] = od.value_boolean
-                else:
-                    data[od.field.field_name] = od.value_text
+            try:
+                if od.field:
+                    field_type = od.field.field_type
+                    if field_type == 'number':
+                        data[od.field.field_name] = float(od.value_number) if od.value_number is not None else None
+                    elif field_type == 'date':
+                        data[od.field.field_name] = od.value_date.isoformat() if od.value_date else None
+                    elif field_type == 'boolean':
+                        data[od.field.field_name] = od.value_boolean
+                    else:
+                        data[od.field.field_name] = od.value_text
+            except Exception as e:
+                # Log but don't fail - skip problematic field
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Error processing field data for object {self.id}, field {od.field_id if od else 'unknown'}: {str(e)}")
+                continue
         return data
     
     def to_dict(self, include_data=True, include_relations=False, include_documents=False):
