@@ -1,11 +1,6 @@
 # Byggdelssystem - Flexibelt Byggnadsinformationssystem
 
-Ett kraftfullt, flexibelt byggnadsinformationssystem byggt med Flask och PostgreSQL. Systemet möjliggör dynamisk hantering av byggdelar, produkter, kravställningar, anslutningar och andra objekt med anpassningsbara metadatafält.
-
-![Status](https://img.shields.io/badge/Status-Production-green)
-![Python](https://img.shields.io/badge/Python-3.10-blue)
-![Flask](https://img.shields.io/badge/Flask-3.0-lightgrey)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Latest-blue)
+Sandlådeprojekt för Mockup av ett PLM-system. Ej till för aktivt bruk
 
 ## 🚀 Live Demo
 
