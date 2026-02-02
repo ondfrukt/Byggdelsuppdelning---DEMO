@@ -11,7 +11,7 @@ class ObjectRelation(db.Model):
     target_object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     relation_type = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    relation_metadata = db.Column(JSONB)  # Renamed from metadata to avoid conflict
+    relation_metadata = db.Column(JSONB)  # Renamed to avoid SQLAlchemy reserved 'metadata' attribute
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships

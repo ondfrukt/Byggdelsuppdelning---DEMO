@@ -11,7 +11,7 @@ bp = Blueprint('documents', __name__, url_prefix='/api/objects')
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'uploads')
-ALLOWED_EXTENSIONS = {'.pdf', '.png', '.jpg', '.jpeg', '.docx', '.xlsx', '.txt'}
+ALLOWED_EXTENSIONS = {'.pdf', '.png', '.jpg', '.jpeg', '.docx', '.xlsx', '.txt', '.dwg', '.dxf'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 # Ensure upload folder exists

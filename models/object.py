@@ -55,7 +55,7 @@ class Object(db.Model):
                     'id': rel.id,
                     'target': rel.target_object.to_dict(include_data=True, include_relations=False) if rel.target_object else None,
                     'description': rel.description,
-                    'metadata': rel.metadata
+                    'metadata': rel.relation_metadata
                 })
             result['relations'] = relations
         

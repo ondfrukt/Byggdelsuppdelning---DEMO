@@ -40,5 +40,8 @@ def generate_auto_id(object_type_name):
         new_num = last_num + 1
         return f"{prefix}-{new_num:03d}"
     except Exception as e:
-        # If there's any error, start from 001
+        # Log error and start from 001
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error generating auto_id for {object_type_name}: {str(e)}. Starting from 001.")
         return f"{prefix}-001"

@@ -110,7 +110,11 @@ def create_object():
                 
                 # Set value based on field type
                 if field.field_type == 'number':
-                    obj_data.value_number = Decimal(str(value))
+                    # Handle both string and numeric input
+                    if isinstance(value, (int, float)):
+                        obj_data.value_number = Decimal(str(value))
+                    else:
+                        obj_data.value_number = Decimal(value)
                 elif field.field_type == 'date':
                     if isinstance(value, str):
                         obj_data.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
