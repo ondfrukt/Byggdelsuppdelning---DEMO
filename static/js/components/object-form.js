@@ -207,7 +207,35 @@ class ObjectFormComponent {
         const form = document.getElementById('object-form');
         if (!form) return false;
         
-        return form.checkValidity();
+        // Check if all required fields have values
+        let isValid = true;
+        
+        this.fields.forEach(field => {
+            if (!field.is_required) return;
+            
+            const input = form.elements[field.field_name];
+            if (!input) {
+                isValid = false;
+                return;
+            }
+            
+            if (field.field_type === 'boolean') {
+                // Boolean fields don't need to be checked (checkbox can be unchecked)
+                return;
+            }
+            
+            const value = input.value;
+            if (!value || value.trim() === '') {
+                isValid = false;
+                // Add error styling
+                input.classList.add('error');
+            } else {
+                // Remove error styling
+                input.classList.remove('error');
+            }
+        });
+        
+        return isValid;
     }
 }
 

@@ -104,8 +104,44 @@ async function loadObjectsView() {
     const container = document.getElementById('objects-container');
     if (!container) return;
     
+    // Show list view by default
+    document.getElementById('objects-container').style.display = 'block';
+    document.getElementById('tree-container').style.display = 'none';
+    
     currentObjectListComponent = new ObjectListComponent('objects-container');
     await currentObjectListComponent.render();
+}
+
+// Toggle tree view
+let treeViewActive = false;
+let treeViewInstance = null;
+
+async function toggleTreeView() {
+    treeViewActive = !treeViewActive;
+    
+    const objectsContainer = document.getElementById('objects-container');
+    const treeContainer = document.getElementById('tree-container');
+    
+    if (treeViewActive) {
+        objectsContainer.style.display = 'none';
+        treeContainer.style.display = 'grid';
+        
+        // Initialize tree view if not already done
+        if (!treeViewInstance) {
+            treeViewInstance = new TreeView('tree-view-container');
+            window.sidePanelInstance = new SidePanel('side-panel-container');
+            
+            // Set up click handler
+            treeViewInstance.setNodeClickHandler((objectId, objectType) => {
+                window.sidePanelInstance.render(objectId);
+            });
+        }
+        
+        await treeViewInstance.render();
+    } else {
+        objectsContainer.style.display = 'block';
+        treeContainer.style.display = 'none';
+    }
 }
 
 // Load admin view

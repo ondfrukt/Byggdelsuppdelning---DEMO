@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation
 from utils.auto_id_generator import generate_auto_id
 from utils.validators import validate_object_data
 from datetime import datetime, date
@@ -228,3 +228,62 @@ def delete_object(id):
         db.session.rollback()
         logger.error(f"Error deleting object: {str(e)}")
         return jsonify({'error': 'Failed to delete object'}), 500
+
+
+@bp.route('/tree', methods=['GET'])
+def get_tree():
+    """Get hierarchical tree structure of objects, grouped by Byggdel"""
+    try:
+        # Get all Byggdel objects (root nodes)
+        byggdel_type = ObjectType.query.filter_by(name='Byggdel').first()
+        if not byggdel_type:
+            return jsonify([]), 200
+        
+        byggdel_objects = Object.query.filter_by(object_type_id=byggdel_type.id).all()
+        
+        tree = []
+        for byggdel in byggdel_objects:
+            # Get related objects
+            relations = ObjectRelation.query.filter_by(source_object_id=byggdel.id).all()
+            
+            children = []
+            # Group children by type
+            children_by_type = {}
+            
+            for relation in relations:
+                target = relation.target_object
+                if target:
+                    type_name = target.object_type.name
+                    if type_name not in children_by_type:
+                        children_by_type[type_name] = []
+                    
+                    children_by_type[type_name].append({
+                        'id': target.id,
+                        'auto_id': target.auto_id,
+                        'name': target.data.get('Namn') or target.data.get('namn') or target.auto_id,
+                        'type': type_name,
+                        'relation_type': relation.relation_type
+                    })
+            
+            # Create type groups as children
+            for type_name, objects in children_by_type.items():
+                children.append({
+                    'id': f'type-{byggdel.id}-{type_name}',
+                    'name': type_name,
+                    'type': 'group',
+                    'children': objects
+                })
+            
+            display_name = byggdel.data.get('Namn') or byggdel.data.get('namn') or byggdel.auto_id
+            tree.append({
+                'id': byggdel.id,
+                'auto_id': byggdel.auto_id,
+                'name': display_name,
+                'type': 'Byggdel',
+                'children': children
+            })
+        
+        return jsonify(tree), 200
+    except Exception as e:
+        logger.error(f"Error getting tree: {str(e)}")
+        return jsonify({'error': 'Failed to get tree'}), 500
