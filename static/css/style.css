@@ -1216,3 +1216,123 @@ body {
 body {
     min-width: 1200px;
 }
+
+/* Column Configuration Panel */
+.column-config-panel {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    box-shadow: var(--shadow-md);
+}
+
+.column-config-content h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.column-toggle {
+    display: block;
+    padding: var(--spacing-sm);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background-color 0.2s;
+}
+
+.column-toggle:hover {
+    background-color: var(--bg-tertiary);
+}
+
+.column-toggle input[type="checkbox"] {
+    margin-right: var(--spacing-sm);
+}
+
+/* Column Search Row */
+.column-search-row {
+    background-color: var(--bg-secondary);
+}
+
+.column-search-row th {
+    padding: var(--spacing-sm);
+}
+
+.column-search-input {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+}
+
+.column-search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+/* Resizable Columns */
+.resizable-column {
+    position: relative;
+    padding-right: 20px;
+}
+
+.resizable-column:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* Admin List View Config */
+.list-view-config {
+    margin-top: var(--spacing-lg);
+}
+
+.list-view-config-item {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+}
+
+.list-view-config-item h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.field-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+}
+
+.field-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-md);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    cursor: move;
+}
+
+.field-chip.visible {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.field-chip .remove-btn {
+    margin-left: var(--spacing-sm);
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.column-width-input {
+    width: 80px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    margin-left: var(--spacing-sm);
+}
