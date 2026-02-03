@@ -114,6 +114,26 @@ class RelationManagerComponent {
     }
 }
 
+// Helper function to refresh all views after relation changes
+async function refreshAllViews() {
+    // Refresh relations if component exists
+    const relationManager = window.currentRelationManager;
+    if (relationManager) {
+        await relationManager.refresh();
+    }
+    
+    // Refresh tree view if it's active
+    if (window.treeViewInstance && window.treeViewActive) {
+        await window.treeViewInstance.refresh();
+    }
+    
+    // Refresh detail view if it's showing
+    if (window.currentObjectDetailComponent) {
+        // Just refresh the relations, not the whole detail view
+        await window.currentObjectDetailComponent.loadRelations();
+    }
+}
+
 // Global function to show add relation modal
 async function showAddRelationModal(objectId) {
     const modal = document.getElementById('relation-modal');
@@ -177,22 +197,8 @@ async function saveRelation(event) {
         showToast('Relation skapad', 'success');
         closeModal();
         
-        // Refresh relations if component exists
-        const relationManager = window.currentRelationManager;
-        if (relationManager) {
-            await relationManager.refresh();
-        }
-        
-        // Refresh tree view if it's active
-        if (window.treeViewInstance && window.treeViewActive) {
-            await window.treeViewInstance.refresh();
-        }
-        
-        // Refresh detail view if it's showing
-        if (window.currentObjectDetailComponent) {
-            // Just refresh the relations, not the whole detail view
-            await window.currentObjectDetailComponent.loadRelations();
-        }
+        // Refresh all relevant views
+        await refreshAllViews();
     } catch (error) {
         console.error('Failed to create relation:', error);
         showToast(error.message || 'Kunde inte skapa relation', 'error');
@@ -209,22 +215,8 @@ async function deleteRelation(objectId, relationId) {
         await ObjectsAPI.deleteRelation(objectId, relationId);
         showToast('Relation borttagen', 'success');
         
-        // Refresh relations if component exists
-        const relationManager = window.currentRelationManager;
-        if (relationManager) {
-            await relationManager.refresh();
-        }
-        
-        // Refresh tree view if it's active
-        if (window.treeViewInstance && window.treeViewActive) {
-            await window.treeViewInstance.refresh();
-        }
-        
-        // Refresh detail view if it's showing
-        if (window.currentObjectDetailComponent) {
-            // Just refresh the relations, not the whole detail view
-            await window.currentObjectDetailComponent.loadRelations();
-        }
+        // Refresh all relevant views
+        await refreshAllViews();
     } catch (error) {
         console.error('Failed to delete relation:', error);
         showToast(error.message || 'Kunde inte ta bort relation', 'error');
