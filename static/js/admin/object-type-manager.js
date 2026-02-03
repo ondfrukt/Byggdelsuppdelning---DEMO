@@ -384,6 +384,12 @@ class ObjectTypeManager {
                 const typeId = parseInt(select.dataset.objectTypeId);
                 const fieldName = select.value;
                 
+                // Validate typeId is a valid number
+                if (isNaN(typeId) || typeId <= 0) {
+                    console.error(`Invalid object type ID for ${typeName}: ${typeId}`);
+                    return;
+                }
+                
                 config[typeName] = {
                     object_type_id: typeId,
                     tree_view_name_field: fieldName === 'ID' ? null : fieldName

@@ -21,6 +21,11 @@ def get_display_name(obj, object_type_name, view_config):
     
     Returns:
         Display name string
+        - If no config or field not specified: Returns auto_id
+        - If configured to use "ID": Returns auto_id
+        - If field value exists: Returns field value as string
+        - If field is configured but value is empty: Returns "ID: {auto_id}" 
+          (prefix helps distinguish from configured fields with actual values)
     """
     # Get configuration for this object type
     config = view_config.get(object_type_name)
@@ -38,7 +43,9 @@ def get_display_name(obj, object_type_name, view_config):
     # Try to get value from object data
     value = obj.data.get(field_name)
     
-    # If value exists, return it, otherwise fallback to ID
+    # If value exists, return it, otherwise fallback to ID with prefix
+    # The "ID:" prefix indicates a fallback scenario to distinguish from 
+    # cases where the field is intentionally set to an ID-like value
     if value:
         return str(value)
     else:

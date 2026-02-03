@@ -12,6 +12,8 @@ class ViewConfiguration(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
+    # Note: Using singular 'view_configuration' for backref since the unique constraint
+    # ensures only one configuration exists per object type
     object_type = db.relationship('ObjectType', backref='view_configuration')
     
     # Unique constraint: one configuration per object type

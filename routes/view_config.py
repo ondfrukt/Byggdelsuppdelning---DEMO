@@ -5,6 +5,9 @@ import logging
 logger = logging.getLogger(__name__)
 bp = Blueprint('view_config', __name__, url_prefix='/api/view-config')
 
+# Constants
+DEFAULT_DISPLAY_ORDER = 999
+
 
 @bp.route('/tree-display', methods=['GET'])
 def get_tree_display_config():
@@ -28,7 +31,7 @@ def get_tree_display_config():
                         'field_name': field.field_name,
                         'display_name': field.display_name or field.field_name
                     }
-                    for field in sorted(obj_type.fields, key=lambda f: f.display_order or 999)
+                    for field in sorted(obj_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
                 ]
             }
         
