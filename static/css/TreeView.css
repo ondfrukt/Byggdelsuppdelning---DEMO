@@ -138,10 +138,10 @@
     padding: 4px 6px;
     border-radius: var(--radius-sm);
     transition: all 0.15s;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     /* Minimum clickable area for accessibility */
     min-height: 24px;
-    line-height: 16px;
 }
 
 .tree-id-link:hover {
