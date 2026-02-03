@@ -1,0 +1,263 @@
+/**
+ * TreeView Component - Compact Design
+ * Optimized for maximum information density while maintaining readability and accessibility
+ */
+
+/* Override default tree view styles with compact design */
+.tree-view {
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-md);
+    overflow-y: auto;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.tree-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/* Compact header with reduced padding */
+.tree-table thead {
+    background-color: var(--bg-tertiary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.tree-table th {
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border-color);
+    letter-spacing: normal;
+}
+
+/* Compact row design */
+.tree-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tree-table td {
+    padding: 4px 8px;
+    font-size: 13px;
+    line-height: 1.3;
+    min-height: 28px;
+}
+
+/* Tree node styles */
+.tree-node {
+    cursor: default;
+    transition: background-color 0.15s;
+}
+
+.tree-node.has-children {
+    cursor: pointer;
+}
+
+.tree-node.has-children:hover {
+    background-color: var(--bg-secondary);
+}
+
+.tree-node-selected {
+    background-color: var(--bg-tertiary) !important;
+    font-weight: 500;
+}
+
+.tree-node-group {
+    font-weight: 500;
+    color: var(--text-secondary);
+    background-color: var(--bg-secondary);
+    font-size: 13px;
+}
+
+.tree-node-group:hover {
+    background-color: var(--bg-tertiary);
+}
+
+/* Compact toggle icons (12-14px) */
+.tree-toggle {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    text-align: center;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    line-height: 14px;
+    /* Ensure minimum clickable area of 24x24px for accessibility */
+    padding: 5px;
+    margin: -5px;
+    transition: transform 0.15s;
+}
+
+.tree-toggle:hover {
+    transform: scale(1.2);
+}
+
+/* Compact spacer matching toggle size */
+.tree-spacer {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 5px;
+}
+
+/* Tree label with minimal spacing */
+.tree-label {
+    margin-left: 4px;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+}
+
+.tree-label-group {
+    font-size: 12px;
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: normal;
+}
+
+/* Compact badge */
+.tree-badge {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 400;
+}
+
+/* Compact ID link with sufficient clickable area */
+.tree-id-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+    display: inline-block;
+    /* Minimum clickable area for accessibility */
+    min-height: 24px;
+    line-height: 16px;
+}
+
+.tree-id-link:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+/* Compact count indicator */
+.tree-count {
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+/* Reduced indentation per level (max 16px) */
+.tree-view-indent {
+    width: 16px;
+}
+
+/* Column widths optimization */
+.tree-table th:nth-child(1),
+.tree-table td:nth-child(1) {
+    /* Name column - flex to take remaining space */
+    width: 50%;
+    min-width: 200px;
+}
+
+.tree-table th:nth-child(2),
+.tree-table td:nth-child(2) {
+    /* ID column - fixed width just enough for ID format */
+    width: 120px;
+    min-width: 100px;
+}
+
+.tree-table th:nth-child(3),
+.tree-table td:nth-child(3) {
+    /* Type column - remaining space */
+    width: 30%;
+    min-width: 100px;
+}
+
+/* Sortable header styles */
+.sortable-table th[data-sortable] {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 24px;
+    /* Ensure minimum clickable area */
+    min-height: 24px;
+}
+
+.sort-indicator {
+    position: absolute;
+    right: 6px;
+    color: var(--text-secondary);
+    font-size: 10px;
+}
+
+.sortable-table th.sorted {
+    background-color: var(--bg-tertiary);
+}
+
+.sortable-table th.sorted .sort-indicator {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xl);
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+/* Compact spacing between tree view and detail view */
+.two-column-layout {
+    display: grid;
+    grid-template-columns: 60% 40%;
+    gap: 8px;
+    height: calc(100vh - 180px);
+}
+
+/* Ensure proper contrast for accessibility (WCAG AA) */
+.tree-node:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: -2px;
+}
+
+/* Keyboard navigation support */
+.tree-toggle:focus,
+.tree-id-link:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Responsive adjustments while maintaining compact design */
+@media (max-width: 1400px) {
+    .tree-table th:nth-child(1),
+    .tree-table td:nth-child(1) {
+        width: 45%;
+    }
+    
+    .tree-table th:nth-child(2),
+    .tree-table td:nth-child(2) {
+        width: 110px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .tree-table td {
+        font-size: 12px;
+    }
+    
+    .tree-label {
+        font-size: 12px;
+    }
+}

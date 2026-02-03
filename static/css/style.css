@@ -955,128 +955,7 @@ body {
     margin-bottom: var(--spacing-lg);
 }
 
-/* Tree View Styles */
-.tree-view {
-    background-color: var(--bg-primary);
-    border-radius: var(--radius-md);
-    overflow-y: auto;
-}
-
-.tree-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.tree-table thead {
-    background-color: var(--bg-tertiary);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
-
-.tree-table th {
-    padding: var(--spacing-md);
-    text-align: left;
-    font-weight: 600;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    border-bottom: 2px solid var(--border-color);
-}
-
-.tree-table tbody tr {
-    border-bottom: 1px solid var(--border-color);
-}
-
-.tree-table td {
-    padding: var(--spacing-sm) var(--spacing-md);
-}
-
-.tree-node {
-    cursor: default;
-    transition: background-color 0.2s;
-}
-
-.tree-node.has-children {
-    cursor: pointer;
-}
-
-.tree-node.has-children:hover {
-    background-color: var(--bg-secondary);
-}
-
-.tree-node-selected {
-    background-color: var(--bg-tertiary) !important;
-    font-weight: 600;
-}
-
-.tree-node-group {
-    font-weight: 600;
-    color: var(--text-secondary);
-    background-color: var(--bg-secondary);
-}
-
-.tree-node-group:hover {
-    background-color: var(--bg-tertiary);
-}
-
-.tree-toggle {
-    display: inline-block;
-    width: 20px;
-    text-align: center;
-    font-size: 0.8em;
-    cursor: pointer;
-    user-select: none;
-}
-
-.tree-spacer {
-    display: inline-block;
-    width: 20px;
-}
-
-.tree-label {
-    flex: 1;
-    margin-left: var(--spacing-sm);
-}
-
-.tree-label-group {
-    font-size: 0.9em;
-    text-transform: uppercase;
-}
-
-.tree-badge {
-    background-color: var(--bg-tertiary);
-    color: var(--text-secondary);
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 0.85em;
-}
-
-.tree-id-link {
-    color: var(--primary-color);
-    text-decoration: underline;
-    cursor: pointer;
-    font-size: 0.85em;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    transition: all 0.2s;
-}
-
-.tree-id-link:hover {
-    background-color: var(--bg-tertiary);
-    color: var(--primary-hover);
-    text-decoration: underline;
-}
-
-.tree-count {
-    color: var(--text-secondary);
-    font-size: 0.85em;
-    margin-left: var(--spacing-sm);
-}
-
-.tree-children {
-    margin-left: 10px;
-}
+/* Tree View Styles - See TreeView.css for detailed compact styles */
 
 /* Side Panel Styles */
 .side-panel {
@@ -1091,7 +970,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding: var(--spacing-xl);
+    padding: 6px 8px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1210,11 +1089,11 @@ body {
     color: var(--text-secondary);
 }
 
-/* Two Column Layout - 60/40 split for desktop */
+/* Two Column Layout - 60/40 split for desktop with compact 8px gap */
 .two-column-layout {
     display: grid;
     grid-template-columns: 60% 40%;
-    gap: var(--spacing-lg);
+    gap: 8px;
     height: calc(100vh - 180px);
 }
 
