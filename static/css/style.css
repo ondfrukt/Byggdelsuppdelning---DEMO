@@ -993,12 +993,20 @@ body {
 }
 
 .tree-node {
-    cursor: pointer;
+    cursor: default;
     transition: background-color 0.2s;
 }
 
-.tree-node:hover {
+.tree-node.has-children {
+    cursor: pointer;
+}
+
+.tree-node.has-children:hover {
     background-color: var(--bg-secondary);
+}
+
+.tree-node:not(.has-children):hover {
+    background-color: transparent;
 }
 
 .tree-node-selected {
@@ -1046,6 +1054,22 @@ body {
     padding: 2px 8px;
     border-radius: var(--radius-sm);
     font-size: 0.85em;
+}
+
+.tree-id-link {
+    color: var(--primary-color);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 0.85em;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.tree-id-link:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--primary-hover);
+    text-decoration: underline;
 }
 
 .tree-count {
