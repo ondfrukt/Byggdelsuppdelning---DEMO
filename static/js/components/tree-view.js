@@ -79,7 +79,7 @@ class TreeView {
         if (node.type === 'group') {
             // Type group node
             html += `
-                <tr class="tree-node tree-node-group" data-node-id="${node.id}">
+                <tr class="tree-node tree-node-group ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-has-children="${hasChildren}">
                     <td style="padding-left: ${indent}px">
                         ${hasChildren ? `
                             <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
@@ -97,7 +97,7 @@ class TreeView {
         } else {
             // Regular node - display as table row with columns
             html += `
-                <tr class="tree-node" data-node-id="${node.id}" data-node-type="${node.type}">
+                <tr class="tree-node ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-node-type="${node.type}" data-has-children="${hasChildren}">
                     <td style="padding-left: ${indent}px">
                         ${hasChildren ? `
                             <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
@@ -107,7 +107,7 @@ class TreeView {
                         <span class="tree-label">${node.name}</span>
                     </td>
                     <td>
-                        <span class="tree-badge">${node.auto_id || ''}</span>
+                        ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${node.auto_id}</a>` : ''}
                     </td>
                     <td>${node.type || ''}</td>
                 </tr>
@@ -125,7 +125,7 @@ class TreeView {
     }
     
     attachEventListeners() {
-        // Toggle expand/collapse
+        // Toggle expand/collapse on toggle icon click
         const toggles = this.container.querySelectorAll('.tree-toggle');
         toggles.forEach(toggle => {
             toggle.addEventListener('click', (e) => {
@@ -143,21 +143,45 @@ class TreeView {
             });
         });
         
-        // Node click
-        const nodes = this.container.querySelectorAll('.tree-node');
-        nodes.forEach(node => {
-            node.addEventListener('click', (e) => {
-                const nodeId = node.dataset.nodeId;
-                const nodeType = node.dataset.nodeType;
+        // ID link click - opens detail view
+        const idLinks = this.container.querySelectorAll('.tree-id-link');
+        idLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 
-                // Don't trigger for group nodes
-                if (nodeType && nodeType !== 'group' && this.onNodeClick) {
+                const nodeId = link.dataset.nodeId;
+                const nodeType = link.dataset.nodeType;
+                
+                if (this.onNodeClick) {
                     this.onNodeClick(parseInt(nodeId), nodeType);
                 }
                 
                 // Highlight selected node
+                const nodes = this.container.querySelectorAll('.tree-node');
                 nodes.forEach(n => n.classList.remove('tree-node-selected'));
-                node.classList.add('tree-node-selected');
+                link.closest('.tree-node').classList.add('tree-node-selected');
+            });
+        });
+        
+        // Row click - toggle expand/collapse for nodes with children
+        const nodes = this.container.querySelectorAll('.tree-node');
+        nodes.forEach(node => {
+            node.addEventListener('click', (e) => {
+                const hasChildren = node.dataset.hasChildren === 'true';
+                
+                // Only toggle if node has children
+                if (hasChildren) {
+                    const nodeId = node.dataset.nodeId;
+                    
+                    if (this.expandedNodes.has(nodeId)) {
+                        this.expandedNodes.delete(nodeId);
+                    } else {
+                        this.expandedNodes.add(nodeId);
+                    }
+                    
+                    this.render();
+                }
             });
         });
     }
