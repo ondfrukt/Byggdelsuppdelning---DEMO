@@ -7,6 +7,10 @@ let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
 
+// Initialize global window properties for cross-component access
+window.treeViewActive = false;
+window.treeViewInstance = null;
+
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -115,10 +119,6 @@ async function loadObjectsView() {
 // Toggle tree view
 let treeViewActive = false;
 let treeViewInstance = null;
-
-// Expose to global scope for access from other components
-window.treeViewActive = treeViewActive;
-window.treeViewInstance = treeViewInstance;
 
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;

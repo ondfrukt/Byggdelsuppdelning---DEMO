@@ -87,7 +87,7 @@ class RelationManagerComponent {
                     <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${targetObject.id})">
                         Visa
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" title="Remove relation">
+                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" title="Ta bort relation">
                         🗑️ Ta bort
                     </button>
                 </div>
