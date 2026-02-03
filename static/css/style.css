@@ -1005,10 +1005,6 @@ body {
     background-color: var(--bg-secondary);
 }
 
-.tree-node:not(.has-children):hover {
-    background-color: transparent;
-}
-
 .tree-node-selected {
     background-color: var(--bg-tertiary) !important;
     font-weight: 600;

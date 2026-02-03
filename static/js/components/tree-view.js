@@ -107,7 +107,7 @@ class TreeView {
                         <span class="tree-label">${node.name}</span>
                     </td>
                     <td>
-                        ${node.auto_id ? `<a href="#" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${node.auto_id}</a>` : ''}
+                        ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${node.auto_id}</a>` : ''}
                     </td>
                     <td>${node.type || ''}</td>
                 </tr>
