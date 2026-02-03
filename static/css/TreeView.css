@@ -218,14 +218,6 @@
     font-size: 13px;
 }
 
-/* Compact spacing between tree view and detail view */
-.two-column-layout {
-    display: grid;
-    grid-template-columns: 60% 40%;
-    gap: 8px;
-    height: calc(100vh - 180px);
-}
-
 /* Ensure proper contrast for accessibility (WCAG AA) */
 .tree-node:focus-within {
     outline: 2px solid var(--primary-color);
