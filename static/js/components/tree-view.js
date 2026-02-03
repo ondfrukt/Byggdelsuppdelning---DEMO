@@ -72,7 +72,7 @@ class TreeView {
     renderNode(node, level) {
         const hasChildren = node.children && node.children.length > 0;
         const isExpanded = this.expandedNodes.has(node.id);
-        const indent = level * 20;
+        const indent = level * 16; // Compact indentation: 16px per level
         
         let html = '';
         
