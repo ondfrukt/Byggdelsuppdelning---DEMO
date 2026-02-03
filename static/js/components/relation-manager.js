@@ -87,7 +87,8 @@ class RelationManagerComponent {
                     <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${targetObject.id})">
                         Visa
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" title="Ta bort relation">
+                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" 
+                            title="Ta bort relation" aria-label="Ta bort relation">
                         🗑️ Ta bort
                     </button>
                 </div>
@@ -117,20 +118,32 @@ class RelationManagerComponent {
 // Helper function to refresh all views after relation changes
 async function refreshAllViews() {
     // Refresh relations if component exists
-    const relationManager = window.currentRelationManager;
-    if (relationManager) {
-        await relationManager.refresh();
+    try {
+        const relationManager = window.currentRelationManager;
+        if (relationManager) {
+            await relationManager.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to refresh relation manager:', error);
     }
     
     // Refresh tree view if it's active
-    if (window.treeViewInstance && window.treeViewActive) {
-        await window.treeViewInstance.refresh();
+    try {
+        if (window.treeViewInstance && window.treeViewActive) {
+            await window.treeViewInstance.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to refresh tree view:', error);
     }
     
     // Refresh detail view if it's showing
-    if (window.currentObjectDetailComponent) {
-        // Just refresh the relations, not the whole detail view
-        await window.currentObjectDetailComponent.loadRelations();
+    try {
+        if (window.currentObjectDetailComponent) {
+            // Just refresh the relations, not the whole detail view
+            await window.currentObjectDetailComponent.loadRelations();
+        }
+    } catch (error) {
+        console.error('Failed to refresh detail view relations:', error);
     }
 }
 
