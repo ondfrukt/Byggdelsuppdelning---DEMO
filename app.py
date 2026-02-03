@@ -36,6 +36,12 @@ def create_app():
         except Exception as e:
             logger.warning(f"Migration may have already run: {str(e)}")
         
+        try:
+            from migrations.add_view_configurations import run_migration as run_view_config_migration
+            run_view_config_migration(db)
+        except Exception as e:
+            logger.warning(f"View configuration migration may have already run: {str(e)}")
+        
         seed_data(app)
     
     # Register blueprints

@@ -10,6 +10,7 @@ from models.object import Object
 from models.object_data import ObjectData
 from models.relation import ObjectRelation
 from models.document import Document
+from models.view_configuration import ViewConfiguration
 
 __all__ = [
     'db',
@@ -18,5 +19,6 @@ __all__ = [
     'Object',
     'ObjectData',
     'ObjectRelation',
-    'Document'
+    'Document',
+    'ViewConfiguration'
 ]
