@@ -26,6 +26,9 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="tree-view" onclick="adminManager.switchTab('tree-view')">
                         Trädvy Inställningar
                     </button>
+                    <button class="admin-tab" data-tab="list-view" onclick="adminManager.switchTab('list-view')">
+                        Listvy Inställningar
+                    </button>
                 </div>
                 
                 <div class="admin-tab-content">
@@ -57,12 +60,22 @@ class ObjectTypeManager {
                             <p>Laddar...</p>
                         </div>
                     </div>
+                    
+                    <div id="list-view-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Listvy Standardinställningar</h3>
+                        </div>
+                        <div id="list-view-config-container">
+                            <p>Laddar...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
         
         await this.loadObjectTypes();
         await this.loadTreeViewConfig();
+        await this.loadListViewConfig();
     }
     
     async loadObjectTypes() {
@@ -310,6 +323,8 @@ class ObjectTypeManager {
             document.getElementById('object-types-tab').classList.add('active');
         } else if (tabName === 'tree-view') {
             document.getElementById('tree-view-tab').classList.add('active');
+        } else if (tabName === 'list-view') {
+            document.getElementById('list-view-tab').classList.add('active');
         }
     }
     
@@ -497,3 +512,124 @@ async function saveField(event) {
         showToast(error.message || 'Kunde inte spara fält', 'error');
     }
 }
+
+// List View Configuration Methods (added to ObjectTypeManager class)
+ObjectTypeManager.prototype.loadListViewConfig = async function() {
+    try {
+        const response = await fetch('/api/view-config/list-view');
+        if (!response.ok) throw new Error('Failed to load list view config');
+        
+        const config = await response.json();
+        this.listViewConfig = config;
+        this.renderListViewConfig();
+    } catch (error) {
+        console.error('Failed to load list view config:', error);
+        const container = document.getElementById('list-view-config-container');
+        if (container) {
+            container.innerHTML = '<p class="error">Kunde inte ladda listvy-inställningar</p>';
+        }
+    }
+};
+
+ObjectTypeManager.prototype.renderListViewConfig = function() {
+    const container = document.getElementById('list-view-config-container');
+    if (!container || !this.listViewConfig) return;
+    
+    const configEntries = Object.entries(this.listViewConfig);
+    
+    container.innerHTML = `
+        <div class="list-view-config">
+            <p class="config-description">
+                Konfigurera vilka kolumner som ska visas som standard för varje objektstyp i listvyn.
+                Användare kan sedan anpassa sina egna vyer.
+            </p>
+            ${configEntries.map(([typeName, typeConfig]) => `
+                <div class="list-view-config-item">
+                    <h4>${typeName}</h4>
+                    <p>Välj vilka kolumner som ska visas och i vilken ordning:</p>
+                    
+                    <div class="field-list" data-object-type="${typeName}" data-object-type-id="${typeConfig.object_type_id}">
+                        <div class="field-chip visible" data-field="auto_id">
+                            <span>ID</span>
+                        </div>
+                        ${typeConfig.available_fields.map(field => {
+                            const colConfig = typeConfig.visible_columns.find(c => c.field_name === field.field_name);
+                            const isVisible = colConfig ? colConfig.visible : false;
+                            return `
+                                <div class="field-chip ${isVisible ? 'visible' : ''}" data-field="${field.field_name}">
+                                    <span>${field.display_name}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                        <div class="field-chip visible" data-field="created_at">
+                            <span>Skapad</span>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 1rem;">
+                        <button class="btn btn-primary" onclick="adminManager.saveListViewConfigForType('${typeName}', ${typeConfig.object_type_id})">
+                            Spara Inställningar för ${typeName}
+                        </button>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+    
+    // Add click handlers to field chips
+    document.querySelectorAll('.field-chip').forEach(chip => {
+        chip.addEventListener('click', function() {
+            // Don't allow toggling ID and created_at (always visible)
+            const fieldName = this.dataset.field;
+            if (fieldName === 'auto_id' || fieldName === 'created_at') {
+                return;
+            }
+            this.classList.toggle('visible');
+        });
+    });
+};
+
+ObjectTypeManager.prototype.saveListViewConfigForType = async function(typeName, objectTypeId) {
+    try {
+        const fieldList = document.querySelector(`.field-list[data-object-type="${typeName}"]`);
+        if (!fieldList) return;
+        
+        const chips = fieldList.querySelectorAll('.field-chip');
+        const visible_columns = [];
+        const column_order = [];
+        
+        chips.forEach(chip => {
+            const fieldName = chip.dataset.field;
+            const isVisible = chip.classList.contains('visible');
+            
+            column_order.push(fieldName);
+            visible_columns.push({
+                field_name: fieldName,
+                visible: isVisible,
+                width: 150
+            });
+        });
+        
+        const config = {};
+        config[typeName] = {
+            object_type_id: objectTypeId,
+            visible_columns: visible_columns,
+            column_order: column_order,
+            column_widths: {}
+        };
+        
+        const response = await fetch('/api/view-config/list-view', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(config)
+        });
+        
+        if (!response.ok) throw new Error('Failed to save list view config');
+        
+        showToast(`Listvy-inställningar för ${typeName} sparade`, 'success');
+        await this.loadListViewConfig();
+    } catch (error) {
+        console.error('Failed to save list view config:', error);
+        showToast('Kunde inte spara listvy-inställningar', 'error');
+    }
+};

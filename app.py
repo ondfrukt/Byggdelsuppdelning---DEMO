@@ -42,6 +42,12 @@ def create_app():
         except Exception as e:
             logger.warning(f"View configuration migration may have already run: {str(e)}")
         
+        try:
+            from migrations.add_list_view_columns import run_migration as run_list_view_migration
+            run_list_view_migration(db)
+        except Exception as e:
+            logger.warning(f"List view columns migration may have already run: {str(e)}")
+        
         seed_data(app)
     
     # Register blueprints

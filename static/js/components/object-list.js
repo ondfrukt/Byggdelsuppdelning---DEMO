@@ -1,6 +1,7 @@
 /**
  * Object List Component
  * Displays a list of objects with filtering and search
+ * Supports configurable columns per object type
  */
 
 class ObjectListComponent {
@@ -12,6 +13,8 @@ class ObjectListComponent {
         this.searchTerm = '';
         this.selectedType = objectType;
         this.tableSortInstance = null;
+        this.viewConfig = null;
+        this.columnSearches = {}; // Store search terms per column
     }
     
     async render() {
@@ -30,11 +33,21 @@ class ObjectListComponent {
                             <option value="">Alla typer</option>
                         </select>
                     ` : ''}
+                    <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
+                        ⚙️ Kolumner
+                    </button>
+                </div>
+                <div id="column-config-panel-${this.containerId}" class="column-config-panel" style="display: none;">
+                    <div class="column-config-content">
+                        <h4>Visa/Dölj Kolumner</h4>
+                        <div id="column-toggles-${this.containerId}"></div>
+                    </div>
                 </div>
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
                             <tr id="table-headers-${this.containerId}"></tr>
+                            <tr id="table-search-row-${this.containerId}" class="column-search-row"></tr>
                         </thead>
                         <tbody id="table-body-${this.containerId}">
                             <tr><td colspan="5" class="loading">Laddar objekt...</td></tr>
@@ -45,6 +58,7 @@ class ObjectListComponent {
         `;
         
         this.attachEventListeners();
+        await this.loadViewConfig();
         await this.loadObjects();
     }
     
@@ -61,11 +75,20 @@ class ObjectListComponent {
         if (typeFilter) {
             typeFilter.addEventListener('change', async (e) => {
                 this.selectedType = e.target.value;
+                await this.loadViewConfig();
                 await this.loadObjects();
             });
             
             // Load object types for filter
             this.loadObjectTypes(typeFilter);
+        }
+        
+        // Column config button
+        const columnConfigBtn = document.getElementById(`column-config-btn-${this.containerId}`);
+        if (columnConfigBtn) {
+            columnConfigBtn.addEventListener('click', () => {
+                this.toggleColumnConfig();
+            });
         }
     }
     
@@ -80,6 +103,26 @@ class ObjectListComponent {
             });
         } catch (error) {
             console.error('Failed to load object types:', error);
+        }
+    }
+    
+    async loadViewConfig() {
+        try {
+            // Load view configuration for the selected type
+            if (this.selectedType) {
+                // Get object type by name
+                const types = await ObjectTypesAPI.getAll();
+                const objType = types.find(t => t.name === this.selectedType);
+                if (objType) {
+                    const response = await fetchAPI(`/view-config/list-view/${objType.id}`);
+                    this.viewConfig = response;
+                }
+            } else {
+                this.viewConfig = null;
+            }
+        } catch (error) {
+            console.error('Failed to load view config:', error);
+            this.viewConfig = null;
         }
     }
     
@@ -108,22 +151,57 @@ class ObjectListComponent {
     renderObjects() {
         const tbody = document.getElementById(`table-body-${this.containerId}`);
         const thead = document.getElementById(`table-headers-${this.containerId}`);
+        const searchRow = document.getElementById(`table-search-row-${this.containerId}`);
         
         if (!this.objects || this.objects.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="loading">Inga objekt hittades</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="loading">Inga objekt hittades</td></tr>';
             return;
         }
         
-        // Render headers with sortable attributes
-        thead.innerHTML = `
-            <th data-sortable data-sort-type="text">ID</th>
-            <th data-sortable data-sort-type="text">Typ</th>
-            <th data-sortable data-sort-type="text">Namn</th>
-            <th data-sortable data-sort-type="date">Skapad</th>
-            <th>Åtgärder</th>
-        `;
+        // Get visible columns from config or use defaults
+        const columns = this.getVisibleColumns();
+        const colCount = columns.length;
         
-        // Filter objects by search term
+        // Render headers with sortable attributes and column search
+        thead.innerHTML = columns.map(col => {
+            const width = this.getColumnWidth(col.field_name);
+            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
+            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column">
+                ${col.display_name}
+            </th>`;
+        }).join('');
+        
+        // Render search row
+        searchRow.innerHTML = columns.map(col => {
+            return `<th>
+                <input type="text" 
+                       class="column-search-input" 
+                       placeholder="Sök..."
+                       data-field="${col.field_name}"
+                       value="${this.columnSearches[col.field_name] || ''}">
+            </th>`;
+        }).join('');
+        
+        // Attach column search listeners
+        searchRow.querySelectorAll('.column-search-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const field = e.target.getAttribute('data-field');
+                this.columnSearches[field] = e.target.value;
+                this.renderFilteredObjects();
+            });
+        });
+        
+        this.renderFilteredObjects();
+        
+        // Render column config panel
+        this.renderColumnConfig();
+    }
+    
+    renderFilteredObjects() {
+        const tbody = document.getElementById(`table-body-${this.containerId}`);
+        const columns = this.getVisibleColumns();
+        
+        // Filter objects by global search term
         let filteredObjects = this.objects;
         if (this.searchTerm) {
             const term = this.searchTerm.toLowerCase();
@@ -135,25 +213,25 @@ class ObjectListComponent {
             });
         }
         
+        // Filter by column searches
+        for (const [field, searchTerm] of Object.entries(this.columnSearches)) {
+            if (searchTerm) {
+                const term = searchTerm.toLowerCase();
+                filteredObjects = filteredObjects.filter(obj => {
+                    const value = this.getColumnValue(obj, field);
+                    return String(value).toLowerCase().includes(term);
+                });
+            }
+        }
+        
         // Render rows with data-value attributes for sorting
         tbody.innerHTML = filteredObjects.map(obj => `
             <tr onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
-                <td data-value="${obj.auto_id}"><strong>${obj.auto_id}</strong></td>
-                <td data-value="${obj.object_type?.name || ''}">
-                    <span class="object-type-badge" style="background-color: ${getObjectTypeColor(obj.object_type?.name)}">
-                        ${obj.object_type?.name || 'N/A'}
-                    </span>
-                </td>
-                <td data-value="${this.getObjectDisplayName(obj)}">${this.getObjectDisplayName(obj)}</td>
-                <td data-value="${obj.created_at}">${formatDate(obj.created_at)}</td>
-                <td onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-primary" onclick="editObject(${obj.id})">
-                        Redigera
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteObject(${obj.id})">
-                        Ta bort
-                    </button>
-                </td>
+                ${columns.map(col => {
+                    const value = this.getColumnValue(obj, col.field_name);
+                    const displayValue = this.formatColumnValue(obj, col.field_name, value);
+                    return `<td data-value="${value}">${displayValue}</td>`;
+                }).join('')}
             </tr>
         `).join('');
         
@@ -165,7 +243,6 @@ class ObjectListComponent {
         }
         
         // Clean up previous TableSort instance
-        // Note: tbody.innerHTML replacement removes old DOM and event listeners automatically
         if (this.tableSortInstance) {
             this.tableSortInstance = null;
         }
@@ -176,12 +253,165 @@ class ObjectListComponent {
         }
     }
     
+    getVisibleColumns() {
+        if (!this.viewConfig) {
+            // Default columns when no config
+            return [
+                { field_name: 'auto_id', display_name: 'ID' },
+                { field_name: 'object_type', display_name: 'Typ' },
+                { field_name: 'display_name', display_name: 'Namn' },
+                { field_name: 'created_at', display_name: 'Skapad' },
+                { field_name: 'actions', display_name: 'Åtgärder' }
+            ];
+        }
+        
+        const visible_columns = this.viewConfig.visible_columns || [];
+        const available_fields = this.viewConfig.available_fields || [];
+        const column_order = this.viewConfig.column_order || [];
+        
+        // Build columns based on configuration
+        const columns = [];
+        
+        // Add columns in specified order
+        for (const fieldName of column_order) {
+            const colConfig = visible_columns.find(c => c.field_name === fieldName);
+            if (!colConfig || !colConfig.visible) continue;
+            
+            if (fieldName === 'auto_id') {
+                columns.push({ field_name: 'auto_id', display_name: 'ID' });
+            } else if (fieldName === 'created_at') {
+                columns.push({ field_name: 'created_at', display_name: 'Skapad' });
+            } else {
+                const field = available_fields.find(f => f.field_name === fieldName);
+                if (field) {
+                    columns.push({
+                        field_name: field.field_name,
+                        display_name: field.display_name,
+                        field_type: field.field_type
+                    });
+                }
+            }
+        }
+        
+        // Always add actions column at the end
+        columns.push({ field_name: 'actions', display_name: 'Åtgärder' });
+        
+        return columns;
+    }
+    
+    getColumnWidth(fieldName) {
+        if (!this.viewConfig || !this.viewConfig.column_widths) return null;
+        return this.viewConfig.column_widths[fieldName] || null;
+    }
+    
+    getSortType(col) {
+        if (col.field_name === 'created_at') return 'date';
+        if (col.field_type === 'number') return 'number';
+        return 'text';
+    }
+    
+    getColumnValue(obj, fieldName) {
+        if (fieldName === 'auto_id') return obj.auto_id;
+        if (fieldName === 'object_type') return obj.object_type?.name || '';
+        if (fieldName === 'display_name') return this.getObjectDisplayName(obj);
+        if (fieldName === 'created_at') return obj.created_at;
+        if (fieldName === 'actions') return '';
+        
+        // Get from object data
+        return obj.data?.[fieldName] || '';
+    }
+    
+    formatColumnValue(obj, fieldName, value) {
+        if (fieldName === 'auto_id') return `<strong>${value}</strong>`;
+        if (fieldName === 'object_type') {
+            return `<span class="object-type-badge" style="background-color: ${getObjectTypeColor(value)}">
+                ${value || 'N/A'}
+            </span>`;
+        }
+        if (fieldName === 'created_at') return formatDate(value);
+        if (fieldName === 'actions') {
+            return `
+                <div onclick="event.stopPropagation()">
+                    <button class="btn btn-sm btn-primary" onclick="editObject(${obj.id})">
+                        Redigera
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteObject(${obj.id})">
+                        Ta bort
+                    </button>
+                </div>
+            `;
+        }
+        
+        return value || '';
+    }
+    
     getObjectDisplayName(obj) {
         // Try to find a "name" field in the object data
         if (obj.data) {
             return obj.data.namn || obj.data.name || obj.data.title || obj.auto_id;
         }
         return obj.auto_id;
+    }
+    
+    toggleColumnConfig() {
+        const panel = document.getElementById(`column-config-panel-${this.containerId}`);
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+    }
+    
+    renderColumnConfig() {
+        if (!this.viewConfig) return;
+        
+        const container = document.getElementById(`column-toggles-${this.containerId}`);
+        if (!container) return;
+        
+        const visible_columns = this.viewConfig.visible_columns || [];
+        const available_fields = this.viewConfig.available_fields || [];
+        
+        // Build list of all possible columns
+        const allColumns = [
+            { field_name: 'auto_id', display_name: 'ID' },
+            ...available_fields.map(f => ({ field_name: f.field_name, display_name: f.display_name })),
+            { field_name: 'created_at', display_name: 'Skapad' }
+        ];
+        
+        container.innerHTML = allColumns.map(col => {
+            const colConfig = visible_columns.find(c => c.field_name === col.field_name);
+            const isVisible = colConfig ? colConfig.visible : false;
+            
+            return `
+                <label class="column-toggle">
+                    <input type="checkbox" 
+                           data-field="${col.field_name}" 
+                           ${isVisible ? 'checked' : ''}>
+                    ${col.display_name}
+                </label>
+            `;
+        }).join('');
+        
+        // Attach listeners
+        container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.toggleColumnVisibility(e.target.getAttribute('data-field'), e.target.checked);
+            });
+        });
+    }
+    
+    toggleColumnVisibility(fieldName, visible) {
+        if (!this.viewConfig) return;
+        
+        const visible_columns = this.viewConfig.visible_columns || [];
+        const colIndex = visible_columns.findIndex(c => c.field_name === fieldName);
+        
+        if (colIndex >= 0) {
+            visible_columns[colIndex].visible = visible;
+        } else {
+            visible_columns.push({ field_name: fieldName, visible: visible, width: 150 });
+        }
+        
+        this.viewConfig.visible_columns = visible_columns;
+        this.renderObjects();
     }
     
     async refresh() {
