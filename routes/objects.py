@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ViewConfiguration
 from utils.auto_id_generator import generate_auto_id
 from utils.validators import validate_object_data
 from datetime import datetime, date
@@ -8,6 +8,48 @@ import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
+
+
+def get_display_name(obj, object_type_name, view_config):
+    """
+    Get display name for an object based on view configuration.
+    
+    Args:
+        obj: Object instance
+        object_type_name: Name of the object type
+        view_config: Dictionary of view configurations {object_type_name: config}
+    
+    Returns:
+        Display name string
+        - If no config or field not specified: Returns auto_id
+        - If configured to use "ID": Returns auto_id
+        - If field value exists: Returns field value as string
+        - If field is configured but value is empty: Returns "ID: {auto_id}" 
+          (prefix helps distinguish from configured fields with actual values)
+    """
+    # Get configuration for this object type
+    config = view_config.get(object_type_name)
+    
+    # If no config or no field specified, use default
+    if not config or not config.get('tree_view_name_field'):
+        return obj.auto_id
+    
+    field_name = config['tree_view_name_field']
+    
+    # If configured to use ID, return auto_id
+    if field_name == 'ID':
+        return obj.auto_id
+    
+    # Try to get value from object data
+    value = obj.data.get(field_name)
+    
+    # If value exists, return it, otherwise fallback to ID with prefix
+    # The "ID:" prefix indicates a fallback scenario to distinguish from 
+    # cases where the field is intentionally set to an ID-like value
+    if value:
+        return str(value)
+    else:
+        return f"ID: {obj.auto_id}"
 
 
 @bp.route('', methods=['GET'])
@@ -248,6 +290,15 @@ def delete_object(id):
 def get_tree():
     """Get hierarchical tree structure of objects, grouped by Byggdel"""
     try:
+        # Get all view configurations
+        view_configs_query = ViewConfiguration.query.all()
+        view_config = {}
+        for config in view_configs_query:
+            if config.object_type:
+                view_config[config.object_type.name] = {
+                    'tree_view_name_field': config.tree_view_name_field
+                }
+        
         # Get all Byggdel objects (root nodes)
         byggdel_type = ObjectType.query.filter_by(name='Byggdel').first()
         if not byggdel_type:
@@ -271,12 +322,13 @@ def get_tree():
                     if type_name not in children_by_type:
                         children_by_type[type_name] = []
                     
-                    # Note: Checking both 'Namn' and 'namn' for backwards compatibility
-                    # Some data may use different casing conventions
+                    # Use the helper function to get display name
+                    display_name = get_display_name(target, type_name, view_config)
+                    
                     children_by_type[type_name].append({
                         'id': str(target.id),  # Ensure string for consistency
                         'auto_id': target.auto_id,  # This is the ID column
-                        'name': target.data.get('Namn') or target.data.get('namn') or target.auto_id,  # This is the name
+                        'name': display_name,  # This is the configured name
                         'type': type_name,
                         'relation_type': relation.relation_type
                     })
@@ -290,11 +342,13 @@ def get_tree():
                     'children': objects
                 })
             
-            display_name = byggdel.data.get('Namn') or byggdel.data.get('namn') or byggdel.auto_id
+            # Get display name for Byggdel itself
+            byggdel_display_name = get_display_name(byggdel, 'Byggdel', view_config)
+            
             tree.append({
                 'id': str(byggdel.id),  # Ensure string for consistency
                 'auto_id': byggdel.auto_id,
-                'name': display_name,
+                'name': byggdel_display_name,
                 'type': 'Byggdel',
                 'children': children
             })

@@ -16,26 +16,53 @@ class ObjectTypeManager {
         this.container.innerHTML = `
             <div class="admin-panel">
                 <div class="admin-header">
-                    <h2>Objekttyper Administration</h2>
-                    <button class="btn btn-primary" onclick="adminManager.showCreateTypeModal()">
-                        Skapa Ny Typ
+                    <h2>Administration</h2>
+                </div>
+                
+                <div class="admin-tabs">
+                    <button class="admin-tab active" data-tab="object-types" onclick="adminManager.switchTab('object-types')">
+                        Objekttyper
+                    </button>
+                    <button class="admin-tab" data-tab="tree-view" onclick="adminManager.switchTab('tree-view')">
+                        Trädvy Inställningar
                     </button>
                 </div>
                 
-                <div class="admin-content">
-                    <div class="types-list">
-                        <h3>Objekttyper</h3>
-                        <div id="types-list-container"></div>
+                <div class="admin-tab-content">
+                    <div id="object-types-tab" class="admin-tab-panel active">
+                        <div class="admin-panel-header">
+                            <h3>Objekttyper Administration</h3>
+                            <button class="btn btn-primary" onclick="adminManager.showCreateTypeModal()">
+                                Skapa Ny Typ
+                            </button>
+                        </div>
+                        
+                        <div class="admin-content">
+                            <div class="types-list">
+                                <h4>Objekttyper</h4>
+                                <div id="types-list-container"></div>
+                            </div>
+                            
+                            <div class="type-details" id="type-details-container">
+                                <p class="empty-state">Välj en objekttyp för att visa detaljer</p>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div class="type-details" id="type-details-container">
-                        <p class="empty-state">Välj en objekttyp för att visa detaljer</p>
+                    <div id="tree-view-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Trädvy Visningsinställningar</h3>
+                        </div>
+                        <div id="tree-view-config-container">
+                            <p>Laddar...</p>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         
         await this.loadObjectTypes();
+        await this.loadTreeViewConfig();
     }
     
     async loadObjectTypes() {
@@ -265,6 +292,132 @@ class ObjectTypeManager {
         } catch (error) {
             console.error('Failed to delete field:', error);
             showToast(error.message || 'Kunde inte ta bort fält', 'error');
+        }
+    }
+    
+    switchTab(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.tab === tabName);
+        });
+        
+        // Update tab panels
+        document.querySelectorAll('.admin-tab-panel').forEach(panel => {
+            panel.classList.remove('active');
+        });
+        
+        if (tabName === 'object-types') {
+            document.getElementById('object-types-tab').classList.add('active');
+        } else if (tabName === 'tree-view') {
+            document.getElementById('tree-view-tab').classList.add('active');
+        }
+    }
+    
+    async loadTreeViewConfig() {
+        try {
+            const response = await fetch('/api/view-config/tree-display');
+            if (!response.ok) throw new Error('Failed to load tree view config');
+            
+            const config = await response.json();
+            this.treeViewConfig = config;
+            this.renderTreeViewConfig();
+        } catch (error) {
+            console.error('Failed to load tree view config:', error);
+            const container = document.getElementById('tree-view-config-container');
+            if (container) {
+                container.innerHTML = '<p class="error">Kunde inte ladda trädvy-inställningar</p>';
+            }
+        }
+    }
+    
+    renderTreeViewConfig() {
+        const container = document.getElementById('tree-view-config-container');
+        if (!container || !this.treeViewConfig) return;
+        
+        const configEntries = Object.entries(this.treeViewConfig);
+        
+        container.innerHTML = `
+            <div class="tree-view-config">
+                <p class="config-description">
+                    Välj vilket fält som ska visas som "Namn" för varje objektstyp i trädvyn.
+                </p>
+                <form id="tree-view-config-form">
+                    ${configEntries.map(([typeName, typeConfig]) => `
+                        <div class="config-row">
+                            <label class="config-label">${typeName}</label>
+                            <select 
+                                class="form-control config-select" 
+                                data-object-type="${typeName}"
+                                data-object-type-id="${typeConfig.object_type_id}">
+                                <option value="ID" ${!typeConfig.tree_view_name_field || typeConfig.tree_view_name_field === 'ID' ? 'selected' : ''}>
+                                    ID (standard)
+                                </option>
+                                ${typeConfig.available_fields.map(field => `
+                                    <option value="${field.field_name}" ${typeConfig.tree_view_name_field === field.field_name ? 'selected' : ''}>
+                                        ${field.display_name}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        </div>
+                    `).join('')}
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Spara Inställningar</button>
+                    </div>
+                </form>
+            </div>
+        `;
+        
+        // Add form submit handler
+        document.getElementById('tree-view-config-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.saveTreeViewConfig();
+        });
+    }
+    
+    async saveTreeViewConfig() {
+        try {
+            const selects = document.querySelectorAll('.config-select');
+            const config = {};
+            
+            selects.forEach(select => {
+                const typeName = select.dataset.objectType;
+                const typeId = parseInt(select.dataset.objectTypeId);
+                const fieldName = select.value;
+                
+                // Validate typeId is a valid number
+                if (isNaN(typeId) || typeId <= 0) {
+                    console.error(`Invalid object type ID for ${typeName}: ${typeId}`);
+                    return;
+                }
+                
+                config[typeName] = {
+                    object_type_id: typeId,
+                    tree_view_name_field: fieldName === 'ID' ? null : fieldName
+                };
+            });
+            
+            const response = await fetch('/api/view-config/tree-display', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to save config');
+            }
+            
+            showToast('Trädvy-inställningar sparade', 'success');
+            
+            // Refresh tree view if it's active
+            if (window.treeViewInstance) {
+                await window.treeViewInstance.render();
+            }
+        } catch (error) {
+            console.error('Failed to save tree view config:', error);
+            showToast(error.message || 'Kunde inte spara inställningar', 'error');
         }
     }
 }
