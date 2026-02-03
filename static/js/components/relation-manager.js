@@ -88,7 +88,7 @@ class RelationManagerComponent {
                         Visa
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" 
-                            title="Ta bort relation" aria-label="Ta bort relation">
+                            aria-label="Ta bort relation med ${escapeHtml(displayName)}">
                         🗑️ Ta bort
                     </button>
                 </div>
