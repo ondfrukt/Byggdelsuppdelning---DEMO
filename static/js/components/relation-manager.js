@@ -87,8 +87,9 @@ class RelationManagerComponent {
                     <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${targetObject.id})">
                         Visa
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})">
-                        Ta bort
+                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" 
+                            aria-label="Ta bort relation med ${escapeHtml(displayName)}">
+                        🗑️ Ta bort
                     </button>
                 </div>
             </div>
@@ -111,6 +112,38 @@ class RelationManagerComponent {
     
     async refresh() {
         await this.loadRelations();
+    }
+}
+
+// Helper function to refresh all views after relation changes
+async function refreshAllViews() {
+    // Refresh relations if component exists
+    try {
+        const relationManager = window.currentRelationManager;
+        if (relationManager) {
+            await relationManager.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to refresh relation manager:', error);
+    }
+    
+    // Refresh tree view if it's active
+    try {
+        if (window.treeViewInstance && window.treeViewActive) {
+            await window.treeViewInstance.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to refresh tree view:', error);
+    }
+    
+    // Refresh detail view if it's showing
+    try {
+        if (window.currentObjectDetailComponent) {
+            // Just refresh the relations, not the whole detail view
+            await window.currentObjectDetailComponent.loadRelations();
+        }
+    } catch (error) {
+        console.error('Failed to refresh detail view relations:', error);
     }
 }
 
@@ -177,11 +210,8 @@ async function saveRelation(event) {
         showToast('Relation skapad', 'success');
         closeModal();
         
-        // Refresh relations if component exists
-        const relationManager = window.currentRelationManager;
-        if (relationManager) {
-            await relationManager.refresh();
-        }
+        // Refresh all relevant views
+        await refreshAllViews();
     } catch (error) {
         console.error('Failed to create relation:', error);
         showToast(error.message || 'Kunde inte skapa relation', 'error');
@@ -190,7 +220,7 @@ async function saveRelation(event) {
 
 // Global function to delete relation
 async function deleteRelation(objectId, relationId) {
-    if (!confirm('Är du säker på att du vill ta bort denna relation?')) {
+    if (!confirm('Are you sure you want to remove this relationship?')) {
         return;
     }
     
@@ -198,11 +228,8 @@ async function deleteRelation(objectId, relationId) {
         await ObjectsAPI.deleteRelation(objectId, relationId);
         showToast('Relation borttagen', 'success');
         
-        // Refresh relations if component exists
-        const relationManager = window.currentRelationManager;
-        if (relationManager) {
-            await relationManager.refresh();
-        }
+        // Refresh all relevant views
+        await refreshAllViews();
     } catch (error) {
         console.error('Failed to delete relation:', error);
         showToast(error.message || 'Kunde inte ta bort relation', 'error');

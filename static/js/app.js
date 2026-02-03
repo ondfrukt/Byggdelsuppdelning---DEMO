@@ -7,6 +7,10 @@ let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
 
+// Initialize global window properties for cross-component access
+window.treeViewActive = false;
+window.treeViewInstance = null;
+
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -118,6 +122,7 @@ let treeViewInstance = null;
 
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;
+    window.treeViewActive = treeViewActive; // Update global reference
     
     const objectsContainer = document.getElementById('objects-container');
     const treeContainer = document.getElementById('tree-container');
@@ -129,6 +134,7 @@ async function toggleTreeView() {
         // Initialize tree view if not already done
         if (!treeViewInstance) {
             treeViewInstance = new TreeView('tree-view-container');
+            window.treeViewInstance = treeViewInstance; // Update global reference
             window.sidePanelInstance = new SidePanel('side-panel-container');
             
             // Set up click handler
