@@ -116,8 +116,13 @@ async function loadObjectsView() {
 let treeViewActive = false;
 let treeViewInstance = null;
 
+// Expose to global scope for access from other components
+window.treeViewActive = treeViewActive;
+window.treeViewInstance = treeViewInstance;
+
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;
+    window.treeViewActive = treeViewActive; // Update global reference
     
     const objectsContainer = document.getElementById('objects-container');
     const treeContainer = document.getElementById('tree-container');
@@ -129,6 +134,7 @@ async function toggleTreeView() {
         // Initialize tree view if not already done
         if (!treeViewInstance) {
             treeViewInstance = new TreeView('tree-view-container');
+            window.treeViewInstance = treeViewInstance; // Update global reference
             window.sidePanelInstance = new SidePanel('side-panel-container');
             
             // Set up click handler

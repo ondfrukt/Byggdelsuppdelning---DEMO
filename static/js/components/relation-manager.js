@@ -87,8 +87,8 @@ class RelationManagerComponent {
                     <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${targetObject.id})">
                         Visa
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})">
-                        Ta bort
+                    <button class="btn btn-sm btn-danger" onclick="deleteRelation(${this.objectId}, ${relation.id})" title="Remove relation">
+                        🗑️ Ta bort
                     </button>
                 </div>
             </div>
@@ -182,6 +182,17 @@ async function saveRelation(event) {
         if (relationManager) {
             await relationManager.refresh();
         }
+        
+        // Refresh tree view if it's active
+        if (window.treeViewInstance && window.treeViewActive) {
+            await window.treeViewInstance.refresh();
+        }
+        
+        // Refresh detail view if it's showing
+        if (window.currentObjectDetailComponent) {
+            // Just refresh the relations, not the whole detail view
+            await window.currentObjectDetailComponent.loadRelations();
+        }
     } catch (error) {
         console.error('Failed to create relation:', error);
         showToast(error.message || 'Kunde inte skapa relation', 'error');
@@ -190,7 +201,7 @@ async function saveRelation(event) {
 
 // Global function to delete relation
 async function deleteRelation(objectId, relationId) {
-    if (!confirm('Är du säker på att du vill ta bort denna relation?')) {
+    if (!confirm('Are you sure you want to remove this relationship?')) {
         return;
     }
     
@@ -202,6 +213,17 @@ async function deleteRelation(objectId, relationId) {
         const relationManager = window.currentRelationManager;
         if (relationManager) {
             await relationManager.refresh();
+        }
+        
+        // Refresh tree view if it's active
+        if (window.treeViewInstance && window.treeViewActive) {
+            await window.treeViewInstance.refresh();
+        }
+        
+        // Refresh detail view if it's showing
+        if (window.currentObjectDetailComponent) {
+            // Just refresh the relations, not the whole detail view
+            await window.currentObjectDetailComponent.loadRelations();
         }
     } catch (error) {
         console.error('Failed to delete relation:', error);
