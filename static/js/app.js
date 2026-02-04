@@ -5,7 +5,6 @@
 // Constants
 const PANEL_ANIMATION_DELAY = 50; // Delay in ms before adjusting wrapper when opening detail panel
 
-let currentView = 'dashboard';
 let currentView = 'objects';
 let currentObjectId = null;
 let currentObjectListComponent = null;
