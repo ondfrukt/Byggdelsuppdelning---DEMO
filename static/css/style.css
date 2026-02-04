@@ -1540,7 +1540,7 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: var(--table-header-height); /* Below the header row */
+    top: calc(4px + 8px + 12px + 8px + 4px); /* padding + font-size + line-height */
     background-color: var(--bg-secondary);
     z-index: 9;
     padding: var(--spacing-xs) var(--spacing-sm);
