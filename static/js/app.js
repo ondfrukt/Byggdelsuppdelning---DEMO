@@ -6,6 +6,7 @@
 const PANEL_ANIMATION_DELAY = 50; // Delay in ms before adjusting wrapper when opening detail panel
 
 let currentView = 'dashboard';
+let currentView = 'objects';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     initializeNavigation();
-    await loadDashboard();
+    await loadObjectsView();
 });
 
 // Initialize navigation
@@ -56,62 +57,12 @@ async function switchView(viewName) {
     showView(`${viewName}-view`);
     
     switch (viewName) {
-        case 'dashboard':
-            await loadDashboard();
-            break;
         case 'objects':
             await loadObjectsView();
             break;
         case 'admin':
             await loadAdminView();
             break;
-    }
-}
-
-// Load dashboard with object type stats
-async function loadDashboard() {
-    try {
-        const stats = await getStats();
-        const objectTypes = await ObjectTypesAPI.getAll();
-        
-        const statsContainer = document.getElementById('stats-grid');
-        if (statsContainer) {
-            // Create stat cards for each object type
-            statsContainer.innerHTML = objectTypes.map(type => {
-                const count = stats.objects_by_type?.[type.name] || 0;
-                const color = getObjectTypeColor(type.name);
-                return `
-                    <div class="stat-card" style="border-top: 4px solid ${color}">
-                        <h3>${count}</h3>
-                        <p>${type.name}</p>
-                    </div>
-                `;
-            }).join('');
-        }
-        
-        // Show recent objects
-        const recentContainer = document.getElementById('recent-objects');
-        if (recentContainer && stats.recent_objects) {
-            recentContainer.innerHTML = stats.recent_objects.map(obj => {
-                const displayName = obj.data?.namn || obj.data?.name || obj.auto_id;
-                const color = getObjectTypeColor(obj.object_type?.name);
-                return `
-                    <div class="recent-item" onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
-                        <div>
-                            <strong>${displayName}</strong>
-                            <br>
-                            <small>${obj.auto_id} • ${obj.object_type?.name}</small>
-                        </div>
-                        <span class="object-type-badge" style="background-color: ${color}">
-                            ${obj.object_type?.name}
-                        </span>
-                    </div>
-                `;
-            }).join('');
-        }
-    } catch (error) {
-        console.error('Failed to load dashboard:', error);
-        showToast('Kunde inte ladda dashboard', 'error');
     }
 }
 

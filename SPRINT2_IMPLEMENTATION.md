@@ -12,9 +12,9 @@ Sprint 2 fokuserade på kritiska bugfixar och nya features för att förbättra 
 **Filer ändrade:**
 - `routes/__init__.py` - Importerat och registrerat stats_bp
 
-### Bug 2: Dashboard visar 0 för alla objektstyper ✅
-**Status:** Ingen ändring krävdes - endpoint var redan korrekt implementerad  
-**Verifiering:** `routes/stats.py` innehåller korrekt SQLAlchemy query för att räkna objekt per typ
+### Bug 2: Dashboard visar 0 för alla objektstyper ✅ (DEPRECATED)
+**Status:** Dashboard-vyn har tagits bort från systemet  
+**Note:** Stats-endpoint (`routes/stats.py`) finns kvar för eventuell framtida användning
 
 ### Bug 3: ID-prefix sparas inte i Admin ✅
 **Problem:** Ingen möjlighet att ange och spara anpassade ID-prefix för objekttyper  
