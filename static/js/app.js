@@ -15,6 +15,14 @@ let detailPanelTimeout = null;
 window.treeViewActive = false;
 window.treeViewInstance = null;
 
+// Clear any pending detail panel animation timeout
+function clearDetailPanelTimeout() {
+    if (detailPanelTimeout) {
+        clearTimeout(detailPanelTimeout);
+        detailPanelTimeout = null;
+    }
+}
+
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -187,10 +195,7 @@ async function openDetailPanel(objectId) {
     if (!panel || !panelBody) return;
     
     // Clear any pending timeout from previous openings
-    if (detailPanelTimeout) {
-        clearTimeout(detailPanelTimeout);
-        detailPanelTimeout = null;
-    }
+    clearDetailPanelTimeout();
     
     try {
         // Show panel first
@@ -198,13 +203,9 @@ async function openDetailPanel(objectId) {
         
         // Add class to wrapper to shrink it after a small delay
         detailPanelTimeout = setTimeout(() => {
-            // Re-query elements to ensure current DOM state
-            const currentPanel = document.getElementById('detail-panel');
-            const currentWrapper = document.getElementById('objects-container-wrapper');
-            
             // Only add class if panel is still active
-            if (currentWrapper && currentPanel && currentPanel.classList.contains('active')) {
-                currentWrapper.classList.add('panel-open');
+            if (wrapper && panel.classList.contains('active')) {
+                wrapper.classList.add('panel-open');
             }
         }, PANEL_ANIMATION_DELAY);
         
@@ -245,10 +246,7 @@ function closeDetailPanel() {
     const wrapper = document.getElementById('objects-container-wrapper');
     
     // Clear any pending timeout to prevent race condition
-    if (detailPanelTimeout) {
-        clearTimeout(detailPanelTimeout);
-        detailPanelTimeout = null;
-    }
+    clearDetailPanelTimeout();
     
     if (panel) panel.classList.remove('active');
     if (wrapper) wrapper.classList.remove('panel-open');
