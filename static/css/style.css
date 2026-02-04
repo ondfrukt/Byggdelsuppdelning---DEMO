@@ -146,10 +146,7 @@ body {
     font-weight: 700;
 }
 
-/* Object Management Styles */
-    color: white;
-}
-
+/* Status Badge Styles */
 .status-badge.under-utveckling {
     background-color: var(--status-utveckling);
     color: white;
