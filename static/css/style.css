@@ -1424,3 +1424,28 @@ body {
 .search-container {
     margin-bottom: var(--spacing-sm);
 }
+
+/* Bulk Edit Toolbar */
+.bulk-edit-toolbar {
+    display: none;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--info-color);
+    color: white;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.bulk-edit-toolbar span {
+    font-weight: 600;
+    margin-right: auto;
+}
+
+.data-table tbody tr.selected-row {
+    background-color: #e3f2fd;
+}
+
+.data-table tbody tr.selected-row:hover {
+    background-color: #bbdefb;
+}

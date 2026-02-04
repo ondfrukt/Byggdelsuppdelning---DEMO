@@ -247,6 +247,27 @@
         </div>
     </div>
 
+    <!-- Bulk Edit Modal -->
+    <div id="bulk-edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="bulk-edit-modal-title">Redigera flera objekt</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="bulk-edit-form" onsubmit="saveBulkEdit(event)">
+                <div id="bulk-edit-form-container"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Spara ändringar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Loading Spinner -->
     <div id="loading-spinner" class="loading-spinner" style="display: none;">
         <div class="spinner"></div>

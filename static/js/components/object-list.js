@@ -15,6 +15,7 @@ class ObjectListComponent {
         this.tableSortInstance = null;
         this.viewConfig = null;
         this.columnSearches = {}; // Store search terms per column
+        this.selectedRows = new Set(); // Track selected row IDs
     }
     
     async render() {
@@ -35,6 +36,15 @@ class ObjectListComponent {
                     ` : ''}
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
                         ⚙️ Kolumner
+                    </button>
+                </div>
+                <div id="bulk-edit-toolbar-${this.containerId}" class="bulk-edit-toolbar" style="display: none;">
+                    <span id="bulk-selected-count-${this.containerId}">0 valda</span>
+                    <button class="btn btn-primary btn-sm" id="bulk-edit-btn-${this.containerId}">
+                        Redigera valda
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="bulk-clear-btn-${this.containerId}">
+                        Rensa urval
                     </button>
                 </div>
                 <div id="column-config-panel-${this.containerId}" class="column-config-panel" style="display: none;">
@@ -88,6 +98,22 @@ class ObjectListComponent {
         if (columnConfigBtn) {
             columnConfigBtn.addEventListener('click', () => {
                 this.toggleColumnConfig();
+            });
+        }
+        
+        // Bulk edit button
+        const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
+        if (bulkEditBtn) {
+            bulkEditBtn.addEventListener('click', () => {
+                this.showBulkEditModal();
+            });
+        }
+        
+        // Bulk clear button
+        const bulkClearBtn = document.getElementById(`bulk-clear-btn-${this.containerId}`);
+        if (bulkClearBtn) {
+            bulkClearBtn.addEventListener('click', () => {
+                this.clearSelection();
             });
         }
     }
@@ -163,7 +189,10 @@ class ObjectListComponent {
         const colCount = columns.length;
         
         // Render headers with sortable attributes and column search
-        thead.innerHTML = columns.map(col => {
+        // Add checkbox column first
+        thead.innerHTML = `<th style="width: 40px;">
+            <input type="checkbox" id="select-all-${this.containerId}" title="Välj alla">
+        </th>` + columns.map(col => {
             const width = this.getColumnWidth(col.field_name);
             const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
             return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column">
@@ -171,8 +200,8 @@ class ObjectListComponent {
             </th>`;
         }).join('');
         
-        // Render search row
-        searchRow.innerHTML = columns.map(col => {
+        // Render search row with empty cell for checkbox column
+        searchRow.innerHTML = '<th></th>' + columns.map(col => {
             return `<th>
                 <input type="text" 
                        class="column-search-input" 
@@ -181,6 +210,14 @@ class ObjectListComponent {
                        value="${this.columnSearches[col.field_name] || ''}">
             </th>`;
         }).join('');
+        
+        // Attach select-all checkbox listener
+        const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                this.toggleSelectAll(e.target.checked);
+            });
+        }
         
         // Attach column search listeners
         searchRow.querySelectorAll('.column-search-input').forEach(input => {
@@ -225,15 +262,32 @@ class ObjectListComponent {
         }
         
         // Render rows with data-value attributes for sorting
-        tbody.innerHTML = filteredObjects.map(obj => `
-            <tr onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
+        tbody.innerHTML = filteredObjects.map(obj => {
+            const isSelected = this.selectedRows.has(obj.id);
+            return `
+            <tr class="${isSelected ? 'selected-row' : ''}" data-object-id="${obj.id}">
+                <td onclick="event.stopPropagation()">
+                    <input type="checkbox" 
+                           class="row-select-checkbox" 
+                           data-object-id="${obj.id}"
+                           ${isSelected ? 'checked' : ''}>
+                </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
                     const displayValue = this.formatColumnValue(obj, col.field_name, value);
-                    return `<td data-value="${value}">${displayValue}</td>`;
+                    return `<td data-value="${value}" onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">${displayValue}</td>`;
                 }).join('')}
             </tr>
-        `).join('');
+        `;
+        }).join('');
+        
+        // Attach row checkbox listeners
+        tbody.querySelectorAll('.row-select-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const objectId = parseInt(e.target.getAttribute('data-object-id'));
+                this.toggleRowSelection(objectId, e.target.checked);
+            });
+        });
         
         // Initialize table sorting after rendering
         const table = tbody.closest('table');
@@ -412,6 +466,68 @@ class ObjectListComponent {
         
         this.viewConfig.visible_columns = visible_columns;
         this.renderObjects();
+    }
+    
+    toggleRowSelection(objectId, selected) {
+        if (selected) {
+            this.selectedRows.add(objectId);
+        } else {
+            this.selectedRows.delete(objectId);
+        }
+        this.updateBulkEditToolbar();
+    }
+    
+    toggleSelectAll(selectAll) {
+        const tbody = document.getElementById(`table-body-${this.containerId}`);
+        const checkboxes = tbody.querySelectorAll('.row-select-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            const objectId = parseInt(checkbox.getAttribute('data-object-id'));
+            if (selectAll) {
+                this.selectedRows.add(objectId);
+                checkbox.checked = true;
+            } else {
+                this.selectedRows.delete(objectId);
+                checkbox.checked = false;
+            }
+        });
+        
+        this.updateBulkEditToolbar();
+    }
+    
+    clearSelection() {
+        this.selectedRows.clear();
+        const tbody = document.getElementById(`table-body-${this.containerId}`);
+        const checkboxes = tbody.querySelectorAll('.row-select-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        
+        const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
+        if (selectAllCheckbox) {
+            selectAllCheckbox.checked = false;
+        }
+        
+        this.updateBulkEditToolbar();
+    }
+    
+    updateBulkEditToolbar() {
+        const toolbar = document.getElementById(`bulk-edit-toolbar-${this.containerId}`);
+        const countSpan = document.getElementById(`bulk-selected-count-${this.containerId}`);
+        
+        if (toolbar && countSpan) {
+            const count = this.selectedRows.size;
+            countSpan.textContent = `${count} valda`;
+            toolbar.style.display = count > 0 ? 'flex' : 'none';
+        }
+    }
+    
+    showBulkEditModal() {
+        if (this.selectedRows.size === 0) {
+            showToast('Välj minst ett objekt', 'error');
+            return;
+        }
+        
+        // Create and show bulk edit modal
+        window.showBulkEditModal(Array.from(this.selectedRows));
     }
     
     async refresh() {

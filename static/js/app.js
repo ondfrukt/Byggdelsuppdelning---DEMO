@@ -339,6 +339,138 @@ async function deleteObject(objectId) {
     }
 }
 
+// Show bulk edit modal
+async function showBulkEditModal(objectIds) {
+    const modal = document.getElementById('bulk-edit-modal');
+    const overlay = document.getElementById('modal-overlay');
+    const formContainer = document.getElementById('bulk-edit-form-container');
+    const title = document.getElementById('bulk-edit-modal-title');
+    
+    if (!modal || !overlay || !formContainer) return;
+    
+    // Update title
+    title.textContent = `Redigera ${objectIds.length} objekt`;
+    
+    // Get common fields that can be edited
+    try {
+        // Load objects to determine common object type
+        const objects = await Promise.all(objectIds.map(id => ObjectsAPI.getById(id)));
+        
+        // Check if all objects are of the same type
+        const firstType = objects[0].object_type;
+        const sameType = objects.every(obj => obj.object_type?.id === firstType?.id);
+        
+        if (!sameType) {
+            formContainer.innerHTML = `
+                <div class="form-group">
+                    <p class="text-warning">Valda objekt är av olika typer. Endast gemensamma fält kan redigeras.</p>
+                </div>
+            `;
+        } else {
+            // Load type fields
+            const typeData = await ObjectTypesAPI.getById(firstType.id);
+            
+            formContainer.innerHTML = `
+                <div class="form-group">
+                    <p>Redigerar ${objectIds.length} objekt av typen <strong>${firstType.name}</strong></p>
+                    <p><em>Endast de fält du fyller i kommer att uppdateras. Tomma fält kommer inte att ändras.</em></p>
+                </div>
+                ${typeData.fields.map(field => {
+                    return `
+                        <div class="form-group">
+                            <label for="bulk-${field.field_name}">
+                                ${field.display_name || field.field_name}
+                            </label>
+                            ${renderFormField(field, null, 'bulk-')}
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+        
+        // Store object IDs for form submission
+        modal.dataset.objectIds = JSON.stringify(objectIds);
+        
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+    } catch (error) {
+        console.error('Failed to load objects for bulk edit:', error);
+        showToast('Kunde inte ladda objekt för redigering', 'error');
+    }
+}
+
+// Helper function to render form fields
+function renderFormField(field, value = null, prefix = '') {
+    const fieldId = prefix + field.field_name;
+    const val = value || '';
+    
+    switch (field.field_type) {
+        case 'textarea':
+            return `<textarea id="${fieldId}" class="form-control" rows="3">${val}</textarea>`;
+        case 'number':
+            return `<input type="number" id="${fieldId}" class="form-control" value="${val}">`;
+        case 'date':
+            return `<input type="date" id="${fieldId}" class="form-control" value="${val}">`;
+        case 'boolean':
+            return `<select id="${fieldId}" class="form-control">
+                <option value="">-- Ändra inte --</option>
+                <option value="true" ${val === true ? 'selected' : ''}>Ja</option>
+                <option value="false" ${val === false ? 'selected' : ''}>Nej</option>
+            </select>`;
+        default:
+            return `<input type="text" id="${fieldId}" class="form-control" value="${val}">`;
+    }
+}
+
+// Save bulk edit
+async function saveBulkEdit(event) {
+    event.preventDefault();
+    
+    const modal = document.getElementById('bulk-edit-modal');
+    const objectIds = JSON.parse(modal.dataset.objectIds || '[]');
+    
+    if (objectIds.length === 0) return;
+    
+    // Get first object to determine type and fields
+    try {
+        const firstObject = await ObjectsAPI.getById(objectIds[0]);
+        const typeData = await ObjectTypesAPI.getById(firstObject.object_type.id);
+        
+        // Collect only non-empty form values
+        const updates = {};
+        typeData.fields.forEach(field => {
+            const fieldId = 'bulk-' + field.field_name;
+            const element = document.getElementById(fieldId);
+            if (element && element.value !== '') {
+                updates[field.field_name] = element.value;
+            }
+        });
+        
+        if (Object.keys(updates).length === 0) {
+            showToast('Inga ändringar att spara', 'warning');
+            return;
+        }
+        
+        // Update all objects
+        const promises = objectIds.map(id => 
+            ObjectsAPI.update(id, { data: updates })
+        );
+        
+        await Promise.all(promises);
+        
+        showToast(`${objectIds.length} objekt uppdaterade`, 'success');
+        closeModal();
+        
+        // Refresh current view
+        if (currentObjectListComponent) {
+            await currentObjectListComponent.refresh();
+        }
+    } catch (error) {
+        console.error('Failed to bulk update objects:', error);
+        showToast(error.message || 'Kunde inte uppdatera objekt', 'error');
+    }
+}
+
 // Go back to previous view
 function goBack() {
     switchView('objects');
