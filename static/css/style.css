@@ -1553,6 +1553,50 @@ body {
     bottom: 0;
 }
 
+/* Detail panel specific styles for relations */
+.detail-panel .relation-manager .view-header {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-panel .relation-manager .view-header h3 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.detail-panel .relations-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.detail-panel .relations-section h4 {
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.detail-panel .relation-item {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.85rem;
+}
+
+.detail-panel .relation-info strong {
+    font-size: 0.9rem;
+}
+
+.detail-panel .relation-info small {
+    font-size: 0.75rem;
+}
+
+.detail-panel .relation-actions {
+    gap: var(--spacing-xs);
+}
+
+.detail-panel .relation-actions .btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+}
+
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
@@ -1617,4 +1661,39 @@ body {
 .document-info,
 .empty-state {
     font-size: 12px;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1200px) {
+    .object-list-wrapper.panel-open {
+        flex: 0 1 60%;
+    }
+    
+    .detail-panel {
+        flex: 0 0 40%;
+        min-width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .object-list-layout {
+        flex-direction: column;
+    }
+    
+    .object-list-wrapper.panel-open {
+        flex: 1;
+    }
+    
+    .detail-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        flex: none;
+        width: 90%;
+        max-width: 400px;
+        height: 100vh;
+        z-index: 999;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    }
 }
