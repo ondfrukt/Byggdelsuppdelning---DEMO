@@ -183,13 +183,15 @@ async function openDetailPanel(objectId) {
     if (!panel || !panelBody) return;
     
     try {
-        // Add class to wrapper to shrink it
-        if (wrapper) {
-            wrapper.classList.add('panel-open');
-        }
-        
-        // Show panel
+        // Show panel first
         panel.classList.add('active');
+        
+        // Add class to wrapper to shrink it after a small delay
+        setTimeout(() => {
+            if (wrapper) {
+                wrapper.classList.add('panel-open');
+            }
+        }, 50);
         
         // Load object data
         const object = await ObjectsAPI.getById(objectId);
