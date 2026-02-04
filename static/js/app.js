@@ -2,14 +2,27 @@
  * Main Application - Object-based Byggdelssystem
  */
 
+// Constants
+const PANEL_ANIMATION_DELAY = 50; // Delay in ms before adjusting wrapper when opening detail panel
+
+let currentView = 'dashboard';
 let currentView = 'objects';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
+let detailPanelTimeout = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
 window.treeViewInstance = null;
+
+// Clear any pending detail panel animation timeout
+function clearDetailPanelTimeout() {
+    if (detailPanelTimeout) {
+        clearTimeout(detailPanelTimeout);
+        detailPanelTimeout = null;
+    }
+}
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -132,14 +145,20 @@ async function openDetailPanel(objectId) {
     
     if (!panel || !panelBody) return;
     
+    // Clear any pending timeout from previous openings
+    clearDetailPanelTimeout();
+    
     try {
-        // Add class to wrapper to shrink it
-        if (wrapper) {
-            wrapper.classList.add('panel-open');
-        }
-        
-        // Show panel
+        // Show panel first
         panel.classList.add('active');
+        
+        // Add class to wrapper to shrink it after a small delay
+        detailPanelTimeout = setTimeout(() => {
+            // Only add class if panel is still active
+            if (wrapper && panel.classList.contains('active')) {
+                wrapper.classList.add('panel-open');
+            }
+        }, PANEL_ANIMATION_DELAY);
         
         // Load object data
         const object = await ObjectsAPI.getById(objectId);
@@ -176,6 +195,9 @@ async function openDetailPanel(objectId) {
 function closeDetailPanel() {
     const panel = document.getElementById('detail-panel');
     const wrapper = document.getElementById('objects-container-wrapper');
+    
+    // Clear any pending timeout to prevent race condition
+    clearDetailPanelTimeout();
     
     if (panel) panel.classList.remove('active');
     if (wrapper) wrapper.classList.remove('panel-open');
