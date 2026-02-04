@@ -1540,11 +1540,15 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: calc(4px + 8px + 12px + 8px + 4px); /* padding + font-size + line-height */
+    top: calc(4px + 8px + 12px + 8px + 4px); /* Calculate header height: top+left padding + font-size + line height + bottom+right padding */
     background-color: var(--bg-secondary);
     z-index: 9;
     padding: var(--spacing-xs) var(--spacing-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    /* Vertikal centrering */
+    vertical-align: middle;
+    display: flex;
+    align-items: center;
 }
 
 .column-search-input {
@@ -1553,6 +1557,7 @@ body {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     font-size: 12px;
+    flex: 1; /* För att fungera med flexbox i parent */
 }
 
 /* Icon buttons for table actions */
