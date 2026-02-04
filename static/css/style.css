@@ -112,10 +112,9 @@ body {
     padding: 0 var(--spacing-lg);
 }
 
-/* Objects view container - left aligned, no max-width */
-#objects-view .container {
+/* Objects view - full width and left aligned */
+#objects-view {
     max-width: none;
-    margin: 0;
     padding-left: var(--spacing-lg);
     padding-right: var(--spacing-lg);
 }
