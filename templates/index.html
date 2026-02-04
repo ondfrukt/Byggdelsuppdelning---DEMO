@@ -13,8 +13,7 @@
         <div class="container">
             <h1 class="logo">Byggdelssystem</h1>
             <nav class="nav">
-                <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-                <button class="nav-btn" data-view="objects">Objekt</button>
+                <button class="nav-btn active" data-view="objects">Objekt</button>
                 <button class="nav-btn" data-view="admin">Admin</button>
             </nav>
         </div>
@@ -23,19 +22,6 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="container">
-            <!-- Dashboard View -->
-            <div id="dashboard-view" class="view active">
-                <h2>Översikt</h2>
-                <div class="stats-grid" id="stats-grid"></div>
-
-                <div class="dashboard-sections">
-                    <section class="dashboard-section">
-                        <h3>Senaste Objekt</h3>
-                        <div id="recent-objects" class="recent-list"></div>
-                    </section>
-                </div>
-            </div>
-
             <!-- Object Detail View -->
             <div id="object-detail-view" class="view">
                 <div id="object-detail-container"></div>
@@ -48,7 +34,7 @@
         </div>
 
         <!-- Objects View - full width, outside container -->
-        <div id="objects-view" class="view">
+        <div id="objects-view" class="view active">
             <div class="view-header">
                 <h2>Objekt</h2>
                 <div>
