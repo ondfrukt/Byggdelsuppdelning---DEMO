@@ -240,13 +240,18 @@ body {
     display: flex;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-lg);
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-secondary);
+    z-index: 11;
+    padding: var(--spacing-md) 0;
 }
 
 .search-input, .filter-select {
     padding: var(--spacing-sm) var(--spacing-md);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    font-size: 1rem;
+    font-size: 12px;
 }
 
 .search-input {
@@ -1399,7 +1404,6 @@ body {
     right: -20%;
     width: 20%;
     min-width: 300px;
-    max-width: 20vw; /* Max 20% of viewport width */
     height: 100%;
     background-color: var(--bg-primary);
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
@@ -1533,7 +1537,7 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: 48px; /* Below the header row */
+    top: 48px; /* Below the header row - matches header height with padding */
     background-color: var(--bg-secondary);
     z-index: 9;
     padding: 4px 8px;
@@ -1593,12 +1597,4 @@ body {
 .document-info,
 .empty-state {
     font-size: 12px;
-}
-
-/* Keep headers at their standard sizes */
-.detail-panel h2,
-.detail-panel h3,
-.detail-panel h4,
-h1, h2, h3, h4, h5, h6 {
-    /* Headers keep their existing sizes */
 }
