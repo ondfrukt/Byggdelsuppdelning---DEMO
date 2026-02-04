@@ -37,6 +37,8 @@
     
     --detail-panel-header-height: 73px;
     --table-header-height: 48px;
+    --main-header-height: 60px;
+    --main-padding: 60px;
 }
 
 /* Reset and Base Styles */
@@ -1419,7 +1421,7 @@ body {
     flex: 0 0 25%;
     min-width: 350px;
     max-width: 500px;
-    height: calc(100vh - 120px);
+    height: calc(100vh - var(--main-header-height) - var(--main-padding));
     background-color: var(--bg-primary);
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
     overflow-y: auto;
@@ -1600,7 +1602,7 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: 48px; /* Below the header row - matches header height with padding */
+    top: var(--table-header-height); /* Below the header row */
     background-color: var(--bg-secondary);
     z-index: 9;
     padding: 6px 8px;
