@@ -198,9 +198,13 @@ async function openDetailPanel(objectId) {
         
         // Add class to wrapper to shrink it after a small delay
         detailPanelTimeout = setTimeout(() => {
+            // Re-query elements to ensure current DOM state
+            const currentPanel = document.getElementById('detail-panel');
+            const currentWrapper = document.getElementById('objects-container-wrapper');
+            
             // Only add class if panel is still active
-            if (wrapper && panel.classList.contains('active')) {
-                wrapper.classList.add('panel-open');
+            if (currentWrapper && currentPanel && currentPanel.classList.contains('active')) {
+                currentWrapper.classList.add('panel-open');
             }
         }, PANEL_ANIMATION_DELAY);
         
