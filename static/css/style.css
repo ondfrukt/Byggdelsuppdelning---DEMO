@@ -34,6 +34,9 @@
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
     --spacing-2xl: 3rem;
+    
+    --detail-panel-header-height: 73px;
+    --table-header-height: 48px;
 }
 
 /* Reset and Base Styles */
@@ -105,6 +108,14 @@ body {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 var(--spacing-lg);
+}
+
+/* Objects view container - left aligned, no max-width */
+#objects-view .container {
+    max-width: none;
+    margin: 0;
+    padding-left: var(--spacing-lg);
+    padding-right: var(--spacing-lg);
 }
 
 /* Main Content */
@@ -251,12 +262,17 @@ body {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: calc(100vh - 300px);
+    position: relative;
 }
 
 .data-table {
-    width: 100%;
+    width: auto;
+    min-width: 100%;
     border-collapse: collapse;
+    table-layout: auto;
 }
 
 .data-table thead {
@@ -270,11 +286,22 @@ body {
     color: var(--text-secondary);
     font-size: 0.875rem;
     text-transform: uppercase;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    background-color: var(--bg-tertiary);
+    z-index: 10;
+    transition: background-color 0.2s;
+}
+
+.data-table th:hover {
+    background-color: #e2e8f0;
 }
 
 .data-table td {
     padding: var(--spacing-md);
     border-top: 1px solid var(--border-color);
+    white-space: nowrap;
 }
 
 .data-table tbody tr {
@@ -283,7 +310,7 @@ body {
 }
 
 .data-table tbody tr:hover {
-    background-color: var(--bg-secondary);
+    background-color: #e0f2fe;
 }
 
 .data-table .loading {
@@ -1335,4 +1362,178 @@ body {
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     margin-left: var(--spacing-sm);
+}
+
+
+/* Detail Panel Slide-out */
+.detail-panel-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    z-index: 998;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.detail-panel-overlay.active {
+    display: block;
+    opacity: 1;
+}
+
+.detail-panel {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: -40%;
+    width: 40%;
+    min-width: 500px;
+    max-width: 800px;
+    height: 100%;
+    background-color: var(--bg-primary);
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+    z-index: 999;
+    overflow-y: auto;
+    transition: right 0.3s ease;
+}
+
+.detail-panel.active {
+    display: block;
+    right: 0;
+}
+
+.detail-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-lg);
+    border-bottom: 2px solid var(--border-color);
+    background-color: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.detail-panel-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.detail-panel-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+}
+
+.detail-panel-close:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.detail-panel-content {
+    padding: var(--spacing-lg);
+}
+
+.detail-panel .tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    border-bottom: 2px solid var(--border-color);
+    padding: 0 var(--spacing-lg);
+    background-color: var(--bg-primary);
+    position: sticky;
+    top: var(--detail-panel-header-height);
+    z-index: 9;
+}
+
+.detail-panel .tab-btn {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.detail-panel .tab-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-secondary);
+}
+
+.detail-panel .tab-btn.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    font-weight: 600;
+}
+
+.detail-panel .tab-content {
+    display: none;
+    padding: var(--spacing-lg);
+}
+
+.detail-panel .tab-content.active {
+    display: block;
+}
+
+.detail-panel .detail-item {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.detail-panel .detail-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    flex: 0 0 40%;
+}
+
+.detail-panel .detail-value {
+    flex: 1;
+    text-align: right;
+    word-break: break-word;
+}
+
+.detail-panel .action-buttons {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg);
+    border-top: 2px solid var(--border-color);
+    background-color: var(--bg-secondary);
+    position: sticky;
+    bottom: 0;
+}
+
+/* Make sure column search row is sticky too */
+.data-table .column-search-row th {
+    position: sticky;
+    top: var(--table-header-height);
+    background-color: var(--bg-primary);
+    z-index: 9;
+    padding: var(--spacing-sm);
+}
+
+.column-search-input {
+    width: 100%;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
 }

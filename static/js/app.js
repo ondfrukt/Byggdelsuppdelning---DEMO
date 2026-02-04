@@ -159,13 +159,219 @@ async function loadAdminView() {
     }
 }
 
-// View object detail
+// View object detail in side panel
 async function viewObjectDetail(objectId) {
     currentObjectId = objectId;
-    showView('object-detail-view');
     
-    currentObjectDetailComponent = new ObjectDetailComponent('object-detail-container', objectId);
-    await currentObjectDetailComponent.render();
+    // Open detail panel instead of navigating to detail view
+    await openDetailPanel(objectId);
+}
+
+// Open detail panel
+async function openDetailPanel(objectId) {
+    const panel = document.getElementById('detail-panel');
+    const overlay = document.getElementById('detail-panel-overlay');
+    const panelBody = document.getElementById('detail-panel-body');
+    
+    if (!panel || !overlay || !panelBody) return;
+    
+    try {
+        // Show overlay and panel
+        overlay.classList.add('active');
+        panel.classList.add('active');
+        
+        // Load object data
+        const object = await ObjectsAPI.getById(objectId);
+        
+        // Update panel title
+        const panelTitle = document.getElementById('detail-panel-title');
+        if (panelTitle) {
+            const displayName = object.data?.namn || object.data?.name || object.data?.title || object.auto_id;
+            panelTitle.textContent = `${object.auto_id} - ${displayName}`;
+        }
+        
+        // Render object detail content
+        const detailHTML = await renderObjectDetailPanel(object);
+        panelBody.innerHTML = detailHTML;
+        
+        // Attach event listeners for tabs
+        attachDetailPanelTabListeners();
+        
+        // Initialize relation and document managers if needed
+        const activeTab = panelBody.querySelector('.tab-btn.active');
+        if (activeTab && activeTab.dataset.tab === 'relationer') {
+            await loadPanelRelations(objectId);
+        } else if (activeTab && activeTab.dataset.tab === 'dokument') {
+            await loadPanelDocuments(objectId);
+        }
+    } catch (error) {
+        console.error('Failed to load object detail:', error);
+        showToast('Kunde inte ladda objektdetaljer', 'error');
+        closeDetailPanel();
+    }
+}
+
+// Close detail panel
+function closeDetailPanel() {
+    const panel = document.getElementById('detail-panel');
+    const overlay = document.getElementById('detail-panel-overlay');
+    
+    if (panel) panel.classList.remove('active');
+    if (overlay) overlay.classList.remove('active');
+}
+
+// Render object detail panel content
+async function renderObjectDetailPanel(object) {
+    const fields = [];
+    
+    // Basic info
+    fields.push(`
+        <div class="detail-item">
+            <span class="detail-label">ID</span>
+            <span class="detail-value"><strong>${object.auto_id}</strong></span>
+        </div>
+    `);
+    
+    fields.push(`
+        <div class="detail-item">
+            <span class="detail-label">Typ</span>
+            <span class="detail-value">
+                <span class="object-type-badge" style="background-color: ${getObjectTypeColor(object.object_type?.name)}">
+                    ${object.object_type?.name || 'N/A'}
+                </span>
+            </span>
+        </div>
+    `);
+    
+    fields.push(`
+        <div class="detail-item">
+            <span class="detail-label">Skapad</span>
+            <span class="detail-value">${formatDate(object.created_at)}</span>
+        </div>
+    `);
+    
+    // Object data fields
+    if (object.data && object.object_type) {
+        for (const [key, value] of Object.entries(object.data)) {
+            // Find field definition
+            const field = object.object_type.fields?.find(f => f.field_name === key);
+            const label = field?.display_name || key;
+            
+            fields.push(`
+                <div class="detail-item">
+                    <span class="detail-label">${label}</span>
+                    <span class="detail-value">${formatFieldValue(value, field?.field_type)}</span>
+                </div>
+            `);
+        }
+    }
+    
+    return `
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="grunddata">Grunddata</button>
+            <button class="tab-btn" data-tab="relationer">Relationer</button>
+            <button class="tab-btn" data-tab="dokument">Dokument</button>
+        </div>
+        
+        <div id="panel-tab-grunddata" class="tab-content active">
+            ${fields.join('')}
+        </div>
+        
+        <div id="panel-tab-relationer" class="tab-content">
+            <div id="panel-relations-container-${object.id}"></div>
+        </div>
+        
+        <div id="panel-tab-dokument" class="tab-content">
+            <div id="panel-documents-container-${object.id}"></div>
+        </div>
+        
+        <div class="action-buttons">
+            <button class="btn btn-primary" onclick="editObject(${object.id})">
+                Redigera
+            </button>
+            <button class="btn btn-danger" onclick="deleteObject(${object.id})">
+                Ta bort
+            </button>
+        </div>
+    `;
+}
+
+// Attach tab listeners for detail panel
+function attachDetailPanelTabListeners() {
+    const tabBtns = document.querySelectorAll('.detail-panel .tab-btn');
+    
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const tab = btn.dataset.tab;
+            
+            // Update active tab button
+            tabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // Update active tab content
+            const tabContents = document.querySelectorAll('.detail-panel .tab-content');
+            tabContents.forEach(tc => tc.classList.remove('active'));
+            
+            const activeContent = document.getElementById(`panel-tab-${tab}`);
+            if (activeContent) {
+                activeContent.classList.add('active');
+                
+                // Load content if needed
+                if (tab === 'relationer' && currentObjectId) {
+                    await loadPanelRelations(currentObjectId);
+                } else if (tab === 'dokument' && currentObjectId) {
+                    await loadPanelDocuments(currentObjectId);
+                }
+            }
+        });
+    });
+}
+
+// Load relations in detail panel
+async function loadPanelRelations(objectId) {
+    const container = document.getElementById(`panel-relations-container-${objectId}`);
+    if (!container || container.dataset.loaded) return;
+    
+    try {
+        const relationManager = new RelationManager(`panel-relations-container-${objectId}`, objectId);
+        await relationManager.render();
+        container.dataset.loaded = 'true';
+    } catch (error) {
+        console.error('Failed to load relations:', error);
+    }
+}
+
+// Load documents in detail panel
+async function loadPanelDocuments(objectId) {
+    const container = document.getElementById(`panel-documents-container-${objectId}`);
+    if (!container || container.dataset.loaded) return;
+    
+    try {
+        const fileUpload = new FileUploadComponent(`panel-documents-container-${objectId}`, objectId);
+        await fileUpload.render();
+        container.dataset.loaded = 'true';
+    } catch (error) {
+        console.error('Failed to load documents:', error);
+    }
+}
+
+// Format field value based on type
+function formatFieldValue(value, fieldType) {
+    if (value === null || value === undefined || value === '') return '-';
+    
+    switch (fieldType) {
+        case 'boolean':
+            return value ? 'Ja' : 'Nej';
+        case 'date':
+            return formatDate(value);
+        case 'datetime':
+            return formatDate(value);
+        case 'decimal':
+        case 'number':
+            return Number(value).toLocaleString('sv-SE');
+        default:
+            return String(value);
+    }
 }
 
 // Create new object
