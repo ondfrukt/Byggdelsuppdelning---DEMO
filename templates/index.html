@@ -49,14 +49,7 @@
                         </button>
                     </div>
                 </div>
-                <div id="objects-list-container" class="two-column-layout">
-                    <div class="column-left">
-                        <div id="objects-container"></div>
-                    </div>
-                    <div class="column-right">
-                        <div id="objects-side-panel-container"></div>
-                    </div>
-                </div>
+                <div id="objects-container"></div>
                 <div id="tree-container" class="two-column-layout" style="display: none;">
                     <div class="column-left">
                         <div id="tree-view-container"></div>
@@ -65,6 +58,11 @@
                         <div id="side-panel-container"></div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Object Detail View -->
+            <div id="object-detail-view" class="view">
+                <div id="object-detail-container"></div>
             </div>
 
             <!-- Admin View -->
@@ -106,12 +104,18 @@
 
     <!-- Relation Modal -->
     <div id="relation-modal" class="modal">
-        <div class="modal-content large-modal">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Skapa Relation</h3>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
             <form id="relation-form" onsubmit="saveRelation(event)">
+                <div class="form-group">
+                    <label for="relation-target-object">Målobjekt *</label>
+                    <select id="relation-target-object" class="form-control" required>
+                        <option value="">Välj objekt...</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="relation-type">Relationstyp *</label>
                     <select id="relation-type" class="form-control" required>
@@ -124,19 +128,6 @@
                         <option value="specificerar">Specificerar</option>
                         <option value="relaterad_till">Relaterad till</option>
                     </select>
-                </div>
-                <div class="form-group">
-                    <label for="relation-object-type">Objekttyp *</label>
-                    <select id="relation-object-type" class="form-control" required>
-                        <option value="">Välj objekttyp...</option>
-                    </select>
-                </div>
-                <div class="form-group" id="relation-objects-group" style="display: none;">
-                    <label>Välj objekt *</label>
-                    <div class="search-container">
-                        <input type="text" id="relation-objects-search" class="form-control" placeholder="Sök objekt...">
-                    </div>
-                    <div id="relation-objects-list" class="objects-checklist"></div>
                 </div>
                 <div class="form-group">
                     <label for="relation-description">Beskrivning</label>
@@ -241,27 +232,6 @@
                     </button>
                     <button type="submit" class="btn btn-primary">
                         Spara
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Bulk Edit Modal -->
-    <div id="bulk-edit-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="bulk-edit-modal-title">Redigera flera objekt</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
-            </div>
-            <form id="bulk-edit-form" onsubmit="saveBulkEdit(event)">
-                <div id="bulk-edit-form-container"></div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                        Avbryt
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Spara ändringar
                     </button>
                 </div>
             </form>

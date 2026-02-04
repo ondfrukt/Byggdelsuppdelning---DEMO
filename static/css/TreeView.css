@@ -58,7 +58,7 @@
 }
 
 .tree-node.has-children:hover {
-    background-color: var(--hover-bg);
+    background-color: var(--bg-secondary);
 }
 
 .tree-node-selected {
@@ -74,7 +74,7 @@
 }
 
 .tree-node-group:hover {
-    background-color: var(--hover-bg);
+    background-color: var(--bg-tertiary);
 }
 
 /* Compact toggle icons (12-14px) */
@@ -145,8 +145,8 @@
 }
 
 .tree-id-link:hover {
-    background-color: var(--hover-bg);
-    color: var(--hover-color);
+    background-color: var(--bg-tertiary);
+    color: var(--primary-hover);
     text-decoration: underline;
 }
 
