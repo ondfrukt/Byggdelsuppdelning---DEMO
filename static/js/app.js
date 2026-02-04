@@ -189,7 +189,8 @@ async function openDetailPanel(objectId) {
         
         // Add class to wrapper to shrink it after a small delay
         detailPanelTimeout = setTimeout(() => {
-            if (wrapper) {
+            // Only add class if panel is still active
+            if (wrapper && panel.classList.contains('active')) {
                 wrapper.classList.add('panel-open');
             }
         }, 50);
