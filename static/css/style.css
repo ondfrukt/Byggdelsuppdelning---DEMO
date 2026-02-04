@@ -275,16 +275,22 @@ body {
     table-layout: auto;
 }
 
+.data-table th,
+.data-table td {
+    width: auto;
+    min-width: fit-content;
+}
+
 .data-table thead {
     background-color: var(--bg-tertiary);
 }
 
 .data-table th {
-    padding: var(--spacing-md);
+    padding: 4px 8px;
     text-align: left;
     font-weight: 600;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 12px;
     text-transform: uppercase;
     white-space: nowrap;
     position: sticky;
@@ -299,9 +305,10 @@ body {
 }
 
 .data-table td {
-    padding: var(--spacing-md);
+    padding: 4px 8px;
     border-top: 1px solid var(--border-color);
     white-space: nowrap;
+    font-size: 12px;
 }
 
 .data-table tbody tr {
@@ -1365,7 +1372,7 @@ body {
 }
 
 
-/* Detail Panel Slide-out */
+/* Detail Panel Slide-out - max 20% width on desktop */
 .detail-panel-overlay {
     display: none;
     position: fixed;
@@ -1373,10 +1380,11 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: transparent; /* No gray overlay to allow table interaction */
     z-index: 998;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none; /* Allow clicks through to table */
 }
 
 .detail-panel-overlay.active {
@@ -1388,16 +1396,17 @@ body {
     display: none;
     position: fixed;
     top: 0;
-    right: -40%;
-    width: 40%;
-    min-width: 500px;
-    max-width: 800px;
+    right: -20%;
+    width: 20%;
+    min-width: 300px;
+    max-width: 20vw; /* Max 20% of viewport width */
     height: 100%;
     background-color: var(--bg-primary);
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
     z-index: 999;
     overflow-y: auto;
     transition: right 0.3s ease;
+    pointer-events: auto; /* Panel itself is interactive */
 }
 
 .detail-panel.active {
@@ -1524,16 +1533,72 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: var(--table-header-height);
-    background-color: var(--bg-primary);
+    top: 48px; /* Below the header row */
+    background-color: var(--bg-secondary);
     z-index: 9;
-    padding: var(--spacing-sm);
+    padding: 4px 8px;
 }
 
 .column-search-input {
     width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 2px 4px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
+    font-size: 12px;
+}
+
+/* Icon buttons for table actions */
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+}
+
+.icon-btn:hover {
+    color: var(--text-primary);
+    background-color: var(--bg-tertiary);
+}
+
+.icon-btn.edit {
+    color: var(--primary-color);
+}
+
+.icon-btn.edit:hover {
+    background-color: rgba(37, 99, 235, 0.1);
+}
+
+.icon-btn.delete {
+    color: var(--danger-color);
+}
+
+.icon-btn.delete:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Ensure detail panel and other text uses 12px */
+.detail-panel .detail-item,
+.detail-panel .detail-label,
+.detail-panel .detail-value,
+.relation-item,
+.relation-info,
+.document-item,
+.document-info,
+.empty-state {
+    font-size: 12px;
+}
+
+/* Keep headers at their standard sizes */
+.detail-panel h2,
+.detail-panel h3,
+.detail-panel h4,
+h1, h2, h3, h4, h5, h6 {
+    /* Headers keep their existing sizes */
 }
