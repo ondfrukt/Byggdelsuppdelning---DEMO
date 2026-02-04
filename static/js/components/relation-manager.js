@@ -147,6 +147,10 @@ async function refreshAllViews() {
     }
 }
 
+// Store all objects and filtered objects for the relation modal
+let allObjectsForRelation = [];
+let filteredObjectsForRelation = [];
+
 // Global function to show add relation modal
 async function showAddRelationModal(objectId) {
     const modal = document.getElementById('relation-modal');
@@ -157,20 +161,37 @@ async function showAddRelationModal(objectId) {
         return;
     }
     
-    // Load available objects for selection
+    // Reset form
+    document.getElementById('relation-form').reset();
+    document.getElementById('relation-objects-group').style.display = 'none';
+    document.getElementById('relation-objects-list').innerHTML = '';
+    
+    // Load object types
     try {
-        const objects = await ObjectsAPI.getAll();
-        const targetSelect = document.getElementById('relation-target-object');
+        const types = await ObjectTypesAPI.getAll();
+        const typeSelect = document.getElementById('relation-object-type');
         
-        if (targetSelect) {
-            targetSelect.innerHTML = '<option value="">Välj objekt...</option>' +
-                objects
-                    .filter(obj => obj.id !== objectId)
-                    .map(obj => {
-                        const displayName = obj.data?.namn || obj.data?.name || obj.auto_id;
-                        return `<option value="${obj.id}">${displayName} (${obj.object_type?.name})</option>`;
-                    })
-                    .join('');
+        if (typeSelect) {
+            typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
+                types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
+            
+            // Listen for type selection
+            typeSelect.onchange = async () => {
+                const selectedTypeId = parseInt(typeSelect.value);
+                if (selectedTypeId) {
+                    await loadObjectsForRelationType(objectId, selectedTypeId);
+                } else {
+                    document.getElementById('relation-objects-group').style.display = 'none';
+                }
+            };
+        }
+        
+        // Set up search functionality
+        const searchInput = document.getElementById('relation-objects-search');
+        if (searchInput) {
+            searchInput.oninput = () => {
+                filterRelationObjects(searchInput.value);
+            };
         }
         
         // Store objectId for form submission
@@ -179,9 +200,77 @@ async function showAddRelationModal(objectId) {
         modal.style.display = 'block';
         overlay.style.display = 'block';
     } catch (error) {
+        console.error('Failed to load object types:', error);
+        showToast('Kunde inte ladda objekttyper', 'error');
+    }
+}
+
+// Load objects filtered by type
+async function loadObjectsForRelationType(currentObjectId, typeId) {
+    try {
+        const objects = await ObjectsAPI.getAll();
+        
+        // Filter by type and exclude current object
+        allObjectsForRelation = objects.filter(obj => 
+            obj.object_type?.id === typeId && obj.id !== currentObjectId
+        );
+        
+        filteredObjectsForRelation = [...allObjectsForRelation];
+        
+        // Show the objects group
+        document.getElementById('relation-objects-group').style.display = 'block';
+        
+        // Render objects list
+        renderRelationObjectsList();
+    } catch (error) {
         console.error('Failed to load objects:', error);
         showToast('Kunde inte ladda objekt', 'error');
     }
+}
+
+// Filter objects based on search term
+function filterRelationObjects(searchTerm) {
+    const term = searchTerm.toLowerCase();
+    
+    if (!term) {
+        filteredObjectsForRelation = [...allObjectsForRelation];
+    } else {
+        filteredObjectsForRelation = allObjectsForRelation.filter(obj => {
+            const displayName = (obj.data?.namn || obj.data?.name || obj.auto_id || '').toLowerCase();
+            const autoId = (obj.auto_id || '').toLowerCase();
+            return displayName.includes(term) || autoId.includes(term);
+        });
+    }
+    
+    renderRelationObjectsList();
+}
+
+// Render the objects checklist
+function renderRelationObjectsList() {
+    const listContainer = document.getElementById('relation-objects-list');
+    
+    if (!listContainer) return;
+    
+    if (filteredObjectsForRelation.length === 0) {
+        listContainer.innerHTML = '<p class="empty-state">Inga objekt hittades</p>';
+        return;
+    }
+    
+    listContainer.innerHTML = filteredObjectsForRelation.map(obj => {
+        const displayName = obj.data?.namn || obj.data?.name || obj.auto_id;
+        return `
+            <div class="objects-checklist-item">
+                <input type="checkbox" 
+                       id="obj-check-${obj.id}" 
+                       value="${obj.id}" 
+                       name="relation-objects">
+                <label for="obj-check-${obj.id}">
+                    <span class="objects-checklist-item-name">${escapeHtml(displayName)}</span>
+                    <span class="objects-checklist-item-meta">${obj.auto_id}</span>
+                </label>
+            </div>
+        `;
+    }).join('');
 }
 
 // Global function to save relation
@@ -191,30 +280,43 @@ async function saveRelation(event) {
     const modal = document.getElementById('relation-modal');
     const objectId = parseInt(modal.dataset.objectId);
     
-    const targetObjectId = parseInt(document.getElementById('relation-target-object').value);
+    // Get all checked objects
+    const checkedBoxes = document.querySelectorAll('input[name="relation-objects"]:checked');
+    const targetObjectIds = Array.from(checkedBoxes).map(cb => parseInt(cb.value));
+    
     const relationType = document.getElementById('relation-type').value;
     const description = document.getElementById('relation-description').value;
     
-    if (!targetObjectId || !relationType) {
-        showToast('Fyll i alla obligatoriska fält', 'error');
+    if (targetObjectIds.length === 0) {
+        showToast('Välj minst ett objekt', 'error');
+        return;
+    }
+    
+    if (!relationType) {
+        showToast('Välj relationstyp', 'error');
         return;
     }
     
     try {
-        await ObjectsAPI.addRelation(objectId, {
-            target_object_id: targetObjectId,
-            relation_type: relationType,
-            metadata: description ? { description } : {}
-        });
+        // Create relations for all selected objects
+        const promises = targetObjectIds.map(targetObjectId =>
+            ObjectsAPI.addRelation(objectId, {
+                target_object_id: targetObjectId,
+                relation_type: relationType,
+                metadata: description ? { description } : {}
+            })
+        );
         
-        showToast('Relation skapad', 'success');
+        await Promise.all(promises);
+        
+        showToast(`${targetObjectIds.length} relation(er) skapade`, 'success');
         closeModal();
         
         // Refresh all relevant views
         await refreshAllViews();
     } catch (error) {
-        console.error('Failed to create relation:', error);
-        showToast(error.message || 'Kunde inte skapa relation', 'error');
+        console.error('Failed to create relations:', error);
+        showToast(error.message || 'Kunde inte skapa relationer', 'error');
     }
 }
 
