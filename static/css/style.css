@@ -299,11 +299,15 @@ body {
     font-size: 12px;
     text-transform: uppercase;
     white-space: nowrap;
+    background-color: var(--bg-tertiary);
+    transition: background-color 0.2s;
+}
+
+/* Make first row headers sticky at top */
+.data-table thead tr:first-child th {
     position: sticky;
     top: 0;
-    background-color: var(--bg-tertiary);
     z-index: 10;
-    transition: background-color 0.2s;
 }
 
 .data-table th:hover {
