@@ -105,11 +105,16 @@ async function loadDashboard() {
 
 // Load objects view
 async function loadObjectsView() {
-    const container = document.getElementById('objects-container');
-    if (!container) return;
+    const wrapper = document.getElementById('objects-container-wrapper');
+    if (!wrapper) return;
+    
+    // Create container for object list if it doesn't exist
+    if (!document.getElementById('objects-container')) {
+        wrapper.innerHTML = '<div id="objects-container"></div>';
+    }
     
     // Show list view by default
-    document.getElementById('objects-container').style.display = 'block';
+    document.getElementById('objects-container-wrapper').style.display = 'block';
     document.getElementById('tree-container').style.display = 'none';
     
     currentObjectListComponent = new ObjectListComponent('objects-container');
@@ -124,12 +129,14 @@ async function toggleTreeView() {
     treeViewActive = !treeViewActive;
     window.treeViewActive = treeViewActive; // Update global reference
     
-    const objectsContainer = document.getElementById('objects-container');
+    const objectsWrapper = document.getElementById('objects-container-wrapper');
     const treeContainer = document.getElementById('tree-container');
+    const detailPanel = document.getElementById('detail-panel');
     
     if (treeViewActive) {
-        objectsContainer.style.display = 'none';
+        objectsWrapper.style.display = 'none';
         treeContainer.style.display = 'grid';
+        if (detailPanel) detailPanel.style.display = 'none';
         
         // Initialize tree view if not already done
         if (!treeViewInstance) {
@@ -145,7 +152,7 @@ async function toggleTreeView() {
         
         await treeViewInstance.render();
     } else {
-        objectsContainer.style.display = 'block';
+        objectsWrapper.style.display = 'block';
         treeContainer.style.display = 'none';
     }
 }
@@ -170,14 +177,18 @@ async function viewObjectDetail(objectId) {
 // Open detail panel
 async function openDetailPanel(objectId) {
     const panel = document.getElementById('detail-panel');
-    const overlay = document.getElementById('detail-panel-overlay');
+    const wrapper = document.getElementById('objects-container-wrapper');
     const panelBody = document.getElementById('detail-panel-body');
     
-    if (!panel || !overlay || !panelBody) return;
+    if (!panel || !panelBody) return;
     
     try {
-        // Show overlay and panel
-        overlay.classList.add('active');
+        // Add class to wrapper to shrink it
+        if (wrapper) {
+            wrapper.classList.add('panel-open');
+        }
+        
+        // Show panel
         panel.classList.add('active');
         
         // Load object data
@@ -214,10 +225,10 @@ async function openDetailPanel(objectId) {
 // Close detail panel
 function closeDetailPanel() {
     const panel = document.getElementById('detail-panel');
-    const overlay = document.getElementById('detail-panel-overlay');
+    const wrapper = document.getElementById('objects-container-wrapper');
     
     if (panel) panel.classList.remove('active');
-    if (overlay) overlay.classList.remove('active');
+    if (wrapper) wrapper.classList.remove('panel-open');
 }
 
 // Render object detail panel content
@@ -333,7 +344,8 @@ async function loadPanelRelations(objectId) {
     if (!container || container.dataset.loaded) return;
     
     try {
-        const relationManager = new RelationManager(`panel-relations-container-${objectId}`, objectId);
+        const relationManager = new RelationManagerComponent(`panel-relations-container-${objectId}`, objectId);
+        window.currentRelationManager = relationManager;
         await relationManager.render();
         container.dataset.loaded = 'true';
     } catch (error) {

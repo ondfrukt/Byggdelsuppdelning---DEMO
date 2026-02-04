@@ -2,16 +2,33 @@
  * Utility Functions
  */
 
-// Show loading spinner
+// Loading spinner timeout reference
+let loadingTimeout = null;
+
+// Show loading spinner with delay to avoid flash for fast operations
 function showLoading() {
-    const spinner = document.getElementById('loading-spinner');
-    if (spinner) {
-        spinner.style.display = 'flex';
+    // Clear any existing timeout
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
     }
+    
+    // Only show spinner if loading takes more than 300ms
+    loadingTimeout = setTimeout(() => {
+        const spinner = document.getElementById('loading-spinner');
+        if (spinner) {
+            spinner.style.display = 'flex';
+        }
+    }, 300);
 }
 
 // Hide loading spinner
 function hideLoading() {
+    // Clear the timeout so spinner doesn't appear after loading is done
+    if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+        loadingTimeout = null;
+    }
+    
     const spinner = document.getElementById('loading-spinner');
     if (spinner) {
         spinner.style.display = 'none';

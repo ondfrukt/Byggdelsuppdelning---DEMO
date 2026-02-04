@@ -49,7 +49,17 @@
                         </button>
                     </div>
                 </div>
-                <div id="objects-container"></div>
+                <div class="object-list-layout">
+                    <div id="objects-container-wrapper" class="object-list-wrapper"></div>
+                    <!-- Detail Panel -->
+                    <div id="detail-panel" class="detail-panel">
+                        <div class="detail-panel-header">
+                            <h2 id="detail-panel-title">Objektdetaljer</h2>
+                            <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
+                        </div>
+                        <div id="detail-panel-body" class="detail-panel-content"></div>
+                    </div>
+                </div>
                 <div id="tree-container" class="two-column-layout" style="display: none;">
                     <div class="column-left">
                         <div id="tree-view-container"></div>
@@ -245,18 +255,6 @@
 
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
-
-    <!-- Detail Panel Overlay -->
-    <div id="detail-panel-overlay" class="detail-panel-overlay" onclick="closeDetailPanel()"></div>
-    
-    <!-- Detail Panel -->
-    <div id="detail-panel" class="detail-panel">
-        <div class="detail-panel-header">
-            <h2 id="detail-panel-title">Objektdetaljer</h2>
-            <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
-        </div>
-        <div id="detail-panel-body" class="detail-panel-content"></div>
-    </div>
 
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>

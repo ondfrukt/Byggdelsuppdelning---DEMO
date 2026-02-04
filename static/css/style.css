@@ -1377,7 +1377,24 @@ body {
 }
 
 
-/* Detail Panel Slide-out - max 20% width on desktop */
+/* Detail Panel Slide-out - Flexbox layout to push content */
+.object-list-layout {
+    display: flex;
+    gap: 0;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.object-list-wrapper {
+    flex: 1;
+    min-width: 0;
+    transition: all 0.3s ease;
+}
+
+.object-list-wrapper.panel-open {
+    flex: 0 1 75%;
+}
+
 .detail-panel-overlay {
     display: none;
     position: fixed;
@@ -1399,23 +1416,20 @@ body {
 
 .detail-panel {
     display: none;
-    position: fixed;
-    top: 0;
-    right: -20%;
-    width: 20%;
-    min-width: 300px;
-    height: 100%;
+    flex: 0 0 25%;
+    min-width: 350px;
+    max-width: 500px;
+    height: calc(100vh - 120px);
     background-color: var(--bg-primary);
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
-    z-index: 999;
     overflow-y: auto;
-    transition: right 0.3s ease;
-    pointer-events: auto; /* Panel itself is interactive */
+    transition: all 0.3s ease;
+    border-left: 2px solid var(--border-color);
 }
 
 .detail-panel.active {
-    display: block;
-    right: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .detail-panel-header {
@@ -1464,24 +1478,29 @@ body {
 
 .detail-panel .tabs {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: 0;
     border-bottom: 2px solid var(--border-color);
-    padding: 0 var(--spacing-lg);
+    padding: 0 var(--spacing-sm);
     background-color: var(--bg-primary);
     position: sticky;
     top: var(--detail-panel-header-height);
     z-index: 9;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .detail-panel .tab-btn {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
     transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .detail-panel .tab-btn:hover {
@@ -1540,7 +1559,8 @@ body {
     top: 48px; /* Below the header row - matches header height with padding */
     background-color: var(--bg-secondary);
     z-index: 9;
-    padding: 4px 8px;
+    padding: 6px 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .column-search-input {
