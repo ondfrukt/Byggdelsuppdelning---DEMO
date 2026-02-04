@@ -34,6 +34,9 @@
     --spacing-lg: 1.5rem;
     --spacing-xl: 2rem;
     --spacing-2xl: 3rem;
+    
+    --detail-panel-header-height: 73px;
+    --table-header-height: 48px;
 }
 
 /* Reset and Base Styles */
@@ -1453,7 +1456,7 @@ body {
     padding: 0 var(--spacing-lg);
     background-color: var(--bg-primary);
     position: sticky;
-    top: 73px;
+    top: var(--detail-panel-header-height);
     z-index: 9;
 }
 
@@ -1521,7 +1524,7 @@ body {
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: 48px;
+    top: var(--table-header-height);
     background-color: var(--bg-primary);
     z-index: 9;
     padding: var(--spacing-sm);
