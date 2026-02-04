@@ -38,7 +38,7 @@ Successfully transformed a fixed Product Lifecycle Management (PLM) system into 
 - BOM management
 
 **After:**
-- 3 main views: Dashboard, Objects, Admin
+- 2 main views: Objects, Admin
 - Dynamic form generator reading from ObjectFields
 - 6 new component modules:
   - `object-list.js` - Filterable object listing
@@ -89,7 +89,6 @@ Successfully transformed a fixed Product Lifecycle Management (PLM) system into 
 - Global search across all objects
 - Filter by object type
 - Search in auto_id and all metadata fields
-- Dashboard with statistics per object type
 
 ## Technical Improvements
 

@@ -53,8 +53,7 @@ Byggdelssystemet är ett BIM-liknande informationshanteringssystem som ger anvä
 - ✅ **System-skydd** - System-typer kan inte tas bort
 - ✅ **Valideringsregler** för dataintegritet
 
-### Dashboard & Sökning
-- ✅ **Översiktsstatistik** per objekttyp
+### Sökning & Filtrering
 - ✅ **Global sökning** över alla objekt
 - ✅ **Filter** per objekttyp
 - ✅ **Färgkodning** för visuell identifiering
