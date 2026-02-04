@@ -1605,7 +1605,7 @@ body {
     top: var(--table-header-height); /* Below the header row */
     background-color: var(--bg-secondary);
     z-index: 9;
-    padding: 6px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
