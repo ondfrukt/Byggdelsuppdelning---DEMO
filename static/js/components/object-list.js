@@ -173,6 +173,10 @@ class ObjectListComponent {
         
         // Render search row
         searchRow.innerHTML = columns.map(col => {
+            // Skip search input for actions column
+            if (col.field_name === 'actions') {
+                return '<th></th>';
+            }
             return `<th>
                 <input type="text" 
                        class="column-search-input" 
@@ -331,12 +335,12 @@ class ObjectListComponent {
         if (fieldName === 'created_at') return formatDate(value);
         if (fieldName === 'actions') {
             return `
-                <div onclick="event.stopPropagation()">
-                    <button class="btn btn-sm btn-primary" onclick="editObject(${obj.id})">
-                        Redigera
+                <div onclick="event.stopPropagation()" style="display: flex; gap: 4px; justify-content: center;">
+                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.auto_id}">
+                        ✏️
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteObject(${obj.id})">
-                        Ta bort
+                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.auto_id}">
+                        🗑️
                     </button>
                 </div>
             `;

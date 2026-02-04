@@ -31,9 +31,9 @@ function displayComponentsTable(components) {
             <td>${component.specifications || '-'}</td>
             <td>${component.unit}</td>
             <td onclick="event.stopPropagation()">
-                <div class="action-btns">
-                    <button class="btn btn-sm btn-primary" onclick="editComponent(${component.id})">Redigera</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteComponent(${component.id})">Ta bort</button>
+                <div class="action-btns" style="display: flex; gap: 4px; justify-content: center;">
+                    <button class="icon-btn edit" onclick="editComponent(${component.id})" title="Redigera" aria-label="Redigera komponent ${component.name}">✏️</button>
+                    <button class="icon-btn delete" onclick="deleteComponent(${component.id})" title="Ta bort" aria-label="Ta bort komponent ${component.name}">🗑️</button>
                 </div>
             </td>
         </tr>
