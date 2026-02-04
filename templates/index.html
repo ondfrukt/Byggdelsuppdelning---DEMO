@@ -36,40 +36,6 @@
                 </div>
             </div>
 
-            <!-- Objects View -->
-            <div id="objects-view" class="view">
-                <div class="view-header">
-                    <h2>Objekt</h2>
-                    <div>
-                        <button class="btn btn-secondary" onclick="toggleTreeView()">
-                            Trädvy
-                        </button>
-                        <button class="btn btn-primary" onclick="showCreateObjectModal()">
-                            Skapa Objekt
-                        </button>
-                    </div>
-                </div>
-                <div class="object-list-layout">
-                    <div id="objects-container-wrapper" class="object-list-wrapper"></div>
-                    <!-- Detail Panel -->
-                    <div id="detail-panel" class="detail-panel">
-                        <div class="detail-panel-header">
-                            <h2 id="detail-panel-title">Objektdetaljer</h2>
-                            <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
-                        </div>
-                        <div id="detail-panel-body" class="detail-panel-content"></div>
-                    </div>
-                </div>
-                <div id="tree-container" class="two-column-layout" style="display: none;">
-                    <div class="column-left">
-                        <div id="tree-view-container"></div>
-                    </div>
-                    <div class="column-right">
-                        <div id="side-panel-container"></div>
-                    </div>
-                </div>
-            </div>
-
             <!-- Object Detail View -->
             <div id="object-detail-view" class="view">
                 <div id="object-detail-container"></div>
@@ -78,6 +44,40 @@
             <!-- Admin View -->
             <div id="admin-view" class="view">
                 <div id="admin-container"></div>
+            </div>
+        </div>
+
+        <!-- Objects View - full width, outside container -->
+        <div id="objects-view" class="view">
+            <div class="view-header">
+                <h2>Objekt</h2>
+                <div>
+                    <button class="btn btn-secondary" onclick="toggleTreeView()">
+                        Trädvy
+                    </button>
+                    <button class="btn btn-primary" onclick="showCreateObjectModal()">
+                        Skapa Objekt
+                    </button>
+                </div>
+            </div>
+            <div class="object-list-layout">
+                <div id="objects-container-wrapper" class="object-list-wrapper"></div>
+                <!-- Detail Panel -->
+                <div id="detail-panel" class="detail-panel">
+                    <div class="detail-panel-header">
+                        <h2 id="detail-panel-title">Objektdetaljer</h2>
+                        <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
+                    </div>
+                    <div id="detail-panel-body" class="detail-panel-content"></div>
+                </div>
+            </div>
+            <div id="tree-container" class="two-column-layout" style="display: none;">
+                <div class="column-left">
+                    <div id="tree-view-container"></div>
+                </div>
+                <div class="column-right">
+                    <div id="side-panel-container"></div>
+                </div>
             </div>
         </div>
     </main>
