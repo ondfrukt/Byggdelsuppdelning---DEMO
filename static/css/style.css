@@ -7,6 +7,8 @@
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --info-color: #3b82f6;
+    --hover-color: #ff8c00; /* Orange hover color */
+    --hover-bg: #fff3e0; /* Light orange background */
     
     --status-koncept: #9ca3af;
     --status-utveckling: #3b82f6;
@@ -251,30 +253,52 @@ body {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
-    overflow: hidden;
+    overflow-x: auto; /* Allow horizontal scrolling */
+    overflow-y: visible;
+    position: relative;
 }
 
 .data-table {
-    width: 100%;
+    width: max-content; /* Remove width restriction */
+    min-width: 100%;
     border-collapse: collapse;
 }
 
 .data-table thead {
     background-color: var(--bg-tertiary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .data-table th {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md); /* Tighter padding */
     text-align: left;
     font-weight: 600;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.8rem; /* Slightly smaller font */
     text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Fixed first column (ID column) */
+.data-table th:first-child,
+.data-table td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: var(--bg-primary);
+    z-index: 5;
+}
+
+.data-table thead th:first-child {
+    background-color: var(--bg-tertiary);
+    z-index: 15;
 }
 
 .data-table td {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md); /* Tighter padding */
     border-top: 1px solid var(--border-color);
+    font-size: 0.9rem; /* Slightly smaller font */
 }
 
 .data-table tbody tr {
@@ -283,7 +307,12 @@ body {
 }
 
 .data-table tbody tr:hover {
-    background-color: var(--bg-secondary);
+    background-color: var(--hover-bg); /* Orange hover */
+}
+
+/* Keep first column background on hover */
+.data-table tbody tr:hover td:first-child {
+    background-color: var(--hover-bg);
 }
 
 .data-table .loading {
@@ -358,7 +387,8 @@ body {
 }
 
 .tab-btn:hover {
-    color: var(--text-primary);
+    background-color: var(--hover-bg);
+    color: var(--hover-color);
 }
 
 .tab-btn.active {
@@ -703,7 +733,7 @@ body {
 }
 
 .type-card:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
     transform: translateX(5px);
 }
 
@@ -1144,7 +1174,7 @@ body {
 }
 
 .relation-item:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
 }
 
 .relation-item strong {
@@ -1241,7 +1271,7 @@ body {
 }
 
 .column-toggle:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
 }
 
 .column-toggle input[type="checkbox"] {

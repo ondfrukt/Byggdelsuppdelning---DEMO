@@ -109,8 +109,13 @@ async function loadObjectsView() {
     if (!container) return;
     
     // Show list view by default
-    document.getElementById('objects-container').style.display = 'block';
+    document.getElementById('objects-list-container').style.display = 'grid';
     document.getElementById('tree-container').style.display = 'none';
+    
+    // Initialize side panel for list view if not already done
+    if (!window.objectsListSidePanelInstance) {
+        window.objectsListSidePanelInstance = new SidePanel('objects-side-panel-container');
+    }
     
     currentObjectListComponent = new ObjectListComponent('objects-container');
     await currentObjectListComponent.render();
@@ -124,11 +129,11 @@ async function toggleTreeView() {
     treeViewActive = !treeViewActive;
     window.treeViewActive = treeViewActive; // Update global reference
     
-    const objectsContainer = document.getElementById('objects-container');
+    const objectsListContainer = document.getElementById('objects-list-container');
     const treeContainer = document.getElementById('tree-container');
     
     if (treeViewActive) {
-        objectsContainer.style.display = 'none';
+        objectsListContainer.style.display = 'none';
         treeContainer.style.display = 'grid';
         
         // Initialize tree view if not already done
@@ -145,7 +150,7 @@ async function toggleTreeView() {
         
         await treeViewInstance.render();
     } else {
-        objectsContainer.style.display = 'block';
+        objectsListContainer.style.display = 'grid';
         treeContainer.style.display = 'none';
     }
 }
@@ -159,13 +164,16 @@ async function loadAdminView() {
     }
 }
 
-// View object detail
+// View object detail - now uses side panel instead of full-page view
 async function viewObjectDetail(objectId) {
     currentObjectId = objectId;
-    showView('object-detail-view');
     
-    currentObjectDetailComponent = new ObjectDetailComponent('object-detail-container', objectId);
-    await currentObjectDetailComponent.render();
+    // Use the appropriate side panel based on current view
+    if (treeViewActive && window.sidePanelInstance) {
+        await window.sidePanelInstance.render(objectId);
+    } else if (window.objectsListSidePanelInstance) {
+        await window.objectsListSidePanelInstance.render(objectId);
+    }
 }
 
 // Create new object
