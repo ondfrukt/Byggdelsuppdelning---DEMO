@@ -192,10 +192,18 @@ class ObjectListComponent {
         // Add checkbox column first
         thead.innerHTML = `<th style="width: 40px;">
             <input type="checkbox" id="select-all-${this.containerId}" title="Välj alla">
-        </th>` + columns.map(col => {
+        </th>` + columns.map((col, index) => {
             const width = this.getColumnWidth(col.field_name);
             const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column">
+            return `<th data-sortable 
+                        data-sort-type="${this.getSortType(col)}" 
+                        data-field="${col.field_name}" 
+                        data-col-index="${index}"
+                        ${widthStyle} 
+                        class="resizable-column draggable-column" 
+                        draggable="true"
+                        title="Dra för att ändra ordning">
+                <span class="column-drag-handle">⋮⋮</span>
                 ${col.display_name}
             </th>`;
         }).join('');
@@ -218,6 +226,9 @@ class ObjectListComponent {
                 this.toggleSelectAll(e.target.checked);
             });
         }
+        
+        // Attach drag and drop listeners for column reordering
+        this.attachColumnDragListeners();
         
         // Attach column search listeners
         searchRow.querySelectorAll('.column-search-input').forEach(input => {
@@ -528,6 +539,62 @@ class ObjectListComponent {
         
         // Create and show bulk edit modal
         window.showBulkEditModal(Array.from(this.selectedRows));
+    }
+    
+    attachColumnDragListeners() {
+        const headers = document.querySelectorAll(`#table-headers-${this.containerId} .draggable-column`);
+        let draggedColumn = null;
+        
+        headers.forEach(header => {
+            header.addEventListener('dragstart', (e) => {
+                draggedColumn = header;
+                header.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/html', header.innerHTML);
+            });
+            
+            header.addEventListener('dragend', (e) => {
+                header.classList.remove('dragging');
+                headers.forEach(h => h.classList.remove('drag-over'));
+            });
+            
+            header.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                
+                if (header !== draggedColumn) {
+                    header.classList.add('drag-over');
+                }
+            });
+            
+            header.addEventListener('dragleave', (e) => {
+                header.classList.remove('drag-over');
+            });
+            
+            header.addEventListener('drop', (e) => {
+                e.preventDefault();
+                header.classList.remove('drag-over');
+                
+                if (draggedColumn && header !== draggedColumn) {
+                    const fromIndex = parseInt(draggedColumn.getAttribute('data-col-index'));
+                    const toIndex = parseInt(header.getAttribute('data-col-index'));
+                    this.reorderColumn(fromIndex, toIndex);
+                }
+            });
+        });
+    }
+    
+    reorderColumn(fromIndex, toIndex) {
+        if (!this.viewConfig || fromIndex === toIndex) return;
+        
+        const visible_columns = [...(this.viewConfig.visible_columns || [])];
+        
+        // Move the column
+        const [movedColumn] = visible_columns.splice(fromIndex, 1);
+        visible_columns.splice(toIndex, 0, movedColumn);
+        
+        this.viewConfig.visible_columns = visible_columns;
+        this.renderObjects();
     }
     
     async refresh() {

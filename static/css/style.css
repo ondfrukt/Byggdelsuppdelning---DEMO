@@ -1449,3 +1449,32 @@ body {
 .data-table tbody tr.selected-row:hover {
     background-color: #bbdefb;
 }
+
+/* Column Drag and Drop */
+.draggable-column {
+    cursor: move;
+    position: relative;
+}
+
+.column-drag-handle {
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    opacity: 0.6;
+    vertical-align: middle;
+}
+
+.draggable-column:hover .column-drag-handle {
+    opacity: 1;
+}
+
+.draggable-column.dragging {
+    opacity: 0.5;
+    background-color: var(--bg-tertiary);
+}
+
+.draggable-column.drag-over {
+    border-left: 3px solid var(--primary-color);
+    background-color: var(--hover-bg);
+}
