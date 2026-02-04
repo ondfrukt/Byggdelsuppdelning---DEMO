@@ -6,6 +6,7 @@ let currentView = 'dashboard';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
+let detailPanelTimeout = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
@@ -187,7 +188,7 @@ async function openDetailPanel(objectId) {
         panel.classList.add('active');
         
         // Add class to wrapper to shrink it after a small delay
-        setTimeout(() => {
+        detailPanelTimeout = setTimeout(() => {
             if (wrapper) {
                 wrapper.classList.add('panel-open');
             }
@@ -228,6 +229,12 @@ async function openDetailPanel(objectId) {
 function closeDetailPanel() {
     const panel = document.getElementById('detail-panel');
     const wrapper = document.getElementById('objects-container-wrapper');
+    
+    // Clear any pending timeout to prevent race condition
+    if (detailPanelTimeout) {
+        clearTimeout(detailPanelTimeout);
+        detailPanelTimeout = null;
+    }
     
     if (panel) panel.classList.remove('active');
     if (wrapper) wrapper.classList.remove('panel-open');
