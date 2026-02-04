@@ -37,6 +37,8 @@
     
     --detail-panel-header-height: 73px;
     --table-header-height: 48px;
+    --main-header-height: 60px;
+    --main-padding: 60px;
 }
 
 /* Reset and Base Styles */
@@ -1377,7 +1379,24 @@ body {
 }
 
 
-/* Detail Panel Slide-out - max 20% width on desktop */
+/* Detail Panel Slide-out - Flexbox layout to push content */
+.object-list-layout {
+    display: flex;
+    gap: 0;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.object-list-wrapper {
+    flex: 1;
+    min-width: 0;
+    transition: all 0.3s ease;
+}
+
+.object-list-wrapper.panel-open {
+    flex: 0 1 75%;
+}
+
 .detail-panel-overlay {
     display: none;
     position: fixed;
@@ -1399,23 +1418,20 @@ body {
 
 .detail-panel {
     display: none;
-    position: fixed;
-    top: 0;
-    right: -20%;
-    width: 20%;
-    min-width: 300px;
-    height: 100%;
+    flex: 0 0 25%;
+    min-width: 350px;
+    max-width: 500px;
+    height: calc(100vh - var(--main-header-height) - var(--main-padding));
     background-color: var(--bg-primary);
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
-    z-index: 999;
     overflow-y: auto;
-    transition: right 0.3s ease;
-    pointer-events: auto; /* Panel itself is interactive */
+    transition: all 0.3s ease;
+    border-left: 2px solid var(--border-color);
 }
 
 .detail-panel.active {
-    display: block;
-    right: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .detail-panel-header {
@@ -1464,24 +1480,29 @@ body {
 
 .detail-panel .tabs {
     display: flex;
-    gap: var(--spacing-sm);
+    gap: 0;
     border-bottom: 2px solid var(--border-color);
-    padding: 0 var(--spacing-lg);
+    padding: 0 var(--spacing-sm);
     background-color: var(--bg-primary);
     position: sticky;
     top: var(--detail-panel-header-height);
     z-index: 9;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .detail-panel .tab-btn {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-sm) var(--spacing-md);
     background: none;
     border: none;
     border-bottom: 3px solid transparent;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
     transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .detail-panel .tab-btn:hover {
@@ -1534,13 +1555,58 @@ body {
     bottom: 0;
 }
 
+/* Detail panel specific styles for relations */
+.detail-panel .relation-manager .view-header {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-panel .relation-manager .view-header h3 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.detail-panel .relations-section {
+    margin-bottom: var(--spacing-lg);
+}
+
+.detail-panel .relations-section h4 {
+    font-size: 0.9rem;
+    margin-bottom: var(--spacing-sm);
+}
+
+.detail-panel .relation-item {
+    padding: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.85rem;
+}
+
+.detail-panel .relation-info strong {
+    font-size: 0.9rem;
+}
+
+.detail-panel .relation-info small {
+    font-size: 0.75rem;
+}
+
+.detail-panel .relation-actions {
+    gap: var(--spacing-xs);
+}
+
+.detail-panel .relation-actions .btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: 0.75rem;
+}
+
 /* Make sure column search row is sticky too */
 .data-table .column-search-row th {
     position: sticky;
-    top: 48px; /* Below the header row - matches header height with padding */
+    top: var(--table-header-height); /* Below the header row */
     background-color: var(--bg-secondary);
     z-index: 9;
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .column-search-input {
@@ -1597,4 +1663,39 @@ body {
 .document-info,
 .empty-state {
     font-size: 12px;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 1200px) {
+    .object-list-wrapper.panel-open {
+        flex: 0 1 60%;
+    }
+    
+    .detail-panel {
+        flex: 0 0 40%;
+        min-width: 300px;
+    }
+}
+
+@media (max-width: 768px) {
+    .object-list-layout {
+        flex-direction: column;
+    }
+    
+    .object-list-wrapper.panel-open {
+        flex: 1;
+    }
+    
+    .detail-panel {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        flex: none;
+        width: 90%;
+        max-width: 400px;
+        height: 100vh;
+        z-index: 999;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    }
 }
