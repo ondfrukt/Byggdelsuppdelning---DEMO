@@ -485,6 +485,17 @@ class ObjectListComponent {
         } else {
             this.selectedRows.delete(objectId);
         }
+        
+        // Update row visual state
+        const row = document.querySelector(`#table-body-${this.containerId} tr[data-object-id="${objectId}"]`);
+        if (row) {
+            if (selected) {
+                row.classList.add('selected-row');
+            } else {
+                row.classList.remove('selected-row');
+            }
+        }
+        
         this.updateBulkEditToolbar();
     }
     
@@ -494,12 +505,16 @@ class ObjectListComponent {
         
         checkboxes.forEach(checkbox => {
             const objectId = parseInt(checkbox.getAttribute('data-object-id'));
+            const row = checkbox.closest('tr');
+            
             if (selectAll) {
                 this.selectedRows.add(objectId);
                 checkbox.checked = true;
+                if (row) row.classList.add('selected-row');
             } else {
                 this.selectedRows.delete(objectId);
                 checkbox.checked = false;
+                if (row) row.classList.remove('selected-row');
             }
         });
         
@@ -510,7 +525,11 @@ class ObjectListComponent {
         this.selectedRows.clear();
         const tbody = document.getElementById(`table-body-${this.containerId}`);
         const checkboxes = tbody.querySelectorAll('.row-select-checkbox');
-        checkboxes.forEach(checkbox => checkbox.checked = false);
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            const row = checkbox.closest('tr');
+            if (row) row.classList.remove('selected-row');
+        });
         
         const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
         if (selectAllCheckbox) {

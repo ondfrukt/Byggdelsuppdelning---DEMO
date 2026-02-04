@@ -441,8 +441,16 @@ async function saveBulkEdit(event) {
         typeData.fields.forEach(field => {
             const fieldId = 'bulk-' + field.field_name;
             const element = document.getElementById(fieldId);
-            if (element && element.value !== '') {
-                updates[field.field_name] = element.value;
+            if (element) {
+                const value = element.value;
+                // Check if value is meaningful (not empty string, and not the "don't change" option)
+                if (value !== '' && value !== null && value !== undefined) {
+                    // For select fields, skip if it's the default "don't change" option
+                    if (element.tagName === 'SELECT' && value === '') {
+                        return;
+                    }
+                    updates[field.field_name] = value;
+                }
             }
         });
         

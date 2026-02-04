@@ -161,8 +161,7 @@ async function showAddRelationModal(objectId) {
         return;
     }
     
-    // Reset form
-    document.getElementById('relation-form').reset();
+    // Hide objects group initially
     document.getElementById('relation-objects-group').style.display = 'none';
     document.getElementById('relation-objects-list').innerHTML = '';
     
@@ -196,6 +195,9 @@ async function showAddRelationModal(objectId) {
         
         // Store objectId for form submission
         modal.dataset.objectId = objectId;
+        
+        // Reset form after all setup is complete
+        document.getElementById('relation-form').reset();
         
         modal.style.display = 'block';
         overlay.style.display = 'block';

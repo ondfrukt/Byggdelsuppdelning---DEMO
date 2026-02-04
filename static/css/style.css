@@ -9,6 +9,8 @@
     --info-color: #3b82f6;
     --hover-color: #ff8c00; /* Orange hover color */
     --hover-bg: #fff3e0; /* Light orange background */
+    --selected-row-bg: #e3f2fd; /* Light blue for selected rows */
+    --selected-row-hover-bg: #bbdefb; /* Darker blue for selected row hover */
     
     --status-koncept: #9ca3af;
     --status-utveckling: #3b82f6;
@@ -259,7 +261,7 @@ body {
 }
 
 .data-table {
-    width: max-content; /* Remove width restriction */
+    width: 100%;
     min-width: 100%;
     border-collapse: collapse;
 }
@@ -1443,11 +1445,11 @@ body {
 }
 
 .data-table tbody tr.selected-row {
-    background-color: #e3f2fd;
+    background-color: var(--selected-row-bg);
 }
 
 .data-table tbody tr.selected-row:hover {
-    background-color: #bbdefb;
+    background-color: var(--selected-row-hover-bg);
 }
 
 /* Column Drag and Drop */
