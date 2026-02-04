@@ -7,6 +7,10 @@
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
     --info-color: #3b82f6;
+    --hover-color: #ff8c00; /* Orange hover color */
+    --hover-bg: #fff3e0; /* Light orange background */
+    --selected-row-bg: #e3f2fd; /* Light blue for selected rows */
+    --selected-row-hover-bg: #bbdefb; /* Darker blue for selected row hover */
     
     --status-koncept: #9ca3af;
     --status-utveckling: #3b82f6;
@@ -251,30 +255,52 @@ body {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
-    overflow: hidden;
+    overflow-x: auto; /* Allow horizontal scrolling */
+    overflow-y: visible;
+    position: relative;
 }
 
 .data-table {
     width: 100%;
+    min-width: 100%;
     border-collapse: collapse;
 }
 
 .data-table thead {
     background-color: var(--bg-tertiary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .data-table th {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md); /* Tighter padding */
     text-align: left;
     font-weight: 600;
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: 0.8rem; /* Slightly smaller font */
     text-transform: uppercase;
+    white-space: nowrap;
+}
+
+/* Fixed first column (ID column) */
+.data-table th:first-child,
+.data-table td:first-child {
+    position: sticky;
+    left: 0;
+    background-color: var(--bg-primary);
+    z-index: 5;
+}
+
+.data-table thead th:first-child {
+    background-color: var(--bg-tertiary);
+    z-index: 15;
 }
 
 .data-table td {
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md); /* Tighter padding */
     border-top: 1px solid var(--border-color);
+    font-size: 0.9rem; /* Slightly smaller font */
 }
 
 .data-table tbody tr {
@@ -283,7 +309,12 @@ body {
 }
 
 .data-table tbody tr:hover {
-    background-color: var(--bg-secondary);
+    background-color: var(--hover-bg); /* Orange hover */
+}
+
+/* Keep first column background on hover */
+.data-table tbody tr:hover td:first-child {
+    background-color: var(--hover-bg);
 }
 
 .data-table .loading {
@@ -358,7 +389,8 @@ body {
 }
 
 .tab-btn:hover {
-    color: var(--text-primary);
+    background-color: var(--hover-bg);
+    color: var(--hover-color);
 }
 
 .tab-btn.active {
@@ -566,6 +598,11 @@ body {
     z-index: 1000;
 }
 
+.modal.large-modal,
+.modal-content.large-modal {
+    max-width: 800px;
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;
@@ -703,7 +740,7 @@ body {
 }
 
 .type-card:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
     transform: translateX(5px);
 }
 
@@ -1144,7 +1181,7 @@ body {
 }
 
 .relation-item:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
 }
 
 .relation-item strong {
@@ -1241,7 +1278,7 @@ body {
 }
 
 .column-toggle:hover {
-    background-color: var(--bg-tertiary);
+    background-color: var(--hover-bg);
 }
 
 .column-toggle input[type="checkbox"] {
@@ -1335,4 +1372,111 @@ body {
     border-radius: var(--radius-sm);
     font-size: 0.875rem;
     margin-left: var(--spacing-sm);
+}
+
+/* Objects Checklist for Relation Modal */
+.objects-checklist {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.objects-checklist-item {
+    display: flex;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.objects-checklist-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.objects-checklist-item input[type="checkbox"] {
+    margin-right: var(--spacing-md);
+    cursor: pointer;
+    width: 18px;
+    height: 18px;
+}
+
+.objects-checklist-item label {
+    flex: 1;
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+
+.objects-checklist-item-name {
+    font-weight: 500;
+    display: block;
+}
+
+.objects-checklist-item-meta {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 2px;
+}
+
+.search-container {
+    margin-bottom: var(--spacing-sm);
+}
+
+/* Bulk Edit Toolbar */
+.bulk-edit-toolbar {
+    display: none;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background-color: var(--info-color);
+    color: white;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.bulk-edit-toolbar span {
+    font-weight: 600;
+    margin-right: auto;
+}
+
+.data-table tbody tr.selected-row {
+    background-color: var(--selected-row-bg);
+}
+
+.data-table tbody tr.selected-row:hover {
+    background-color: var(--selected-row-hover-bg);
+}
+
+/* Column Drag and Drop */
+.draggable-column {
+    cursor: move;
+    position: relative;
+}
+
+.column-drag-handle {
+    display: inline-block;
+    margin-right: 6px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    opacity: 0.6;
+    vertical-align: middle;
+}
+
+.draggable-column:hover .column-drag-handle {
+    opacity: 1;
+}
+
+.draggable-column.dragging {
+    opacity: 0.5;
+    background-color: var(--bg-tertiary);
+}
+
+.draggable-column.drag-over {
+    border-left: 3px solid var(--primary-color);
+    background-color: var(--hover-bg);
 }
