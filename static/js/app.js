@@ -147,11 +147,7 @@ async function toggleTreeView() {
             
             // Create unified panel for tree view in 'side' layout mode
             window.sidePanelInstance = createObjectDetailPanel('side-panel-container', {
-                layout: 'side',
-                onClose: () => {
-                    const container = document.getElementById('side-panel-container');
-                    if (container) container.innerHTML = '';
-                }
+                layout: 'side'
             });
             
             // Set up click handler

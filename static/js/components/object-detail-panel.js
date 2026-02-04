@@ -60,6 +60,30 @@ class ObjectDetailPanel {
                 ${this.renderFooter(obj)}
             </div>
         `;
+        
+        // Attach event listeners after rendering
+        this.attachEventListeners();
+    }
+    
+    attachEventListeners() {
+        if (!this.container) return;
+        
+        // Add tab click listeners
+        const tabButtons = this.container.querySelectorAll('.tab-btn');
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.tab;
+                this.switchTab(tab);
+            });
+        });
+        
+        // Add close button listener for side panel
+        const closeBtn = this.container.querySelector('.close-panel-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.close();
+            });
+        }
     }
     
     renderHeader(obj, displayName) {
@@ -74,7 +98,7 @@ class ObjectDetailPanel {
                         <h3>${displayName}</h3>
                         <p class="side-panel-subtitle">${obj.auto_id} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
-                    <button class="btn btn-sm btn-secondary" onclick="window.objectDetailPanelInstance_${this.container.id}.close()">✕</button>
+                    <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
                 </div>
             `;
         }
@@ -84,23 +108,19 @@ class ObjectDetailPanel {
     
     renderTabs() {
         const tabClass = this.options.layout === 'side' ? 'side-panel-tabs' : 'tabs';
-        const instanceName = `window.objectDetailPanelInstance_${this.container.id}`;
         
         return `
             <div class="${tabClass}">
                 <button class="tab-btn ${this.activeTab === 'details' ? 'active' : ''}" 
-                        data-tab="details"
-                        onclick="${instanceName}.switchTab('details')">
+                        data-tab="details">
                     Grunddata
                 </button>
                 <button class="tab-btn ${this.activeTab === 'relations' ? 'active' : ''}" 
-                        data-tab="relations"
-                        onclick="${instanceName}.switchTab('relations')">
+                        data-tab="relations">
                     Relationer
                 </button>
                 <button class="tab-btn ${this.activeTab === 'documents' ? 'active' : ''}" 
-                        data-tab="documents"
-                        onclick="${instanceName}.switchTab('documents')">
+                        data-tab="documents">
                     Dokument
                 </button>
             </div>
@@ -152,6 +172,7 @@ class ObjectDetailPanel {
         
         // Add basic info for detail panel layout
         if (this.options.layout === 'detail') {
+            const typeColor = getObjectTypeColor(obj.object_type?.name);
             html += `
                 <div class="detail-item">
                     <span class="detail-label">ID</span>
@@ -160,7 +181,7 @@ class ObjectDetailPanel {
                 <div class="detail-item">
                     <span class="detail-label">Typ</span>
                     <span class="detail-value">
-                        <span class="object-type-badge" style="background-color: ${getObjectTypeColor(obj.object_type?.name)}">
+                        <span class="object-type-badge" data-type="${obj.object_type?.name || ''}" style="background-color: ${typeColor}">
                             ${obj.object_type?.name || 'N/A'}
                         </span>
                     </span>
@@ -203,18 +224,12 @@ class ObjectDetailPanel {
         const obj = this.objectData;
         const containerId = `panel-relations-container-${obj.id}`;
         
-        // Use setTimeout to initialize after render
-        setTimeout(() => this.loadRelationsIfNeeded(), 0);
-        
         return `<div id="${containerId}"></div>`;
     }
     
     renderDocumentsTab() {
         const obj = this.objectData;
         const containerId = `panel-documents-container-${obj.id}`;
-        
-        // Use setTimeout to initialize after render
-        setTimeout(() => this.loadDocumentsIfNeeded(), 0);
         
         return `<div id="${containerId}"></div>`;
     }
@@ -256,6 +271,13 @@ class ObjectDetailPanel {
     async switchTab(tab) {
         this.activeTab = tab;
         await this.render();
+        
+        // Load content for the newly selected tab
+        if (tab === 'relations') {
+            await this.loadRelationsIfNeeded();
+        } else if (tab === 'documents') {
+            await this.loadDocumentsIfNeeded();
+        }
     }
     
     close() {
