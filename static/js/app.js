@@ -2,6 +2,9 @@
  * Main Application - Object-based Byggdelssystem
  */
 
+// Constants
+const PANEL_ANIMATION_DELAY = 50; // Delay in ms before adjusting wrapper when opening detail panel
+
 let currentView = 'dashboard';
 let currentObjectId = null;
 let currentObjectListComponent = null;
@@ -193,7 +196,7 @@ async function openDetailPanel(objectId) {
             if (wrapper && panel.classList.contains('active')) {
                 wrapper.classList.add('panel-open');
             }
-        }, 50);
+        }, PANEL_ANIMATION_DELAY);
         
         // Load object data
         const object = await ObjectsAPI.getById(objectId);
