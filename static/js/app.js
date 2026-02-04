@@ -186,6 +186,12 @@ async function openDetailPanel(objectId) {
     
     if (!panel || !panelBody) return;
     
+    // Clear any pending timeout from previous openings
+    if (detailPanelTimeout) {
+        clearTimeout(detailPanelTimeout);
+        detailPanelTimeout = null;
+    }
+    
     try {
         // Show panel first
         panel.classList.add('active');
