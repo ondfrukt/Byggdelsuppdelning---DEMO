@@ -1075,10 +1075,23 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
+/* Shared styles for unified ObjectDetailPanel component */
 .detail-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+}
+
+.panel-content {
+    flex: 1;
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+}
+
+.detail-panel-content-inner {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .relations-list, .documents-list {

@@ -10,11 +10,13 @@ let currentView = 'objects';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
+let currentDetailPanelInstance = null;
 let detailPanelTimeout = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
 window.treeViewInstance = null;
+window.sidePanelInstance = null;
 
 // Clear any pending detail panel animation timeout
 function clearDetailPanelTimeout() {
@@ -105,7 +107,11 @@ async function toggleTreeView() {
         if (!treeViewInstance) {
             treeViewInstance = new TreeView('tree-view-container');
             window.treeViewInstance = treeViewInstance; // Update global reference
-            window.sidePanelInstance = new SidePanel('side-panel-container');
+            
+            // Create unified panel for tree view in 'side' layout mode
+            window.sidePanelInstance = createObjectDetailPanel('side-panel-container', {
+                layout: 'side'
+            });
             
             // Set up click handler
             treeViewInstance.setNodeClickHandler((objectId, objectType) => {
@@ -170,20 +176,17 @@ async function openDetailPanel(objectId) {
             panelTitle.textContent = `${object.auto_id} - ${displayName}`;
         }
         
-        // Render object detail content
-        const detailHTML = await renderObjectDetailPanel(object);
-        panelBody.innerHTML = detailHTML;
-        
-        // Attach event listeners for tabs
-        attachDetailPanelTabListeners();
-        
-        // Initialize relation and document managers if needed
-        const activeTab = panelBody.querySelector('.tab-btn.active');
-        if (activeTab && activeTab.dataset.tab === 'relationer') {
-            await loadPanelRelations(objectId);
-        } else if (activeTab && activeTab.dataset.tab === 'dokument') {
-            await loadPanelDocuments(objectId);
+        // Create or reuse unified detail panel instance
+        if (!currentDetailPanelInstance) {
+            currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
+                layout: 'detail',
+                showHeader: false
+            });
         }
+        
+        // Render with the unified component
+        await currentDetailPanelInstance.render(objectId);
+        
     } catch (error) {
         console.error('Failed to load object detail:', error);
         showToast('Kunde inte ladda objektdetaljer', 'error');
@@ -201,141 +204,10 @@ function closeDetailPanel() {
     
     if (panel) panel.classList.remove('active');
     if (wrapper) wrapper.classList.remove('panel-open');
-}
-
-// Render object detail panel content
-async function renderObjectDetailPanel(object) {
-    const fields = [];
     
-    // Basic info
-    fields.push(`
-        <div class="detail-item">
-            <span class="detail-label">ID</span>
-            <span class="detail-value"><strong>${object.auto_id}</strong></span>
-        </div>
-    `);
-    
-    fields.push(`
-        <div class="detail-item">
-            <span class="detail-label">Typ</span>
-            <span class="detail-value">
-                <span class="object-type-badge" style="background-color: ${getObjectTypeColor(object.object_type?.name)}">
-                    ${object.object_type?.name || 'N/A'}
-                </span>
-            </span>
-        </div>
-    `);
-    
-    fields.push(`
-        <div class="detail-item">
-            <span class="detail-label">Skapad</span>
-            <span class="detail-value">${formatDate(object.created_at)}</span>
-        </div>
-    `);
-    
-    // Object data fields
-    if (object.data && object.object_type) {
-        for (const [key, value] of Object.entries(object.data)) {
-            // Find field definition
-            const field = object.object_type.fields?.find(f => f.field_name === key);
-            const label = field?.display_name || key;
-            
-            fields.push(`
-                <div class="detail-item">
-                    <span class="detail-label">${label}</span>
-                    <span class="detail-value">${formatFieldValue(value, field?.field_type)}</span>
-                </div>
-            `);
-        }
-    }
-    
-    return `
-        <div class="tabs">
-            <button class="tab-btn active" data-tab="grunddata">Grunddata</button>
-            <button class="tab-btn" data-tab="relationer">Relationer</button>
-            <button class="tab-btn" data-tab="dokument">Dokument</button>
-        </div>
-        
-        <div id="panel-tab-grunddata" class="tab-content active">
-            ${fields.join('')}
-        </div>
-        
-        <div id="panel-tab-relationer" class="tab-content">
-            <div id="panel-relations-container-${object.id}"></div>
-        </div>
-        
-        <div id="panel-tab-dokument" class="tab-content">
-            <div id="panel-documents-container-${object.id}"></div>
-        </div>
-        
-        <div class="action-buttons">
-            <button class="btn btn-primary" onclick="editObject(${object.id})">
-                Redigera
-            </button>
-            <button class="btn btn-danger" onclick="deleteObject(${object.id})">
-                Ta bort
-            </button>
-        </div>
-    `;
-}
-
-// Attach tab listeners for detail panel
-function attachDetailPanelTabListeners() {
-    const tabBtns = document.querySelectorAll('.detail-panel .tab-btn');
-    
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const tab = btn.dataset.tab;
-            
-            // Update active tab button
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            
-            // Update active tab content
-            const tabContents = document.querySelectorAll('.detail-panel .tab-content');
-            tabContents.forEach(tc => tc.classList.remove('active'));
-            
-            const activeContent = document.getElementById(`panel-tab-${tab}`);
-            if (activeContent) {
-                activeContent.classList.add('active');
-                
-                // Load content if needed
-                if (tab === 'relationer' && currentObjectId) {
-                    await loadPanelRelations(currentObjectId);
-                } else if (tab === 'dokument' && currentObjectId) {
-                    await loadPanelDocuments(currentObjectId);
-                }
-            }
-        });
-    });
-}
-
-// Load relations in detail panel
-async function loadPanelRelations(objectId) {
-    const container = document.getElementById(`panel-relations-container-${objectId}`);
-    if (!container || container.dataset.loaded) return;
-    
-    try {
-        const relationManager = new RelationManagerComponent(`panel-relations-container-${objectId}`, objectId);
-        window.currentRelationManager = relationManager;
-        await relationManager.render();
-        container.dataset.loaded = 'true';
-    } catch (error) {
-        console.error('Failed to load relations:', error);
-    }
-}
-
-// Load documents in detail panel
-async function loadPanelDocuments(objectId) {
-    const container = document.getElementById(`panel-documents-container-${objectId}`);
-    if (!container || container.dataset.loaded) return;
-    
-    try {
-        const fileUpload = new FileUploadComponent(`panel-documents-container-${objectId}`, objectId);
-        await fileUpload.render();
-        container.dataset.loaded = 'true';
-    } catch (error) {
-        console.error('Failed to load documents:', error);
+    // Clean up the instance
+    if (currentDetailPanelInstance) {
+        currentDetailPanelInstance.close();
     }
 }
 
