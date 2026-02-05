@@ -28,10 +28,14 @@ class ObjectFormComponent {
         
         const formHtml = this.fields.map(field => this.renderField(field)).join('');
         
+        // Render metadata fields before dynamic fields
+        const metadataFieldsHtml = this.renderMetadataFields();
+        
         // Don't create a nested form - just render the fields directly
         // The parent form in index.html (object-main-form) will handle submission
         container.innerHTML = `
             <div id="object-form-fields">
+                ${metadataFieldsHtml}
                 ${formHtml}
             </div>
         `;
@@ -168,6 +172,47 @@ class ObjectFormComponent {
         `;
     }
     
+    renderMetadataFields() {
+        const statusValue = this.existingObject?.status || 'In work';
+        const versionValue = this.existingObject?.version || '001';
+        const mainIdValue = this.existingObject?.main_id || '';
+        
+        return `
+            <div class="form-section">
+                <h4>Metadata</h4>
+                <div class="form-group">
+                    <label for="field-status">Status *</label>
+                    <select id="field-status" name="status" class="form-control" required>
+                        <option value="In work" ${statusValue === 'In work' ? 'selected' : ''}>In work</option>
+                        <option value="Released" ${statusValue === 'Released' ? 'selected' : ''}>Released</option>
+                        <option value="Obsolete" ${statusValue === 'Obsolete' ? 'selected' : ''}>Obsolete</option>
+                        <option value="Canceled" ${statusValue === 'Canceled' ? 'selected' : ''}>Canceled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="field-version">Version</label>
+                    <input type="text" 
+                           id="field-version" 
+                           name="version"
+                           value="${escapeHtml(versionValue)}"
+                           class="form-control"
+                           readonly>
+                    <small class="form-help">Version is automatically updated</small>
+                </div>
+                <div class="form-group">
+                    <label for="field-main_id">MainID</label>
+                    <input type="text" 
+                           id="field-main_id" 
+                           name="main_id"
+                           value="${escapeHtml(mainIdValue)}"
+                           class="form-control"
+                           readonly>
+                    <small class="form-help">MainID is automatically generated on creation</small>
+                </div>
+            </div>
+        `;
+    }
+    
     parseOptions(optionsString) {
         if (!optionsString) return [];
         
@@ -214,6 +259,23 @@ class ObjectFormComponent {
         
         const data = {};
         
+        // Get metadata fields
+        const statusInput = form.elements['status'];
+        if (statusInput) {
+            data.status = statusInput.value;
+        }
+        
+        const versionInput = form.elements['version'];
+        if (versionInput) {
+            data.version = versionInput.value;
+        }
+        
+        const mainIdInput = form.elements['main_id'];
+        if (mainIdInput && mainIdInput.value) {
+            data.main_id = mainIdInput.value;
+        }
+        
+        // Get dynamic fields
         this.fields.forEach(field => {
             const input = form.elements[field.field_name];
             if (!input) return;

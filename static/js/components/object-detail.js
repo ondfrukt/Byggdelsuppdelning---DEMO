@@ -98,6 +98,39 @@ class ObjectDetailComponent {
             </div>
         `);
         
+        // Metadata fields
+        fields.push(`
+            <div class="detail-item">
+                <span class="detail-label">Status</span>
+                <span class="detail-value">
+                    <span class="status-badge status-${(this.object.status || 'In work').toLowerCase().replace(' ', '-')}">
+                        ${this.object.status || 'In work'}
+                    </span>
+                </span>
+            </div>
+        `);
+        
+        fields.push(`
+            <div class="detail-item">
+                <span class="detail-label">Version</span>
+                <span class="detail-value">${this.object.version || '001'}</span>
+            </div>
+        `);
+        
+        fields.push(`
+            <div class="detail-item">
+                <span class="detail-label">MainID</span>
+                <span class="detail-value">${this.object.main_id || 'N/A'}</span>
+            </div>
+        `);
+        
+        fields.push(`
+            <div class="detail-item">
+                <span class="detail-label">Full ID</span>
+                <span class="detail-value">${this.object.id_full || 'N/A'}</span>
+            </div>
+        `);
+        
         // Dynamic fields from object data
         if (this.object.data) {
             Object.entries(this.object.data).forEach(([key, value]) => {

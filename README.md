@@ -110,6 +110,10 @@ Byggdelssystemet är ett BIM-liknande informationshanteringssystem som ger anvä
 - created_at: TIMESTAMP
 - updated_at: TIMESTAMP
 - created_by: VARCHAR(100)
+- status: VARCHAR(50) DEFAULT 'In work' ('In work', 'Released', 'Obsolete', 'Canceled')
+- version: VARCHAR(20) DEFAULT '001' (Versionsnummer, t.ex. '001', '002')
+- main_id: VARCHAR(50) (Rot-ID för objektgrupp, t.ex. 'PROD-001')
+- id_full: VARCHAR(100) (Kombinerar main_id och version, t.ex. 'PROD-001.001')
 ```
 
 ### ObjectData (Flexibel metadata)

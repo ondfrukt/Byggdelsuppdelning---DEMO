@@ -15,6 +15,12 @@ class Object(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(100))
     
+    # Metadata fields
+    status = db.Column(db.String(50), default='In work')  # 'In work', 'Released', 'Obsolete', 'Canceled'
+    version = db.Column(db.String(20), default='001')
+    main_id = db.Column(db.String(50))  # Root ID for object group (e.g., PROD-001)
+    id_full = db.Column(db.String(100))  # Combined MainID and version (e.g., PROD-001.001)
+    
     # Relationships
     object_type = db.relationship('ObjectType', back_populates='objects')
     object_data = db.relationship('ObjectData', back_populates='object', cascade='all, delete-orphan')
@@ -53,7 +59,11 @@ class Object(db.Model):
             'object_type': self.object_type.to_dict() if self.object_type else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'created_by': self.created_by
+            'created_by': self.created_by,
+            'status': self.status,
+            'version': self.version,
+            'main_id': self.main_id,
+            'id_full': self.id_full
         }
         
         if include_data:

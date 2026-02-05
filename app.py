@@ -48,6 +48,12 @@ def create_app():
         except Exception as e:
             logger.warning(f"List view columns migration may have already run: {str(e)}")
         
+        try:
+            from migrations.add_metadata_fields import run_migration as run_metadata_migration
+            run_metadata_migration(db)
+        except Exception as e:
+            logger.warning(f"Metadata fields migration may have already run: {str(e)}")
+        
         seed_data(app)
     
     # Register blueprints
