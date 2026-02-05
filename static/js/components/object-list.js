@@ -162,22 +162,24 @@ class ObjectListComponent {
         const columns = this.getVisibleColumns();
         const colCount = columns.length;
         
-        // Render headers with sortable attributes and column search
+        // Render headers with sortable attributes and column classes
         thead.innerHTML = columns.map(col => {
             const width = this.getColumnWidth(col.field_name);
             const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column">
+            const colClass = this.getColumnClass(col);
+            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column ${colClass}">
                 ${col.display_name}
             </th>`;
         }).join('');
         
-        // Render search row
+        // Render search row with column classes
         searchRow.innerHTML = columns.map(col => {
+            const colClass = this.getColumnClass(col);
             // Skip search input for actions column
             if (col.field_name === 'actions') {
-                return '<th></th>';
+                return `<th class="${colClass}"></th>`;
             }
-            return `<th>
+            return `<th class="${colClass}">
                 <input type="text" 
                        class="column-search-input" 
                        placeholder="Sök..."
@@ -228,13 +230,14 @@ class ObjectListComponent {
             }
         }
         
-        // Render rows with data-value attributes for sorting
+        // Render rows with data-value attributes for sorting and column classes
         tbody.innerHTML = filteredObjects.map(obj => `
             <tr onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
                     const displayValue = this.formatColumnValue(obj, col.field_name, value);
-                    return `<td data-value="${value}">${displayValue}</td>`;
+                    const colClass = this.getColumnClass(col);
+                    return `<td data-value="${value}" class="${colClass}">${displayValue}</td>`;
                 }).join('')}
             </tr>
         `).join('');
@@ -301,6 +304,46 @@ class ObjectListComponent {
         columns.push({ field_name: 'actions', display_name: 'Åtgärder' });
         
         return columns;
+    }
+    
+    /**
+     * Bestäm CSS-klass för kolumn baserat på fältnamn eller typ
+     */
+    getColumnClass(column) {
+        const fieldName = column.field_name || '';
+        const fieldType = column.field_type || '';
+        
+        // Mappning från fältnamn till CSS-klass
+        const classMap = {
+            'auto_id': 'col-id',
+            'created_at': 'col-date',
+            'updated_at': 'col-date',
+            'status': 'col-status',
+            'version': 'col-status',
+            'actions': 'col-actions',
+            'object_type': 'col-type',
+            'display_name': 'col-name',
+            'namn': 'col-name',
+            'name': 'col-name',
+            'beskrivning': 'col-description',
+            'description': 'col-description',
+            'beskrivning av objektet': 'col-description'
+        };
+        
+        // Kolla först specifikt fältnamn (case-insensitive)
+        const lowerFieldName = fieldName.toLowerCase();
+        if (classMap[lowerFieldName]) {
+            return classMap[lowerFieldName];
+        }
+        
+        // Annars baserat på fälttyp
+        if (fieldType === 'textarea') return 'col-description';
+        if (fieldType === 'date') return 'col-date';
+        if (fieldType === 'boolean') return 'col-status';
+        if (fieldType === 'number') return 'col-number';
+        
+        // Default: anpassa till innehåll
+        return 'col-default';
     }
     
     getColumnWidth(fieldName) {
