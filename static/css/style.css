@@ -1230,7 +1230,7 @@ body {
 .detail-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: 0;
 }
 
 /* Detail list headers - används för att visa metadata i grupper */
