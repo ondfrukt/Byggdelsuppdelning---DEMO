@@ -176,6 +176,20 @@ class ObjectDetailPanel {
                         <span class="detail-value">${formatDate(obj.created_at)}</span>
                     </div>
                 </div>
+                <div class="detail-list-header">
+                    <div class="detail-header-item">
+                        <span class="detail-label">STATUS</span>
+                        <span class="detail-value">${obj.status || 'N/A'}</span>
+                    </div>
+                    <div class="detail-header-item">
+                        <span class="detail-label">VERSION</span>
+                        <span class="detail-value">${obj.version || 'N/A'}</span>
+                    </div>
+                    <div class="detail-header-item">
+                        <span class="detail-label">ID (Full)</span>
+                        <span class="detail-value">${obj.id_full || obj.auto_id}</span>
+                    </div>
+                </div>
             `;
         }
         
