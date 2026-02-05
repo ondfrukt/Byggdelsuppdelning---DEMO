@@ -212,8 +212,19 @@ body {
     text-align: left;
 }
 
+
+
+.data-table .col-id {
+    width: 100px;   /* eller vilken bredd du vill ha */
+    white-space: nowrap;
+}
+
+.data-table .col-type {
+    width: 130px;
+    white-space: nowrap;
+}
+
 /* Kolumner som anpassar sig till innehåll (minimala) */
-.data-table .col-id,
 .data-table .col-date,
 .data-table .col-status,
 .data-table .col-actions {
@@ -221,10 +232,6 @@ body {
     white-space: nowrap;
 }
 
-.data-table .col-type {
-    width: 100px;
-    white-space: nowrap;
-}
 
 .data-table .col-number {
     width: 1%;
