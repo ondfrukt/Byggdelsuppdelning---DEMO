@@ -1082,6 +1082,34 @@ body {
     gap: var(--spacing-md);
 }
 
+.detail-list-header {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.detail-header-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-header-item .detail-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+}
+
+.detail-header-item .detail-value {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
 .panel-content {
     flex: 1;
     padding: var(--spacing-lg);
@@ -1481,16 +1509,6 @@ body {
     flex: 1;
     text-align: right;
     word-break: break-word;
-}
-
-.detail-panel .action-buttons {
-    display: flex;
-    gap: var(--spacing-md);
-    padding: var(--spacing-lg);
-    border-top: 2px solid var(--border-color);
-    background-color: var(--bg-secondary);
-    position: sticky;
-    bottom: 0;
 }
 
 /* Detail panel specific styles for relations */

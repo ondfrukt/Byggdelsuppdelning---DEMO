@@ -168,11 +168,11 @@ async function openDetailPanel(objectId) {
         // Load object data
         const object = await ObjectsAPI.getById(objectId);
         
-        // Update panel title
+        // Update panel title - show only Name, or fallback to ID
         const panelTitle = document.getElementById('detail-panel-title');
         if (panelTitle) {
-            const displayName = object.data?.namn || object.data?.name || object.data?.title || object.auto_id;
-            panelTitle.textContent = `${object.auto_id} - ${displayName}`;
+            const displayName = object.data?.Namn || object.data?.namn || object.data?.Name || object.data?.name || object.data?.title || object.auto_id;
+            panelTitle.textContent = displayName;
         }
         
         // Create or reuse unified detail panel instance
