@@ -57,11 +57,28 @@ class RelationManagerComponent {
             grouped[type].push(rel);
         });
         
-        // Render grouped relations
+        // Render grouped relations as tables
         const html = Object.entries(grouped).map(([type, rels]) => `
             <div class="relations-section">
-                <h4>${this.formatRelationType(type)}</h4>
-                ${rels.map(rel => this.renderRelation(rel)).join('')}
+                <div class="relations-section-header">
+                    <h4>${this.formatRelationType(type)}</h4>
+                    <button class="btn btn-sm btn-primary" onclick="showAddRelationModal(${this.objectId}, '${type}')">
+                        + Lägg till
+                    </button>
+                </div>
+                <table class="relations-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Namn</th>
+                            <th>Typ</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rels.map(rel => this.renderRelationRow(rel)).join('')}
+                    </tbody>
+                </table>
             </div>
         `).join('');
         
@@ -93,6 +110,40 @@ class RelationManagerComponent {
                     </button>
                 </div>
             </div>
+        `;
+    }
+    
+    renderRelationRow(relation) {
+        const targetObject = relation.target_object || {};
+        const displayName = targetObject.data?.namn || 
+                           targetObject.data?.Namn || 
+                           targetObject.data?.name || 
+                           targetObject.auto_id || 
+                           'Okänt objekt';
+        const autoId = targetObject.auto_id || 'N/A';
+        const typeName = targetObject.object_type?.name || 'N/A';
+        
+        return `
+            <tr class="relation-row">
+                <td class="relation-id">
+                    <a href="#" onclick="viewObjectDetail(${targetObject.id}); return false;">
+                        ${escapeHtml(autoId)}
+                    </a>
+                </td>
+                <td class="relation-name">
+                    <strong>${escapeHtml(displayName)}</strong>
+                    ${relation.relation_metadata?.description ? `<br><small class="relation-description">${escapeHtml(relation.relation_metadata.description)}</small>` : ''}
+                </td>
+                <td class="relation-type-cell">${escapeHtml(typeName)}</td>
+                <td class="relation-actions-cell">
+                    <button class="btn-icon btn-danger" 
+                            onclick="deleteRelation(${this.objectId}, ${relation.id})" 
+                            aria-label="Ta bort relation med ${escapeHtml(displayName)}"
+                            title="Ta bort">
+                        🗑️
+                    </button>
+                </td>
+            </tr>
         `;
     }
     
@@ -148,7 +199,7 @@ async function refreshAllViews() {
 }
 
 // Global function to show add relation modal
-async function showAddRelationModal(objectId) {
+async function showAddRelationModal(objectId, preSelectedType = null) {
     const modal = document.getElementById('relation-modal');
     const overlay = document.getElementById('modal-overlay');
     
@@ -171,6 +222,12 @@ async function showAddRelationModal(objectId) {
                         return `<option value="${obj.id}">${displayName} (${obj.object_type?.name})</option>`;
                     })
                     .join('');
+        }
+        
+        // Pre-select relation type if provided
+        const relationTypeSelect = document.getElementById('relation-type');
+        if (relationTypeSelect && preSelectedType) {
+            relationTypeSelect.value = preSelectedType;
         }
         
         // Store objectId for form submission

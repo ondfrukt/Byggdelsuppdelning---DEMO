@@ -956,13 +956,115 @@ body {
     margin-bottom: var(--spacing-xl);
 }
 
+.relations-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
 .relations-section h4 {
     font-size: 1rem;
     font-weight: 600;
-    margin-bottom: var(--spacing-md);
+    margin: 0;
     color: var(--text-secondary);
 }
 
+/* Relations Table */
+.relations-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.relations-table thead {
+    background-color: var(--bg-tertiary);
+}
+
+.relations-table th {
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-align: left;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.relations-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.relations-table tbody tr:hover {
+    background-color: var(--bg-secondary);
+}
+
+.relations-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.relations-table td {
+    padding: var(--spacing-md);
+    font-size: 0.875rem;
+}
+
+.relation-id a {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.relation-id a:hover {
+    text-decoration: underline;
+}
+
+.relation-name {
+    color: var(--text-primary);
+}
+
+.relation-name strong {
+    font-weight: 600;
+}
+
+.relation-description {
+    color: var(--text-secondary);
+    font-style: italic;
+    margin-top: var(--spacing-xs);
+}
+
+.relation-type-cell {
+    color: var(--text-secondary);
+}
+
+.relation-actions-cell {
+    text-align: center;
+}
+
+/* Icon button for delete */
+.btn-icon {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-xs);
+    font-size: 1.25rem;
+    line-height: 1;
+    transition: transform 0.2s;
+    border-radius: var(--radius-sm);
+}
+
+.btn-icon:hover {
+    transform: scale(1.2);
+    background-color: var(--bg-secondary);
+}
+
+.btn-icon.btn-danger:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Old relation-item styles kept for backward compatibility */
 .relation-item {
     display: flex;
     justify-content: space-between;
@@ -1527,11 +1629,33 @@ body {
     margin-bottom: var(--spacing-lg);
 }
 
-.detail-panel .relations-section h4 {
-    font-size: 0.9rem;
+.detail-panel .relations-section-header {
     margin-bottom: var(--spacing-sm);
 }
 
+.detail-panel .relations-section h4 {
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.detail-panel .relations-table {
+    font-size: 0.8rem;
+}
+
+.detail-panel .relations-table th,
+.detail-panel .relations-table td {
+    padding: var(--spacing-sm);
+}
+
+.detail-panel .relation-name strong {
+    font-size: 0.85rem;
+}
+
+.detail-panel .relation-description {
+    font-size: 0.7rem;
+}
+
+/* Old detail-panel specific styles kept for backward compatibility */
 .detail-panel .relation-item {
     padding: var(--spacing-sm);
     margin-bottom: var(--spacing-xs);
