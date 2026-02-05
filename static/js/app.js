@@ -115,16 +115,22 @@ async function toggleTreeView() {
             
             // Set up click handler
             treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
-                // Update panel title
+                // Load object data once
                 const object = await ObjectsAPI.getById(objectId);
+                
+                // Update panel title
                 const panelTitle = document.getElementById('tree-detail-panel-title');
                 if (panelTitle) {
                     const displayName = object.data?.Namn || object.data?.namn || object.auto_id;
                     panelTitle.textContent = displayName;
                 }
                 
-                // Render with unified component
-                await window.sidePanelInstance.render(objectId);
+                // Set the object data on the panel instance to avoid duplicate API call
+                window.sidePanelInstance.objectData = object;
+                window.sidePanelInstance.objectId = objectId;
+                
+                // Render with unified component (won't fetch again since objectData is set)
+                await window.sidePanelInstance.render();
             });
         }
         
