@@ -143,11 +143,26 @@ def create_object():
         # Generate auto ID
         auto_id = generate_auto_id(object_type.name)
         
+        # Generate MainID and version for new objects
+        status = data.get('status', 'In work')
+        version = '001'
+        
+        # Generate MainID based on object type prefix
+        type_prefix = object_type.id_prefix or object_type.name[:3].upper()
+        # Get the count of objects of this type to generate unique MainID
+        obj_count = Object.query.filter_by(object_type_id=object_type.id).count()
+        main_id = f"{type_prefix}-{obj_count + 1:03d}"
+        id_full = f"{main_id}.{version}"
+        
         # Create object
         obj = Object(
             object_type_id=object_type.id,
             auto_id=auto_id,
-            created_by=data.get('created_by')
+            created_by=data.get('created_by'),
+            status=status,
+            version=version,
+            main_id=main_id,
+            id_full=id_full
         )
         
         db.session.add(obj)
@@ -199,6 +214,10 @@ def update_object(id):
     try:
         obj = Object.query.get_or_404(id)
         data = request.get_json()
+        
+        # Update metadata fields if provided
+        if 'status' in data:
+            obj.status = data['status']
         
         # Get object data
         object_data = data.get('data', {})
