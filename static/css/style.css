@@ -1556,7 +1556,7 @@ body {
 }
 
 .detail-panel-content {
-    padding: var(--spacing-lg);
+    padding: 5px;
 }
 
 .detail-panel .tabs {
