@@ -1227,7 +1227,7 @@ body {
 
 .panel-content {
     flex: 1;
-    padding: var(--spacing-lg);
+    padding: 5px;
     overflow-y: auto;
 }
 
