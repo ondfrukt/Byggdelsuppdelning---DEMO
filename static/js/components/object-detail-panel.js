@@ -57,7 +57,6 @@ class ObjectDetailPanel {
                 ${this.renderHeader(obj, displayName)}
                 ${this.renderTabs()}
                 ${this.renderContent()}
-                ${this.renderFooter(obj)}
             </div>
         `;
         
@@ -137,21 +136,6 @@ class ObjectDetailPanel {
         `;
     }
     
-    renderFooter(obj) {
-        const footerClass = this.options.layout === 'side' ? 'side-panel-footer' : 'action-buttons';
-        
-        return `
-            <div class="${footerClass}">
-                <button class="btn btn-primary" onclick="editObject(${obj.id})">
-                    Redigera
-                </button>
-                <button class="btn btn-danger" onclick="deleteObject(${obj.id})">
-                    Ta bort
-                </button>
-            </div>
-        `;
-    }
-    
     renderTabContent() {
         if (this.activeTab === 'details') {
             return this.renderDetails();
@@ -170,25 +154,27 @@ class ObjectDetailPanel {
         
         let html = '<div class="detail-list">';
         
-        // Add basic info for detail panel layout
+        // Add compact header row for detail panel layout
         if (this.options.layout === 'detail') {
             const typeColor = getObjectTypeColor(obj.object_type?.name);
             html += `
-                <div class="detail-item">
-                    <span class="detail-label">ID</span>
-                    <span class="detail-value"><strong>${obj.auto_id}</strong></span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Typ</span>
-                    <span class="detail-value">
-                        <span class="object-type-badge" data-type="${obj.object_type?.name || ''}" style="background-color: ${typeColor}">
-                            ${obj.object_type?.name || 'N/A'}
+                <div class="detail-list-header">
+                    <div class="detail-header-item">
+                        <span class="detail-label">ID</span>
+                        <span class="detail-value"><strong>${obj.auto_id}</strong></span>
+                    </div>
+                    <div class="detail-header-item">
+                        <span class="detail-label">TYP</span>
+                        <span class="detail-value">
+                            <span class="object-type-badge" data-type="${obj.object_type?.name || ''}" style="background-color: ${typeColor}">
+                                ${obj.object_type?.name || 'N/A'}
+                            </span>
                         </span>
-                    </span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Skapad</span>
-                    <span class="detail-value">${formatDate(obj.created_at)}</span>
+                    </div>
+                    <div class="detail-header-item">
+                        <span class="detail-label">SKAPAD</span>
+                        <span class="detail-value">${formatDate(obj.created_at)}</span>
+                    </div>
                 </div>
             `;
         }
