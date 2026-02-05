@@ -57,15 +57,61 @@ class RelationManagerComponent {
             grouped[type].push(rel);
         });
         
-        // Render grouped relations
+        // Render grouped relations as tables
         const html = Object.entries(grouped).map(([type, rels]) => `
             <div class="relations-section">
-                <h4>${this.formatRelationType(type)}</h4>
-                ${rels.map(rel => this.renderRelation(rel)).join('')}
+                <div class="relations-section-header">
+                    <h4>${this.formatRelationType(type)}</h4>
+                    <button class="btn btn-sm btn-primary" data-object-id="${this.objectId}" data-relation-type="${escapeHtml(type)}">
+                        + Lägg till
+                    </button>
+                </div>
+                <table class="relations-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Namn</th>
+                            <th>Typ</th>
+                            <th style="width: 50px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rels.map(rel => this.renderRelationRow(rel)).join('')}
+                    </tbody>
+                </table>
             </div>
         `).join('');
         
         listContainer.innerHTML = html;
+        
+        // Attach event listeners to "Lägg till" buttons
+        listContainer.querySelectorAll('.btn-primary').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const objectId = parseInt(btn.dataset.objectId);
+                const relationType = btn.dataset.relationType;
+                showAddRelationModal(objectId, relationType);
+            });
+        });
+        
+        // Attach event listeners to relation links
+        listContainer.querySelectorAll('.relation-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const objectId = parseInt(link.dataset.objectId);
+                if (typeof viewObjectDetail === 'function') {
+                    viewObjectDetail(objectId);
+                }
+            });
+        });
+        
+        // Attach event listeners to delete buttons
+        listContainer.querySelectorAll('.relation-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sourceId = parseInt(btn.dataset.sourceId);
+                const relationId = parseInt(btn.dataset.relationId);
+                deleteRelation(sourceId, relationId);
+            });
+        });
     }
     
     renderRelation(relation) {
@@ -93,6 +139,46 @@ class RelationManagerComponent {
                     </button>
                 </div>
             </div>
+        `;
+    }
+    
+    renderRelationRow(relation) {
+        const targetObject = relation.target_object || {};
+        const displayName = targetObject.data?.namn || 
+                           targetObject.data?.Namn || 
+                           targetObject.data?.name || 
+                           targetObject.auto_id || 
+                           'Okänt objekt';
+        const autoId = targetObject.auto_id || 'N/A';
+        const typeName = targetObject.object_type?.name || 'N/A';
+        
+        // Validate and sanitize IDs to ensure they are numbers
+        const targetId = parseInt(targetObject.id) || 0;
+        const relationId = parseInt(relation.id) || 0;
+        
+        return `
+            <tr class="relation-row">
+                <td class="relation-id">
+                    <a href="#" data-object-id="${targetId}" class="relation-link">
+                        ${escapeHtml(autoId)}
+                    </a>
+                </td>
+                <td class="relation-name">
+                    <strong>${escapeHtml(displayName)}</strong>
+                    ${relation.relation_metadata?.description ? `<br><small class="relation-description">${escapeHtml(relation.relation_metadata.description)}</small>` : ''}
+                </td>
+                <td class="relation-type-cell">${escapeHtml(typeName)}</td>
+                <td class="relation-actions-cell">
+                    <button class="btn-icon btn-danger relation-delete-btn" 
+                            data-source-id="${this.objectId}"
+                            data-relation-id="${relationId}"
+                            aria-label="Ta bort relation med ${escapeHtml(displayName)}"
+                            title="Ta bort">
+                        <span aria-hidden="true">🗑️</span>
+                        <span class="sr-only">Ta bort</span>
+                    </button>
+                </td>
+            </tr>
         `;
     }
     
@@ -148,7 +234,7 @@ async function refreshAllViews() {
 }
 
 // Global function to show add relation modal
-async function showAddRelationModal(objectId) {
+async function showAddRelationModal(objectId, preSelectedType = null) {
     const modal = document.getElementById('relation-modal');
     const overlay = document.getElementById('modal-overlay');
     
@@ -171,6 +257,12 @@ async function showAddRelationModal(objectId) {
                         return `<option value="${obj.id}">${displayName} (${obj.object_type?.name})</option>`;
                     })
                     .join('');
+        }
+        
+        // Pre-select relation type if provided
+        const relationTypeSelect = document.getElementById('relation-type');
+        if (relationTypeSelect && preSelectedType) {
+            relationTypeSelect.value = preSelectedType;
         }
         
         // Store objectId for form submission
