@@ -62,7 +62,7 @@ class RelationManagerComponent {
             <div class="relations-section">
                 <div class="relations-section-header">
                     <h4>${this.formatRelationType(type)}</h4>
-                    <button class="btn btn-sm btn-primary" onclick="showAddRelationModal(${this.objectId}, '${type}')">
+                    <button class="btn btn-sm btn-primary" data-object-id="${this.objectId}" data-relation-type="${escapeHtml(type)}">
                         + Lägg till
                     </button>
                 </div>
@@ -83,6 +83,35 @@ class RelationManagerComponent {
         `).join('');
         
         listContainer.innerHTML = html;
+        
+        // Attach event listeners to "Lägg till" buttons
+        listContainer.querySelectorAll('.btn-primary').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const objectId = parseInt(btn.dataset.objectId);
+                const relationType = btn.dataset.relationType;
+                showAddRelationModal(objectId, relationType);
+            });
+        });
+        
+        // Attach event listeners to relation links
+        listContainer.querySelectorAll('.relation-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const objectId = parseInt(link.dataset.objectId);
+                if (typeof viewObjectDetail === 'function') {
+                    viewObjectDetail(objectId);
+                }
+            });
+        });
+        
+        // Attach event listeners to delete buttons
+        listContainer.querySelectorAll('.relation-delete-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sourceId = parseInt(btn.dataset.sourceId);
+                const relationId = parseInt(btn.dataset.relationId);
+                deleteRelation(sourceId, relationId);
+            });
+        });
     }
     
     renderRelation(relation) {
@@ -126,7 +155,7 @@ class RelationManagerComponent {
         return `
             <tr class="relation-row">
                 <td class="relation-id">
-                    <a href="#" onclick="viewObjectDetail(${targetObject.id}); return false;">
+                    <a href="#" data-object-id="${targetObject.id}" class="relation-link">
                         ${escapeHtml(autoId)}
                     </a>
                 </td>
@@ -136,11 +165,13 @@ class RelationManagerComponent {
                 </td>
                 <td class="relation-type-cell">${escapeHtml(typeName)}</td>
                 <td class="relation-actions-cell">
-                    <button class="btn-icon btn-danger" 
-                            onclick="deleteRelation(${this.objectId}, ${relation.id})" 
-                            aria-label="Ta bort relation med ${escapeHtml(displayName)}"
+                    <button class="btn-icon btn-danger relation-delete-btn" 
+                            data-source-id="${this.objectId}"
+                            data-relation-id="${relation.id}"
+                            aria-label="Ta bort relation med ${displayName}"
                             title="Ta bort">
-                        🗑️
+                        <span aria-hidden="true">🗑️</span>
+                        <span class="sr-only">Ta bort</span>
                     </button>
                 </td>
             </tr>
