@@ -201,16 +201,54 @@ body {
 }
 
 .data-table {
-    width: auto;
-    min-width: 100%;
+    width: 100%;
     border-collapse: collapse;
     table-layout: auto;
 }
 
 .data-table th,
 .data-table td {
+    padding: 4px 8px;
+    text-align: left;
+}
+
+/* Kolumner som anpassar sig till innehåll (minimala) */
+.data-table .col-id,
+.data-table .col-date,
+.data-table .col-status,
+.data-table .col-actions {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.data-table .col-type {
+    width: 100px;
+    white-space: nowrap;
+}
+
+.data-table .col-number {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+}
+
+/* Kolumner som får ta utrymme (flexibla) */
+.data-table .col-name {
     width: auto;
-    min-width: fit-content;
+    min-width: 150px;
+    max-width: 300px;
+}
+
+.data-table .col-description {
+    width: auto;
+    min-width: 200px;
+    max-width: 400px;
+    white-space: normal;
+}
+
+/* Default för kolumner utan specifik klass */
+.data-table .col-default {
+    width: auto;
 }
 
 .data-table thead {
@@ -218,13 +256,13 @@ body {
 }
 
 .data-table th {
-    padding: 4px 8px;
-    text-align: left;
+
+
     font-weight: 600;
     color: var(--text-secondary);
     font-size: 12px;
     text-transform: uppercase;
-    white-space: nowrap;
+
     position: sticky;
     top: 0;
     background-color: var(--bg-tertiary);
@@ -237,9 +275,7 @@ body {
 }
 
 .data-table td {
-    padding: 4px 8px;
     border-top: 1px solid var(--border-color);
-    white-space: nowrap;
     font-size: 12px;
 }
 
