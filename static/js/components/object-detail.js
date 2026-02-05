@@ -126,7 +126,7 @@ class ObjectDetailComponent {
         
         fields.push(`
             <div class="detail-item">
-                <span class="detail-label">ID Full</span>
+                <span class="detail-label">Full ID</span>
                 <span class="detail-value">${this.object.id_full || 'N/A'}</span>
             </div>
         `);

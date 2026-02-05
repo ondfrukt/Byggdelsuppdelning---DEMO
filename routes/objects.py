@@ -148,6 +148,8 @@ def create_object():
         version = '001'
         
         # Generate MainID based on object type prefix
+        # NOTE: This approach has a potential race condition in concurrent environments.
+        # For production, consider using database sequences or unique constraints with retry logic.
         type_prefix = object_type.id_prefix or object_type.name[:3].upper()
         # Get the count of objects of this type to generate unique MainID
         obj_count = Object.query.filter_by(object_type_id=object_type.id).count()

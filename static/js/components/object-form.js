@@ -197,7 +197,7 @@ class ObjectFormComponent {
                            value="${escapeHtml(versionValue)}"
                            class="form-control"
                            readonly>
-                    <small class="form-help">Version uppdateras automatiskt</small>
+                    <small class="form-help">Version is automatically updated</small>
                 </div>
                 <div class="form-group">
                     <label for="field-main_id">MainID</label>
@@ -207,7 +207,7 @@ class ObjectFormComponent {
                            value="${escapeHtml(mainIdValue)}"
                            class="form-control"
                            readonly>
-                    <small class="form-help">MainID genereras automatiskt vid skapande</small>
+                    <small class="form-help">MainID is automatically generated on creation</small>
                 </div>
             </div>
         `;
