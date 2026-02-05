@@ -1239,7 +1239,7 @@ body {
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
-    background-color: var(--secondary-color);
+    background-color: var(--bg-tertiary);
     border-radius: 0;
     margin-bottom: 0;
 }
