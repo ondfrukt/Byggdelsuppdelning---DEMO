@@ -1622,7 +1622,7 @@ body {
 
 .detail-panel .detail-value {
     flex: 1;
-    text-align: right;
+    text-align: left;
     word-break: break-word;
 }
 
