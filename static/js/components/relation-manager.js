@@ -152,10 +152,14 @@ class RelationManagerComponent {
         const autoId = targetObject.auto_id || 'N/A';
         const typeName = targetObject.object_type?.name || 'N/A';
         
+        // Validate and sanitize IDs to ensure they are numbers
+        const targetId = parseInt(targetObject.id) || 0;
+        const relationId = parseInt(relation.id) || 0;
+        
         return `
             <tr class="relation-row">
                 <td class="relation-id">
-                    <a href="#" data-object-id="${targetObject.id}" class="relation-link">
+                    <a href="#" data-object-id="${targetId}" class="relation-link">
                         ${escapeHtml(autoId)}
                     </a>
                 </td>
@@ -167,8 +171,8 @@ class RelationManagerComponent {
                 <td class="relation-actions-cell">
                     <button class="btn-icon btn-danger relation-delete-btn" 
                             data-source-id="${this.objectId}"
-                            data-relation-id="${relation.id}"
-                            aria-label="Ta bort relation med ${displayName}"
+                            data-relation-id="${relationId}"
+                            aria-label="Ta bort relation med ${escapeHtml(displayName)}"
                             title="Ta bort">
                         <span aria-hidden="true">🗑️</span>
                         <span class="sr-only">Ta bort</span>
