@@ -1233,14 +1233,37 @@ body {
     gap: var(--spacing-md);
 }
 
+/* Detail list headers - används för att visa metadata i grupper */
 .detail-list-header {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--spacing-sm);
     padding: var(--spacing-sm);
     background-color: var(--bg-secondary);
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+/* Första header-raden i en grupp får rundade hörn upptill */
+.detail-list-header:first-of-type {
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+/* Sista header-raden i gruppen får rundade hörn nedtill och avstånd till nästa sektion */
+.detail-list-header:last-of-type {
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Om det bara finns EN header-rad, ge den rundade hörn överallt */
+.detail-list-header:only-of-type {
     border-radius: var(--radius-md);
     margin-bottom: var(--spacing-md);
+}
+
+/* Tunn avgränsare mellan header-rader i samma grupp */
+.detail-list-header + .detail-list-header {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .detail-header-item {
