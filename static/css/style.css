@@ -1166,7 +1166,8 @@ body {
 
 /* Tree View Styles - See TreeView.css for detailed compact styles */
 
-/* Side Panel Styles */
+/* Side Panel Styles - DEPRECATED: Now using detail-panel for both tree view and object list */
+/*
 .side-panel {
     display: flex;
     flex-direction: column;
@@ -1232,6 +1233,7 @@ body {
     padding: var(--spacing-xl);
     border-top: 1px solid var(--border-color);
 }
+*/
 
 /* Shared styles for unified ObjectDetailPanel component */
 .detail-list {
