@@ -107,14 +107,30 @@ async function toggleTreeView() {
             treeViewInstance = new TreeView('tree-view-container');
             window.treeViewInstance = treeViewInstance; // Update global reference
             
-            // Create unified panel for tree view in 'side' layout mode
-            window.sidePanelInstance = createObjectDetailPanel('side-panel-container', {
-                layout: 'side'
+            // Create unified panel for tree view in 'detail' layout mode (same as object list)
+            window.sidePanelInstance = createObjectDetailPanel('tree-detail-panel-body', {
+                layout: 'detail',
+                showHeader: false
             });
             
             // Set up click handler
-            treeViewInstance.setNodeClickHandler((objectId, objectType) => {
-                window.sidePanelInstance.render(objectId);
+            treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
+                // Load object data once
+                const object = await ObjectsAPI.getById(objectId);
+                
+                // Update panel title
+                const panelTitle = document.getElementById('tree-detail-panel-title');
+                if (panelTitle) {
+                    const displayName = object.data?.Namn || object.data?.namn || object.auto_id;
+                    panelTitle.textContent = displayName;
+                }
+                
+                // Set the object data on the panel instance to avoid duplicate API call
+                window.sidePanelInstance.objectData = object;
+                window.sidePanelInstance.objectId = objectId;
+                
+                // Render with unified component (won't fetch again since objectData is set)
+                await window.sidePanelInstance.render();
             });
         }
         
@@ -122,6 +138,18 @@ async function toggleTreeView() {
     } else {
         objectsWrapper.style.display = 'block';
         treeContainer.style.display = 'none';
+    }
+}
+
+// Close tree detail panel
+function closeTreeDetailPanel() {
+    const panel = document.getElementById('tree-detail-panel');
+    if (panel) {
+        // Just clear the content, don't hide in tree view
+        const panelBody = document.getElementById('tree-detail-panel-body');
+        if (panelBody) {
+            panelBody.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
+        }
     }
 }
 

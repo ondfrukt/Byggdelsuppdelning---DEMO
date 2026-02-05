@@ -62,7 +62,13 @@
                     <div id="tree-view-container"></div>
                 </div>
                 <div class="column-right">
-                    <div id="side-panel-container"></div>
+                    <div id="tree-detail-panel" class="detail-panel active">
+                        <div class="detail-panel-header">
+                            <h2 id="tree-detail-panel-title">Objektdetaljer</h2>
+                            <button class="detail-panel-close" onclick="closeTreeDetailPanel()">&times;</button>
+                        </div>
+                        <div id="tree-detail-panel-body" class="detail-panel-content"></div>
+                    </div>
                 </div>
             </div>
         </div>
