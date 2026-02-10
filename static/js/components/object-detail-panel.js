@@ -62,6 +62,10 @@ class ObjectDetailPanel {
         
         // Attach event listeners after rendering
         this.attachEventListeners();
+
+        if (this.activeTab === 'relations') {
+            await this.loadRelationsIfNeeded();
+        }
     }
     
     attachEventListeners() {
