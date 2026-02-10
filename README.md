@@ -129,14 +129,17 @@ Byggdelssystemet är ett BIM-liknande informationshanteringssystem som ger anvä
 UNIQUE(object_id, field_id)
 ```
 
-### ObjectRelations (Kopplingar)
+### ObjectRelations (Relationsobjekt)
 ```sql
 - id: SERIAL PRIMARY KEY
-- source_object_id: FK → Objects
-- target_object_id: FK → Objects
+- source_object_id: FK → Objects   # objectA_id
+- target_object_id: FK → Objects   # objectB_id
 - relation_type: VARCHAR(100)
 - description: TEXT
 - relation_metadata: JSONB
+
+# API aliaser:
+# objectA_id, objectA_type, objectB_id, objectB_type
 INDEX: source_object_id, target_object_id, relation_type
 ```
 
@@ -178,12 +181,19 @@ PUT    /api/objects/{id}              # Uppdatera objekt
 DELETE /api/objects/{id}              # Ta bort objekt
 ```
 
-### Relations
+### Relations (relationsobjekt)
 ```bash
-GET    /api/objects/{id}/relations    # Hämta relationer
-POST   /api/objects/{id}/relations    # Skapa relation
-PUT    /api/relations/{id}            # Uppdatera relation
-DELETE /api/relations/{id}            # Ta bort relation
+# Objektspecifika relationer (inkommande + utgående)
+GET    /api/objects/{id}/relations
+POST   /api/objects/{id}/relations
+PUT    /api/objects/{id}/relations/{relation_id}
+DELETE /api/objects/{id}/relations/{relation_id}
+
+# Generell relation-API
+GET    /api/relations                 # Lista alla relationer
+GET    /api/relations?object_id={id}  # Filtrera relationer för objekt
+POST   /api/relations                 # Skapa relation med objectA_id/objectB_id
+DELETE /api/relations/{relation_id}
 ```
 
 ### Documents
@@ -193,6 +203,9 @@ POST   /api/objects/{id}/documents    # Ladda upp (multipart/form-data)
 GET    /api/documents/{id}/download   # Ladda ner
 DELETE /api/documents/{id}            # Ta bort
 ```
+
+
+Relationer traverseras nu från båda håll i både API och frontend (objektpanel + trädvy), vilket ersätter behovet av direkta barn/förälder-kopplingar i objekten.
 
 ### Search & Stats
 ```bash

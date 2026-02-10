@@ -44,7 +44,7 @@ class TreeView {
                         <tr>
                             <th data-sortable data-sort-type="text" style="width: 50%;">Namn</th>
                             <th data-sortable data-sort-type="text" style="width: 20%;">ID</th>
-                            <th data-sortable data-sort-type="text" style="width: 30%;">Typ</th>
+                            <th data-sortable data-sort-type="text" style="width: 30%;">Typ / Relation</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,7 +109,7 @@ class TreeView {
                     <td>
                         ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${node.auto_id}</a>` : ''}
                     </td>
-                    <td>${node.type || ''}</td>
+                    <td>${node.type || ''}${node.relation ? `<br><small>${node.relation.relation_type} (${node.direction === 'incoming' ? 'inkommande' : 'utgående'})</small>` : ''}</td>
                 </tr>
             `;
         }

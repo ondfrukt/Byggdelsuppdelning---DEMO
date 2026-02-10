@@ -30,6 +30,11 @@ class ObjectRelation(db.Model):
             'id': self.id,
             'source_object_id': self.source_object_id,
             'target_object_id': self.target_object_id,
+            # Standardized relation entity aliases
+            'objectA_id': self.source_object_id,
+            'objectA_type': self.source_object.object_type.name if self.source_object and self.source_object.object_type else None,
+            'objectB_id': self.target_object_id,
+            'objectB_type': self.target_object.object_type.name if self.target_object and self.target_object.object_type else None,
             'relation_type': self.relation_type,
             'description': self.description,
             'metadata': self.relation_metadata,  # Return as 'metadata' in API
