@@ -14,8 +14,12 @@ const relationModalState = {
     perPage: 25,
     totalPages: 1,
     items: [],
+    filteredItems: [],
     basket: [],
     objectTypes: [],
+    columnSearches: {},
+    sortField: null,
+    sortDirection: 'asc',
     focusableElements: [],
     focusHandler: null,
     keyHandler: null,
@@ -203,44 +207,165 @@ function cleanupRelationModalA11y(modal) {
 async function loadRelationCandidates() {
     const result = await ObjectsAPI.getAllPaginated({
         type: relationModalState.selectedType,
-        search: relationModalState.search,
-        page: relationModalState.page,
-        per_page: relationModalState.perPage,
         minimal: true
     });
 
-    relationModalState.items = (result.items || []).filter(item => item.id !== relationModalState.sourceId);
-    relationModalState.totalPages = result.total_pages || 1;
+    const loadedItems = Array.isArray(result) ? result : (result.items || []);
+    relationModalState.items = loadedItems.filter(item => item.id !== relationModalState.sourceId);
 }
 
-function renderRelationTable() {
-    const header = document.getElementById('relation-table-headers');
-    const tbody = document.getElementById('relation-object-table-body');
-    if (!header || !tbody) return;
-
+function getRelationTableColumns() {
     const selectedType = relationModalState.objectTypes.find(type => type.name === relationModalState.selectedType);
     const dynamicField = selectedType?.fields?.find(field => field.field_name !== 'namn' && field.field_name !== 'name');
     const dynamicLabel = dynamicField?.display_name || 'Beskrivning';
 
-    header.innerHTML = `<th>Namn</th><th>Typ</th><th>${escapeHtml(dynamicLabel)}</th><th>Välj</th>`;
+    return [
+        { field: 'display_name', label: 'Namn', sortType: 'text' },
+        { field: 'type', label: 'Typ', sortType: 'text' },
+        { field: 'dynamic', label: dynamicLabel, sortType: 'text', dynamicFieldName: dynamicField?.field_name },
+        { field: 'actions', label: 'Välj', sortable: false }
+    ];
+}
 
-    if (relationModalState.items.length === 0) {
+function getRelationCellValue(item, column) {
+    if (column.field === 'display_name') return getObjectDisplayName(item);
+    if (column.field === 'type') return item.object_type?.name || '-';
+    if (column.field === 'dynamic') {
+        if (column.dynamicFieldName) return String(item.data?.[column.dynamicFieldName] || '-');
+        return String(item.data?.beskrivning || item.data?.description || '-');
+    }
+    return '';
+}
+
+function applyRelationTableFilters() {
+    const globalTerm = relationModalState.search.trim().toLowerCase();
+
+    let items = relationModalState.items.filter(item => {
+        if (!globalTerm) return true;
+
+        const searchableValues = [
+            getObjectDisplayName(item),
+            item.auto_id || '',
+            item.object_type?.name || '',
+            item.data?.namn || '',
+            item.data?.name || '',
+            item.data?.beskrivning || '',
+            item.data?.description || ''
+        ];
+
+        return searchableValues.some(value => String(value).toLowerCase().includes(globalTerm));
+    });
+
+    const columns = getRelationTableColumns();
+    for (const [field, searchTerm] of Object.entries(relationModalState.columnSearches)) {
+        if (!searchTerm) continue;
+        const column = columns.find(col => col.field === field);
+        if (!column) continue;
+        const term = searchTerm.toLowerCase();
+        items = items.filter(item => String(getRelationCellValue(item, column)).toLowerCase().includes(term));
+    }
+
+    if (relationModalState.sortField) {
+        const column = columns.find(col => col.field === relationModalState.sortField);
+        if (column?.sortable !== false) {
+            const directionMultiplier = relationModalState.sortDirection === 'asc' ? 1 : -1;
+            items = [...items].sort((a, b) => {
+                const aValue = String(getRelationCellValue(a, column) || '');
+                const bValue = String(getRelationCellValue(b, column) || '');
+                return aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' }) * directionMultiplier;
+            });
+        }
+    }
+
+    relationModalState.filteredItems = items;
+    relationModalState.totalPages = Math.max(Math.ceil(items.length / relationModalState.perPage), 1);
+    relationModalState.page = Math.min(relationModalState.page, relationModalState.totalPages);
+}
+
+function renderRelationTable() {
+    const header = document.getElementById('relation-table-headers');
+    const searchRow = document.getElementById('relation-table-search-row');
+    const tbody = document.getElementById('relation-object-table-body');
+    if (!header || !searchRow || !tbody) return;
+
+    const columns = getRelationTableColumns();
+
+    header.innerHTML = columns.map(column => {
+        if (column.sortable === false) {
+            return `<th>${escapeHtml(column.label)}</th>`;
+        }
+        const indicator = relationModalState.sortField === column.field
+            ? (relationModalState.sortDirection === 'asc' ? '↑' : '↓')
+            : '↕';
+
+        return `<th data-sortable="true" data-field="${column.field}" style="cursor: pointer;">${escapeHtml(column.label)} <span class="sort-indicator">${indicator}</span></th>`;
+    }).join('');
+
+    searchRow.classList.add('column-search-row');
+    searchRow.innerHTML = columns.map(column => {
+        if (column.sortable === false) return '<th></th>';
+        return `
+            <th>
+                <input type="text"
+                       class="column-search-input"
+                       placeholder="Sök..."
+                       data-field="${column.field}"
+                       value="${escapeHtml(relationModalState.columnSearches[column.field] || '')}">
+            </th>
+        `;
+    }).join('');
+
+    const startIndex = (relationModalState.page - 1) * relationModalState.perPage;
+    const endIndex = startIndex + relationModalState.perPage;
+    const pageItems = relationModalState.filteredItems.slice(startIndex, endIndex);
+
+    if (pageItems.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Inga objekt hittades.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = relationModalState.items.map(item => {
+    tbody.innerHTML = pageItems.map(item => {
         const inBasket = relationModalState.basket.some(b => b.id === item.id);
-        const dynamicValue = dynamicField ? (item.data?.[dynamicField.field_name] || '-') : (item.data?.beskrivning || item.data?.description || '-');
+        const dynamicValue = getRelationCellValue(item, columns[2]);
         return `
             <tr tabindex="0" role="button" class="relation-select-row" data-id="${item.id}" aria-label="Välj ${escapeHtml(getObjectDisplayName(item))}">
                 <td>${escapeHtml(getObjectDisplayName(item))}</td>
                 <td>${escapeHtml(item.object_type?.name || '-')}</td>
                 <td>${escapeHtml(String(dynamicValue))}</td>
-                <td><button type="button" class="btn btn-primary btn-sm relation-add-btn" data-id="${item.id}" aria-label="Lägg till ${escapeHtml(getObjectDisplayName(item))}">${inBasket ? '✓' : '+'}</button></td>
+                <td><button type="button" class="btn btn-primary btn-sm relation-add-btn" data-id="${item.id}" aria-label="Lägg till ${escapeHtml(getObjectDisplayName(item))}">${inBasket ? 'Tillagd ✓' : 'Lägg till +'}</button></td>
             </tr>
         `;
     }).join('');
+
+    header.querySelectorAll('th[data-sortable="true"]').forEach(headerCell => {
+        headerCell.addEventListener('click', () => {
+            const field = headerCell.dataset.field;
+            if (relationModalState.sortField === field) {
+                relationModalState.sortDirection = relationModalState.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                relationModalState.sortField = field;
+                relationModalState.sortDirection = 'asc';
+            }
+            applyRelationTableFilters();
+            renderRelationTable();
+            if (typeof relationModalState.updatePagination === 'function') {
+                relationModalState.updatePagination();
+            }
+        });
+    });
+
+    searchRow.querySelectorAll('.column-search-input').forEach(input => {
+        input.addEventListener('input', (event) => {
+            const field = event.target.dataset.field;
+            relationModalState.columnSearches[field] = event.target.value;
+            relationModalState.page = 1;
+            applyRelationTableFilters();
+            renderRelationTable();
+            if (typeof relationModalState.updatePagination === 'function') {
+                relationModalState.updatePagination();
+            }
+        });
+    });
 
     tbody.querySelectorAll('.relation-add-btn').forEach(btn => {
         btn.addEventListener('click', () => addToBasket(parseInt(btn.dataset.id, 10)));
@@ -368,6 +493,7 @@ function bindRelationModalEvents() {
 
 async function refreshCandidatesAndRender() {
     await loadRelationCandidates();
+    applyRelationTableFilters();
     renderRelationTable();
     renderBasket();
     if (typeof relationModalState.updatePagination === 'function') {
@@ -386,6 +512,9 @@ async function showAddRelationModal(objectId, preSelectedType = null) {
     relationModalState.search = '';
     relationModalState.page = 1;
     relationModalState.basket = [];
+    relationModalState.columnSearches = {};
+    relationModalState.sortField = null;
+    relationModalState.sortDirection = 'asc';
 
     try {
         relationModalState.objectTypes = await ObjectTypesAPI.getAll(true);
