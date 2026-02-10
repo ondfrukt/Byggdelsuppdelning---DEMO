@@ -332,7 +332,15 @@ function renderRelationTable() {
                 <td>${escapeHtml(getObjectDisplayName(item))}</td>
                 <td>${escapeHtml(item.object_type?.name || '-')}</td>
                 <td>${escapeHtml(String(dynamicValue))}</td>
-                <td><button type="button" class="btn btn-primary btn-sm relation-add-btn" data-id="${item.id}" aria-label="Lägg till ${escapeHtml(getObjectDisplayName(item))}">${inBasket ? 'Tillagd ✓' : 'Lägg till +'}</button></td>
+                <td>
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm relation-add-btn ${inBasket ? 'is-added' : ''}"
+                        data-id="${item.id}"
+                        aria-label="${inBasket ? `Redan tillagd: ${escapeHtml(getObjectDisplayName(item))}` : `Lägg till ${escapeHtml(getObjectDisplayName(item))}`}"
+                        ${inBasket ? 'disabled' : ''}
+                    >${inBasket ? '✓' : '+'}</button>
+                </td>
             </tr>
         `;
     }).join('');
@@ -420,15 +428,15 @@ function renderBasket() {
 
     list.innerHTML = relationModalState.basket.map(item => `
         <div class="basket-item">
-            <div>
-                <strong>${escapeHtml(getObjectDisplayName(item))}</strong>
-                <div><small>${escapeHtml(item.object_type?.name || '-')}</small></div>
+            <div class="basket-item-main">
+                <strong class="basket-item-title">${escapeHtml(getObjectDisplayName(item))}</strong>
+                <small class="basket-item-meta">ID: ${item.id} • ${escapeHtml(item.object_type?.name || '-')}</small>
             </div>
-            <button type="button" class="btn btn-danger btn-sm" data-id="${item.id}" aria-label="Ta bort ${escapeHtml(getObjectDisplayName(item))}">Ta bort</button>
+            <button type="button" class="basket-remove-btn" data-id="${item.id}" aria-label="Ta bort ${escapeHtml(getObjectDisplayName(item))}">✕</button>
         </div>
     `).join('');
 
-    list.querySelectorAll('button').forEach(button => {
+    list.querySelectorAll('.basket-remove-btn').forEach(button => {
         button.addEventListener('click', () => removeFromBasket(parseInt(button.dataset.id, 10)));
     });
 }
