@@ -190,11 +190,19 @@ PUT    /api/objects/{id}/relations/{relation_id}
 DELETE /api/objects/{id}/relations/{relation_id}
 
 # Generell relation-API
-GET    /api/relations                 # Lista alla relationer
-GET    /api/relations?object_id={id}  # Filtrera relationer för objekt
-POST   /api/relations                 # Skapa relation med objectA_id/objectB_id
+GET    /api/relations                  # Lista alla relationer
+GET    /api/relations?object_id={id}   # Filtrera relationer för objekt
+POST   /api/relations                  # Skapa relation med objectA_id/objectB_id
+POST   /api/relations/batch            # Batch-koppla flera targetId från sourceId
 DELETE /api/relations/{relation_id}
 ```
+
+### Relation-panel (batch-koppling)
+- Knappen **"Lägg till relation"** öppnar en modal/overlay som täcker ~90% av UI:t.
+- Panelen har sök, objekttypsfilter och tabell (class=`table-container`) där kolumner anpassas per vald objekttyp.
+- Rader kan läggas i en **korg** (max 200), tas bort igen och kopplas i ett batch-anrop.
+- Under korgen finns formulär för gemensam relationstyp och metadata.
+- Modal stöder stängning via **X**, **Avbryt**, klick utanför och **ESC**, samt fokuslås för tangentbordsanvändning.
 
 ### Documents
 ```bash

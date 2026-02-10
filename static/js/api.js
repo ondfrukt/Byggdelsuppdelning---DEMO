@@ -126,6 +126,18 @@ const ObjectsAPI = {
     getById: (id) => {
         return fetchAPI(`/objects/${id}`);
     },
+
+    getAllPaginated: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.type) params.append('type', filters.type);
+        if (filters.search) params.append('search', filters.search);
+        if (filters.page) params.append('page', filters.page);
+        if (filters.per_page) params.append('per_page', filters.per_page);
+        if (filters.minimal) params.append('minimal', 'true');
+
+        const query = params.toString();
+        return fetchAPI(`/objects${query ? '?' + query : ''}`);
+    },
     
     create: (data) => {
         return fetchAPI('/objects', {
@@ -164,7 +176,15 @@ const ObjectsAPI = {
             method: 'DELETE',
         });
     },
-    
+
+
+    addRelationsBatch: (payload) => {
+        return fetchAPI('/relations/batch', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    },
+
     // Documents
     getDocuments: (objectId) => {
         return fetchAPI(`/objects/${objectId}/documents`);
