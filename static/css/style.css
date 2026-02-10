@@ -14,7 +14,7 @@
     --status-obsolete: #ef4444;
     
     --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
+    --bg-secondary: #f1f5f9;
     --bg-tertiary: #f1f5f9;
     --border-color: #e2e8f0;
     --text-primary: #1e293b;
@@ -582,13 +582,16 @@ body {
 .relation-modal {
     width: 90vw;
     max-width: 1400px;
-    max-height: 90vh;
+    height: min(92vh, 900px);
+    max-height: 92vh;
+    overflow: hidden;
 }
 
 .relation-modal-content {
     display: flex;
     flex-direction: column;
-    min-height: 80vh;
+    height: 100%;
+    min-height: 0;
 }
 
 .modal-subtitle {
@@ -620,6 +623,11 @@ body {
     min-height: 0;
 }
 
+.relation-basket-section {
+    display: flex;
+    flex-direction: column;
+}
+
 .relation-filters {
     display: flex;
     gap: var(--spacing-sm);
@@ -639,14 +647,20 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 3px 8px;
-    min-width: auto;
-    height: 26px;
+    font-size: 1rem;
+    font-weight: 700;
+    padding: 0;
+    width: 24px;
+    height: 24px;
     line-height: 1;
-    white-space: nowrap;
+    border-radius: 999px;
+}
+
+.relation-add-btn.is-added {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #15803d;
+    cursor: default;
 }
 
 .relation-pagination {
@@ -664,21 +678,66 @@ body {
     margin-bottom: var(--spacing-sm);
 }
 
+.basket-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
 .relation-basket-list {
-    max-height: 28vh;
+    flex: 1;
+    min-height: 280px;
+    max-height: none;
     overflow: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-primary);
-    margin-bottom: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
 }
 
 .basket-item {
     display: flex;
     justify-content: space-between;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 6px var(--spacing-sm);
     border-bottom: 1px solid var(--border-color);
+}
+
+.basket-item-main {
+    min-width: 0;
+}
+
+.basket-item-title {
+    display: block;
+    font-size: 0.8125rem;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.basket-item-meta {
+    display: block;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+}
+
+.basket-remove-btn {
+    border: none;
+    background: transparent;
+    color: var(--danger-color);
+    font-size: 1rem;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.basket-remove-btn:hover {
+    background: rgba(239, 68, 68, 0.12);
 }
 
 .basket-item:last-child {
@@ -688,6 +747,7 @@ body {
 .relation-settings-form {
     border-top: 1px solid var(--border-color);
     padding-top: var(--spacing-sm);
+    flex-shrink: 0;
 }
 
 .relation-result-success {
@@ -1969,6 +2029,7 @@ body {
 @media (max-width: 768px) {
     .relation-modal {
         width: 96vw;
+        height: 94vh;
     }
 
     .relation-modal-layout {

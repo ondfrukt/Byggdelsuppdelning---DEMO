@@ -134,7 +134,10 @@
                 <aside class="relation-basket-section" aria-label="Valda objekt">
                     <div class="basket-header">
                         <h4>Korg (<span id="relation-basket-count">0</span>/200)</h4>
-                        <button type="button" id="relation-clear-basket" class="btn btn-secondary btn-sm">Rensa</button>
+                        <div class="basket-actions">
+                            <button type="button" id="relation-clear-basket" class="btn btn-secondary btn-sm">Rensa</button>
+                            <button type="submit" form="relation-form" id="relation-connect-btn" class="btn btn-primary btn-sm">Koppla</button>
+                        </div>
                     </div>
                     <div id="relation-basket-list" class="relation-basket-list"></div>
 
@@ -164,11 +167,6 @@
                         </div>
                     </form>
                 </aside>
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeRelationModal()">Avbryt</button>
-                <button type="submit" form="relation-form" id="relation-connect-btn" class="btn btn-primary">Koppla</button>
             </div>
         </div>
     </div>
