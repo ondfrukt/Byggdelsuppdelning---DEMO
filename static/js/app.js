@@ -150,6 +150,7 @@ async function toggleTreeView() {
                 const detailPanel = document.getElementById('detail-panel');
                 if (detailPanel) {
                     detailPanel.classList.add('active');
+                    
                 }
 
                 if (treeWrapper) {
@@ -193,27 +194,31 @@ async function openDetailPanel(objectId) {
     
     if (!panel || !panelBody) return;
     
-    // Clear any pending timeout from previous openings
+    // Säkerställ att inga gamla tidsutlösare ligger kvar
     clearDetailPanelTimeout();
     
     try {
-        // Show panel first
+        // Visa panel och sätt flex-wrapper på en gång
         panel.classList.add('active');
-        if (wrapper && panel.classList.contains('active')) {
-            wrapper.classList.add('panel-open');
-        }
+        if (wrapper) wrapper.classList.add('panel-open');
         
-        // Load object data
+        // Ladda objektdata
         const object = await ObjectsAPI.getById(objectId);
         
-        // Update panel title - show only Name, or fallback to ID
+        // Uppdatera panel-title (visar namn, eller ID som fallback)
         const panelTitle = document.getElementById('detail-panel-title');
         if (panelTitle) {
-            const displayName = object.data?.Namn || object.data?.namn || object.data?.Name || object.data?.name || object.data?.title || object.auto_id;
+            const displayName =
+                object.data?.Namn ||
+                object.data?.namn ||
+                object.data?.Name ||
+                object.data?.name ||
+                object.data?.title ||
+                object.auto_id;
             panelTitle.textContent = displayName;
         }
         
-        // Create or reuse unified detail panel instance
+        // Skapa eller återanvänd enhetlig detaljpanel-instans
         if (!currentDetailPanelInstance) {
             currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
                 layout: 'detail',
@@ -221,7 +226,7 @@ async function openDetailPanel(objectId) {
             });
         }
         
-        // Render with the unified component
+        // Rendera komponenten för det valda objektet
         await currentDetailPanelInstance.render(objectId);
         
     } catch (error) {
