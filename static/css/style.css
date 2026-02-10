@@ -1566,9 +1566,10 @@ body {
     opacity: 1;
 }
 
+
 .detail-panel {
-    display: none; /* Panelen är dold */
-    flex: 0 1 25%;
+    display: none;
+    flex: 0 0 25%;
     min-width: 350px;
     max-width: 500px;
     height: calc(100vh - var(--main-header-height) - var(--main-padding));
@@ -1576,12 +1577,13 @@ body {
     box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
     overflow-y: auto;
     transition: all 0.3s ease;
-    box-sizing: border-box;
+
     border-left: 2px solid var(--border-color);
 }
 
 .detail-panel.active {
-    display: flex; /* eller block, beroende på innehåll */
+    display: flex;
+    flex-direction: column;
 }
 
 .detail-panel-header {
