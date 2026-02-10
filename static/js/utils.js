@@ -143,6 +143,12 @@ function openModal(modalId) {
 function closeModal() {
     const overlay = document.getElementById('modal-overlay');
     const modals = document.querySelectorAll('.modal');
+
+    const relationModal = document.getElementById('relation-modal');
+    if (relationModal && relationModal.style.display === 'block' && typeof closeRelationModal === 'function') {
+        closeRelationModal();
+        return;
+    }
     
     if (overlay) {
         overlay.style.display = 'none';

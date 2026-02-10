@@ -94,45 +94,81 @@
     </div>
 
     <!-- Relation Modal -->
-    <div id="relation-modal" class="modal">
-        <div class="modal-content">
+    <div id="relation-modal" class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="relation-modal-title" aria-describedby="relation-modal-description">
+        <div class="modal-content relation-modal-content">
             <div class="modal-header">
-                <h3>Skapa Relation</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <div>
+                    <h3 id="relation-modal-title">Lägg till relationer</h3>
+                    <p id="relation-modal-description" class="modal-subtitle">Sök, välj och koppla flera objekt i ett batch-anrop.</p>
+                </div>
+                <button class="close-btn" type="button" aria-label="Stäng relation-panel" onclick="closeRelationModal()">&times;</button>
             </div>
-            <form id="relation-form" onsubmit="saveRelation(event)">
-                <div class="form-group">
-                    <label for="relation-target-object">Målobjekt *</label>
-                    <select id="relation-target-object" class="form-control" required>
-                        <option value="">Välj objekt...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="relation-type">Relationstyp *</label>
-                    <select id="relation-type" class="form-control" required>
-                        <option value="består_av">Består av</option>
-                        <option value="variant_av">Variant av</option>
-                        <option value="ersätter">Ersätter</option>
-                        <option value="ersätts_av">Ersätts av</option>
-                        <option value="kopplas_till">Kopplas till</option>
-                        <option value="dokumenterar">Dokumenterar</option>
-                        <option value="specificerar">Specificerar</option>
-                        <option value="relaterad_till">Relaterad till</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="relation-description">Beskrivning</label>
-                    <textarea id="relation-description" class="form-control" rows="3"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                        Avbryt
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Skapa
-                    </button>
-                </div>
-            </form>
+
+            <div id="relation-modal-feedback" class="relation-feedback" aria-live="polite"></div>
+
+            <div class="relation-modal-layout">
+                <section class="relation-table-section" aria-label="Sökbara objekt">
+                    <div class="relation-filters">
+                        <input type="text" id="relation-object-search" class="search-input" placeholder="Sök på namn, typ, beskrivning..." aria-label="Sök objekt för relation">
+                        <select id="relation-object-type-filter" class="filter-select" aria-label="Filtrera på objekttyp">
+                            <option value="">Alla objekttyper</option>
+                        </select>
+                    </div>
+
+                    <div class="table-container relation-table-container">
+                        <table class="data-table" id="relation-object-table">
+                            <thead>
+                                <tr id="relation-table-headers"></tr>
+                            </thead>
+                            <tbody id="relation-object-table-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="relation-pagination">
+                        <button type="button" id="relation-prev-page" class="btn btn-secondary btn-sm">Föregående</button>
+                        <span id="relation-page-label">Sida 1</span>
+                        <button type="button" id="relation-next-page" class="btn btn-secondary btn-sm">Nästa</button>
+                    </div>
+                </section>
+
+                <aside class="relation-basket-section" aria-label="Valda objekt">
+                    <div class="basket-header">
+                        <h4>Korg (<span id="relation-basket-count">0</span>/200)</h4>
+                        <button type="button" id="relation-clear-basket" class="btn btn-secondary btn-sm">Rensa</button>
+                    </div>
+                    <div id="relation-basket-list" class="relation-basket-list"></div>
+
+                    <form id="relation-form" class="relation-settings-form" onsubmit="saveRelation(event)">
+                        <div class="form-group">
+                            <label for="relation-type">Relationstyp *</label>
+                            <select id="relation-type" class="form-control" required>
+                                <option value="består_av">Består av</option>
+                                <option value="variant_av">Variant av</option>
+                                <option value="ersätter">Ersätter</option>
+                                <option value="ersätts_av">Ersätts av</option>
+                                <option value="kopplas_till">Kopplas till</option>
+                                <option value="dokumenterar">Dokumenterar</option>
+                                <option value="specificerar">Specificerar</option>
+                                <option value="relaterad_till">Relaterad till</option>
+                                <option value="linked">Linked</option>
+                                <option value="child">Child</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="relation-metadata-note">Metadata: Notering</label>
+                            <textarea id="relation-metadata-note" class="form-control" rows="2" placeholder="Gemensam notering för valda relationer"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="relation-description">Beskrivning</label>
+                            <textarea id="relation-description" class="form-control" rows="2" placeholder="Valfri beskrivning"></textarea>
+                        </div>
+                    </form>
+                </aside>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeRelationModal()">Avbryt</button>
+                <button type="submit" form="relation-form" id="relation-connect-btn" class="btn btn-primary">Koppla</button>
+            </div>
         </div>
     </div>
 

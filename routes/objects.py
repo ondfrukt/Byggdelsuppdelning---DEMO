@@ -54,38 +54,71 @@ def get_display_name(obj, object_type_name, view_config):
 
 @bp.route('', methods=['GET'])
 def list_objects():
-    """List all objects with optional filtering"""
+    """List all objects with optional filtering and optional pagination."""
     try:
-        # Get filter parameters
         object_type_name = request.args.get('type')
         search = request.args.get('search')
-        
-        # Build query
+        minimal = request.args.get('minimal', 'false').lower() == 'true'
+        page = request.args.get('page', type=int)
+        per_page = request.args.get('per_page', type=int)
+
         query = Object.query
-        
-        # Filter by object type
+
         if object_type_name:
             query = query.join(ObjectType).filter(ObjectType.name == object_type_name)
-        
-        # Execute query
+
         objects = query.order_by(Object.created_at.desc()).all()
-        
-        # Filter by search in data (if needed)
+
         if search:
             search_lower = search.lower()
             filtered_objects = []
             for obj in objects:
-                # Search in auto_id
-                if search_lower in obj.auto_id.lower():
+                if search_lower in (obj.auto_id or '').lower():
                     filtered_objects.append(obj)
                     continue
-                # Search in data values
+
                 for od in obj.object_data:
                     if od.value_text and search_lower in od.value_text.lower():
                         filtered_objects.append(obj)
                         break
             objects = filtered_objects
-        
+
+        def to_minimal_payload(obj):
+            data = obj.to_dict(include_data=True).get('data', {})
+            return {
+                'id': obj.id,
+                'auto_id': obj.auto_id,
+                'object_type': {
+                    'id': obj.object_type.id if obj.object_type else None,
+                    'name': obj.object_type.name if obj.object_type else None
+                },
+                'data': {
+                    key: value
+                    for key, value in data.items()
+                    if key.lower() in ['namn', 'name', 'beskrivning', 'description']
+                }
+            }
+
+        if page and per_page:
+            total = len(objects)
+            total_pages = max((total + per_page - 1) // per_page, 1)
+            page = min(max(page, 1), total_pages)
+            start_index = (page - 1) * per_page
+            end_index = start_index + per_page
+            page_objects = objects[start_index:end_index]
+
+            items = [to_minimal_payload(obj) for obj in page_objects] if minimal else [obj.to_dict(include_data=True) for obj in page_objects]
+            return jsonify({
+                'items': items,
+                'page': page,
+                'per_page': per_page,
+                'total': total,
+                'total_pages': total_pages
+            }), 200
+
+        if minimal:
+            return jsonify([to_minimal_payload(obj) for obj in objects]), 200
+
         return jsonify([obj.to_dict(include_data=True) for obj in objects]), 200
     except Exception as e:
         logger.error(f"Error listing objects: {str(e)}")
