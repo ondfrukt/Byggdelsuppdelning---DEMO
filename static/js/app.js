@@ -67,19 +67,30 @@ async function switchView(viewName) {
     }
 }
 
+function updateTreeToggleButtonLabel() {
+    const toggleButton = document.getElementById('toggle-tree-view-btn');
+    if (!toggleButton) return;
+    toggleButton.textContent = treeViewActive ? 'Objektvy' : 'Trädvy';
+}
+
 // Load objects view
 async function loadObjectsView() {
-    const wrapper = document.getElementById('objects-container-wrapper');
-    if (!wrapper) return;
-    
+    const objectListWrapper = document.getElementById('objects-container-wrapper');
+    const treeWrapper = document.getElementById('tree-view-wrapper');
+    if (!objectListWrapper) return;
+
     // Create container for object list if it doesn't exist
     if (!document.getElementById('objects-container')) {
-        wrapper.innerHTML = '<div id="objects-container"></div>';
+        objectListWrapper.innerHTML = '<div id="objects-container"></div>';
     }
     
     // Show list view by default
-    document.getElementById('objects-container-wrapper').style.display = 'block';
-    document.getElementById('tree-container').style.display = 'none';
+    treeViewActive = false;
+    window.treeViewActive = false;
+    updateTreeToggleButtonLabel();
+
+    objectListWrapper.style.display = 'block';
+    if (treeWrapper) treeWrapper.style.display = 'none';
     
     currentObjectListComponent = new ObjectListComponent('objects-container');
     await currentObjectListComponent.render();
@@ -92,26 +103,21 @@ let treeViewInstance = null;
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;
     window.treeViewActive = treeViewActive; // Update global reference
+    updateTreeToggleButtonLabel();
     
     const objectsWrapper = document.getElementById('objects-container-wrapper');
-    const treeContainer = document.getElementById('tree-container');
-    const detailPanel = document.getElementById('detail-panel');
+    const treeWrapper = document.getElementById('tree-view-wrapper');
+
+    // Reset and collapse detail panel when switching views
+    closeDetailPanel();
     
     if (treeViewActive) {
-        objectsWrapper.style.display = 'none';
-        treeContainer.style.display = 'grid';
-        if (detailPanel) detailPanel.style.display = 'none';
-        
+        if (objectsWrapper) objectsWrapper.style.display = 'none';
+        if (treeWrapper) treeWrapper.style.display = 'block';
         // Initialize tree view if not already done
         if (!treeViewInstance) {
             treeViewInstance = new TreeView('tree-view-container');
             window.treeViewInstance = treeViewInstance; // Update global reference
-            
-            // Create unified panel for tree view in 'detail' layout mode (same as object list)
-            window.sidePanelInstance = createObjectDetailPanel('tree-detail-panel-body', {
-                layout: 'detail',
-                showHeader: false
-            });
             
             // Set up click handler
             treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
@@ -119,36 +125,45 @@ async function toggleTreeView() {
                 const object = await ObjectsAPI.getById(objectId);
                 
                 // Update panel title
-                const panelTitle = document.getElementById('tree-detail-panel-title');
+                const panelTitle = document.getElementById('detail-panel-title');
                 if (panelTitle) {
                     const displayName = object.data?.Namn || object.data?.namn || object.auto_id;
                     panelTitle.textContent = displayName;
                 }
+
+                // Create or reuse unified detail panel instance
+                if (!currentDetailPanelInstance) {
+                    currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
+                        layout: 'detail',
+                        showHeader: false
+                    });
+                }
+
                 
                 // Set the object data on the panel instance to avoid duplicate API call
-                window.sidePanelInstance.objectData = object;
-                window.sidePanelInstance.objectId = objectId;
+                currentDetailPanelInstance.objectData = object;
+                currentDetailPanelInstance.objectId = objectId;
                 
                 // Render with unified component (won't fetch again since objectData is set)
-                await window.sidePanelInstance.render();
+                await currentDetailPanelInstance.render();
+
+                const detailPanel = document.getElementById('detail-panel');
+                if (detailPanel) {
+                    detailPanel.classList.add('active');
+                }
+
+                if (treeWrapper) {
+                    treeWrapper.classList.add('panel-open');
+                }
             });
         }
         
         await treeViewInstance.render();
     } else {
-        objectsWrapper.style.display = 'block';
-        treeContainer.style.display = 'none';
-    }
-}
-
-// Close tree detail panel
-function closeTreeDetailPanel() {
-    const panel = document.getElementById('tree-detail-panel');
-    if (panel) {
-        // Just clear the content, don't hide in tree view
-        const panelBody = document.getElementById('tree-detail-panel-body');
-        if (panelBody) {
-            panelBody.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
+        if (objectsWrapper) objectsWrapper.style.display = 'block';
+        if (treeWrapper) {
+            treeWrapper.style.display = 'none';
+            treeWrapper.classList.remove('panel-open');
         }
     }
 }
@@ -224,13 +239,21 @@ async function openDetailPanel(objectId) {
 // Close detail panel
 function closeDetailPanel() {
     const panel = document.getElementById('detail-panel');
-    const wrapper = document.getElementById('objects-container-wrapper');
+    const objectsWrapper = document.getElementById('objects-container-wrapper');
+    const treeWrapper = document.getElementById('tree-view-wrapper');
+    const panelTitle = document.getElementById('detail-panel-title');
+    const panelBody = document.getElementById('detail-panel-body');
+
     
     // Clear any pending timeout to prevent race condition
     clearDetailPanelTimeout();
     
     if (panel) panel.classList.remove('active');
-    if (wrapper) wrapper.classList.remove('panel-open');
+    if (objectsWrapper) objectsWrapper.classList.remove('panel-open');
+    if (treeWrapper) treeWrapper.classList.remove('panel-open');
+
+    if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
+    if (panelBody) panelBody.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
     
     // Clean up the instance
     if (currentDetailPanelInstance) {
