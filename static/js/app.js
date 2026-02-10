@@ -199,14 +199,9 @@ async function openDetailPanel(objectId) {
     try {
         // Show panel first
         panel.classList.add('active');
-        
-        // Add class to wrapper to shrink it after a small delay
-        detailPanelTimeout = setTimeout(() => {
-            // Only add class if panel is still active
-            if (wrapper && panel.classList.contains('active')) {
-                wrapper.classList.add('panel-open');
-            }
-        }, PANEL_ANIMATION_DELAY);
+        if (wrapper && panel.classList.contains('active')) {
+            wrapper.classList.add('panel-open');
+        }
         
         // Load object data
         const object = await ObjectsAPI.getById(objectId);
