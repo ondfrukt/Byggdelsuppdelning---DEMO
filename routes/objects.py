@@ -329,45 +329,55 @@ def get_tree():
         
         tree = []
         for byggdel in byggdel_objects:
-            # Get related objects
-            relations = ObjectRelation.query.filter_by(source_object_id=byggdel.id).all()
-            
+            # Collect relation entities where the object appears on either side
+            outgoing = ObjectRelation.query.filter_by(source_object_id=byggdel.id).all()
+            incoming = ObjectRelation.query.filter_by(target_object_id=byggdel.id).all()
+            relations = outgoing + incoming
+
             children = []
-            # Group children by type
             children_by_type = {}
-            
+
             for relation in relations:
-                target = relation.target_object
-                if target:
-                    type_name = target.object_type.name
+                # Resolve linked object from relation direction to support two-way traversal
+                linked_object = relation.target_object if relation.source_object_id == byggdel.id else relation.source_object
+                direction = 'outgoing' if relation.source_object_id == byggdel.id else 'incoming'
+
+                if linked_object:
+                    type_name = linked_object.object_type.name
                     if type_name not in children_by_type:
                         children_by_type[type_name] = []
-                    
-                    # Use the helper function to get display name
-                    display_name = get_display_name(target, type_name, view_config)
-                    
+
+                    display_name = get_display_name(linked_object, type_name, view_config)
+
                     children_by_type[type_name].append({
-                        'id': str(target.id),  # Ensure string for consistency
-                        'auto_id': target.auto_id,  # This is the ID column
-                        'name': display_name,  # This is the configured name
+                        'id': str(linked_object.id),
+                        'auto_id': linked_object.auto_id,
+                        'name': display_name,
                         'type': type_name,
-                        'relation_type': relation.relation_type
+                        'direction': direction,
+                        'relation': {
+                            'id': relation.id,
+                            'relation_type': relation.relation_type,
+                            'objectA_id': relation.source_object_id,
+                            'objectA_type': relation.source_object.object_type.name if relation.source_object else None,
+                            'objectB_id': relation.target_object_id,
+                            'objectB_type': relation.target_object.object_type.name if relation.target_object else None,
+                            'metadata': relation.relation_metadata
+                        }
                     })
-            
-            # Create type groups as children
+
             for type_name, objects in children_by_type.items():
                 children.append({
-                    'id': f'group-{byggdel.id}-{type_name}',  # Different prefix for groups
+                    'id': f'group-{byggdel.id}-{type_name}',
                     'name': type_name,
                     'type': 'group',
                     'children': objects
                 })
-            
-            # Get display name for Byggdel itself
+
             byggdel_display_name = get_display_name(byggdel, 'Byggdel', view_config)
-            
+
             tree.append({
-                'id': str(byggdel.id),  # Ensure string for consistency
+                'id': str(byggdel.id),
                 'auto_id': byggdel.auto_id,
                 'name': byggdel_display_name,
                 'type': 'Byggdel',

@@ -53,6 +53,13 @@ def create_app():
             run_metadata_migration(db)
         except Exception as e:
             logger.warning(f"Metadata fields migration may have already run: {str(e)}")
+
+        try:
+            from migrations.migrate_direct_links_to_relations import run_migration as run_relation_migration
+            migrated_count = run_relation_migration(db)
+            logger.info(f"Direct-link migration created {migrated_count} relation entities")
+        except Exception as e:
+            logger.warning(f"Direct-link migration may have already run or has no data: {str(e)}")
         
         seed_data(app)
     
