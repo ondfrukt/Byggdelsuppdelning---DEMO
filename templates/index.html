@@ -48,6 +48,9 @@
             </div>
             <div class="object-list-layout">
                 <div id="objects-container-wrapper" class="object-list-wrapper"></div>
+                <div id="tree-view-wrapper" class="object-list-wrapper" style="display: none;">
+                    <div id="tree-view-container"></div>
+                </div>
                 <!-- Detail Panel -->
                 <div id="detail-panel" class="detail-panel">
                     <div class="detail-panel-header">
@@ -55,20 +58,6 @@
                         <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
                     </div>
                     <div id="detail-panel-body" class="detail-panel-content"></div>
-                </div>
-            </div>
-            <div id="tree-container" class="two-column-layout" style="display: none;">
-                <div class="column-left">
-                    <div id="tree-view-container"></div>
-                </div>
-                <div class="column-right">
-                    <div id="tree-detail-panel" class="detail-panel active">
-                        <div class="detail-panel-header">
-                            <h2 id="tree-detail-panel-title">Objektdetaljer</h2>
-                            <button class="detail-panel-close" onclick="closeTreeDetailPanel()">&times;</button>
-                        </div>
-                        <div id="tree-detail-panel-body" class="detail-panel-content"></div>
-                    </div>
                 </div>
             </div>
         </div>
