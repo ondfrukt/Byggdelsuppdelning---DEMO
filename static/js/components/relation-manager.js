@@ -7,6 +7,7 @@ const RELATION_BASKET_LIMIT = 200;
 
 const relationModalState = {
     sourceId: null,
+    sourceObject: null,
     preSelectedType: null,
     selectedType: '',
     search: '',
@@ -161,6 +162,23 @@ function setRelationModalFeedback(message = '', type = 'error') {
 
 function getObjectDisplayName(obj) {
     return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.auto_id || 'Okänt objekt';
+}
+
+function renderRelationModalSourceContext() {
+    const sourceElement = document.getElementById('relation-modal-source');
+    if (!sourceElement) return;
+
+    if (!relationModalState.sourceObject) {
+        sourceElement.textContent = relationModalState.sourceId
+            ? `Objekt-ID: ${relationModalState.sourceId}`
+            : '';
+        return;
+    }
+
+    const sourceObject = relationModalState.sourceObject;
+    const autoId = sourceObject.auto_id || relationModalState.sourceId;
+    const displayName = getObjectDisplayName(sourceObject);
+    sourceElement.textContent = `Källobjekt: ${autoId} • ${displayName}`;
 }
 
 function setupRelationModalA11y(modal) {
@@ -515,6 +533,7 @@ async function showAddRelationModal(objectId, preSelectedType = null) {
     if (!modal || !overlay) return;
 
     relationModalState.sourceId = objectId;
+    relationModalState.sourceObject = null;
     relationModalState.preSelectedType = preSelectedType;
     relationModalState.selectedType = '';
     relationModalState.search = '';
@@ -525,6 +544,13 @@ async function showAddRelationModal(objectId, preSelectedType = null) {
     relationModalState.sortDirection = 'asc';
 
     try {
+        try {
+            relationModalState.sourceObject = await ObjectsAPI.getById(objectId);
+        } catch (sourceError) {
+            console.warn('Failed to load source object for relation modal context:', sourceError);
+        }
+        renderRelationModalSourceContext();
+
         relationModalState.objectTypes = await ObjectTypesAPI.getAll(true);
 
         const typeFilter = document.getElementById('relation-object-type-filter');
@@ -562,7 +588,9 @@ function closeRelationModal() {
     cleanupRelationModalA11y(modal);
     overlay.style.display = 'none';
     modal.style.display = 'none';
+    relationModalState.sourceObject = null;
     document.getElementById('relation-form')?.reset();
+    renderRelationModalSourceContext();
     setRelationModalFeedback('');
 }
 
