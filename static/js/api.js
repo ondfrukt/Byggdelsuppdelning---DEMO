@@ -226,10 +226,14 @@ const ObjectsAPI = {
         window.open(`${API_BASE_URL}/objects/documents/${documentId}/download`, '_blank');
     },
     
-    deleteDocument: (objectId, documentId) => {
-        return fetchAPI(`/objects/${objectId}/documents/${documentId}`, {
+    deleteDocument: (_objectId, documentId) => {
+        return fetchAPI(`/objects/documents/${documentId}`, {
             method: 'DELETE',
         });
+    },
+
+    getLinkedFileObjects: (objectId) => {
+        return fetchAPI(`/objects/${objectId}/linked-file-objects`);
     },
 };
 

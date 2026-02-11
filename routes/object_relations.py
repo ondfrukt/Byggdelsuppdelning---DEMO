@@ -7,6 +7,11 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
 
 
+def is_file_object(obj):
+    type_name = obj.object_type.name if obj and obj.object_type else ''
+    return type_name.strip().lower() in {'filobjekt', 'ritningsobjekt'}
+
+
 @bp.route('/<int:id>/relations', methods=['GET'])
 def get_relations(id):
     """Get all relations for an object"""
@@ -47,7 +52,17 @@ def create_relation(id):
         target_object = Object.query.get(data['target_object_id'])
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
-        
+
+        relation_type = (data.get('relation_type') or '').strip().lower()
+        if relation_type == 'dokumenterar':
+            source_is_file = is_file_object(source_object)
+            target_is_file = is_file_object(target_object)
+            if source_is_file == target_is_file:
+                return jsonify({
+                    'error': 'DOCUMENT_RELATION_INVALID',
+                    'message': 'Relationen dokumenterar måste koppla exakt ett filobjekt och ett vanligt objekt'
+                }), 422
+
         # Create relation
         relation = ObjectRelation(
             source_object_id=id,
@@ -118,3 +133,37 @@ def update_relation(id, relation_id):
         db.session.rollback()
         logger.error(f"Error updating relation: {str(e)}")
         return jsonify({'error': 'Failed to update relation'}), 500
+
+
+@bp.route('/<int:id>/linked-file-objects', methods=['GET'])
+def get_linked_file_objects(id):
+    """Get all file objects linked to a non-file object via 'dokumenterar'."""
+    try:
+        source_object = Object.query.get_or_404(id)
+        if is_file_object(source_object):
+            return jsonify({'error': 'SOURCE_MUST_BE_NON_FILE_OBJECT'}), 422
+
+        relations = ObjectRelation.query.filter(
+            or_(
+                ObjectRelation.source_object_id == id,
+                ObjectRelation.target_object_id == id
+            ),
+            ObjectRelation.relation_type == 'dokumenterar'
+        ).all()
+
+        response = []
+        for relation in relations:
+            linked = relation.target_object if relation.source_object_id == id else relation.source_object
+            if not is_file_object(linked):
+                continue
+
+            response.append({
+                'relation_id': relation.id,
+                'file_object': linked.to_dict(include_data=True),
+                'documents_count': len(linked.documents)
+            })
+
+        return jsonify(response), 200
+    except Exception as e:
+        logger.error(f"Error getting linked file objects: {str(e)}")
+        return jsonify({'error': 'Failed to get linked file objects'}), 500

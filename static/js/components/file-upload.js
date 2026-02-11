@@ -13,42 +13,72 @@ class FileUploadComponent {
         this.availableDocumentObjects = [];
         this.options = options;
         this.compactMode = options.compactMode === true;
+        this.currentObject = null;
+        this.isCurrentObjectFileObject = false;
+    }
+
+    isFileObjectType(typeName) {
+        const normalized = (typeName || '').toLowerCase().trim();
+        return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+    }
+
+    async loadCurrentObject() {
+        this.currentObject = await ObjectsAPI.getById(this.objectId);
+        const typeName = this.currentObject?.object_type?.name;
+        this.isCurrentObjectFileObject = this.isFileObjectType(typeName);
     }
     
     async render() {
         if (!this.container) return;
+        await this.loadCurrentObject();
 
         const rootClass = this.compactMode ? 'file-upload file-upload-compact' : 'file-upload';
         const actionButtonClass = this.compactMode ? 'btn btn-sm btn-primary' : 'btn btn-primary';
         const linkButtonClass = this.compactMode ? 'btn btn-sm btn-secondary' : 'btn btn-secondary';
-        const linkedTitle = this.compactMode ? '' : '<h4>Kopplade dokumentobjekt</h4>';
-        const filesTitle = this.compactMode ? '' : '<h4>Filer på aktuellt objekt</h4>';
-
-        this.container.innerHTML = `
-            <div class="${rootClass}">
+        const linkedTitle = this.compactMode ? '' : (this.isCurrentObjectFileObject ? '<h4>Länkade objekt</h4>' : '<h4>Kopplade filobjekt</h4>');
+        const filesTitle = this.compactMode ? '' : '<h4>Filer på filobjekt</h4>';
+        const actionButtons = this.isCurrentObjectFileObject ? '' : `
                 <div class="document-link-actions">
-                    <button class="${actionButtonClass}" id="create-document-object-btn-${this.objectId}" title="Skapa och koppla nytt dokumentobjekt">
-                        + Nytt dokumentobjekt
+                    <button class="${actionButtonClass}" id="create-document-object-btn-${this.objectId}" title="Skapa och koppla nytt filobjekt">
+                        + Nytt filobjekt
                     </button>
-                    <button class="${linkButtonClass}" id="link-existing-document-btn-${this.objectId}" title="Koppla befintliga dokumentobjekt">
+                    <button class="${linkButtonClass}" id="link-existing-document-btn-${this.objectId}" title="Koppla befintliga filobjekt">
                         Koppla befintliga
                     </button>
+                </div>`;
+
+        const fileSection = this.isCurrentObjectFileObject ? `
+                <div class="upload-area" id="upload-area-${this.objectId}">
+                    <div class="upload-content">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Dra och släpp filer här eller <label for="file-input-${this.objectId}" class="file-label">välj filer</label></p>
+                        <input type="file" id="file-input-${this.objectId}" multiple style="display: none;">
+                    </div>
                 </div>
 
-                <div class="documents-list linked-documents-list">
-                    ${linkedTitle}
-                    <div id="linked-documents-list-${this.objectId}"></div>
+                <div class="progress-bar" id="progress-bar-${this.objectId}" style="display: none;">
+                    <div class="progress-fill" id="progress-fill-${this.objectId}"></div>
                 </div>
 
+                <div class="documents-list current-documents-list">
+                    ${filesTitle}
+                    <div id="documents-list-${this.objectId}"></div>
+                </div>` : '';
+
+        const modals = this.isCurrentObjectFileObject ? '' : `
                 <div id="document-object-modal-${this.objectId}" class="modal document-object-modal">
                     <div class="modal-content document-object-modal-content">
                         <div class="modal-header">
-                            <h3>Skapa dokumentobjekt</h3>
+                            <h3>Skapa filobjekt</h3>
                             <button class="close-btn" type="button" id="close-document-object-modal-${this.objectId}">&times;</button>
                         </div>
 
                         <div class="form-group">
-                            <label for="document-object-name-${this.objectId}">Namn på dokumentobjekt *</label>
+                            <label for="document-object-name-${this.objectId}">Namn på filobjekt *</label>
                             <input type="text" class="form-control" id="document-object-name-${this.objectId}" placeholder="Ange namn" required>
                         </div>
 
@@ -78,29 +108,39 @@ class FileUploadComponent {
                 <div id="existing-document-modal-${this.objectId}" class="modal document-object-modal">
                     <div class="modal-content document-object-modal-content">
                         <div class="modal-header">
-                            <h3>Koppla befintliga dokumentobjekt</h3>
+                            <h3>Koppla befintliga filobjekt</h3>
                             <button class="close-btn" type="button" id="close-existing-document-modal-${this.objectId}">&times;</button>
                         </div>
-                        <p class="modal-subtitle">Markera ett eller flera dokument-/ritningsobjekt för att koppla till aktuellt objekt.</p>
+                        <p class="modal-subtitle">Markera ett eller flera filobjekt för att koppla till aktuellt objekt.</p>
                         <div id="existing-document-list-${this.objectId}" class="existing-document-list"></div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" id="cancel-existing-document-modal-${this.objectId}">Avbryt</button>
                             <button type="button" class="btn btn-primary" id="save-existing-document-links-btn-${this.objectId}">Koppla valda objekt</button>
                         </div>
                     </div>
-                </div>
+                </div>`;
 
-                <div class="documents-list current-documents-list">
-                    ${filesTitle}
-                    <div id="documents-list-${this.objectId}"></div>
+        this.container.innerHTML = `
+            <div class="${rootClass}">
+                ${actionButtons}
+
+                <div class="documents-list linked-documents-list">
+                    ${linkedTitle}
+                    <div id="linked-documents-list-${this.objectId}"></div>
                 </div>
+                ${modals}
+                ${fileSection}
             </div>
         `;
 
         this.attachEventListeners();
         await this.loadDocumentObjectType();
-        await this.loadLinkedDocumentObjects();
-        await this.loadDocuments();
+        if (this.isCurrentObjectFileObject) {
+            await this.loadLinkedBusinessObjects();
+            await this.loadDocuments();
+        } else {
+            await this.loadLinkedDocumentObjects();
+        }
     }
 
     attachEventListeners() {
@@ -254,8 +294,30 @@ class FileUploadComponent {
     }
 
     findDocumentObjectType(objectTypes) {
-        const nameMatchers = ['ritningsobjekt', 'dokumentobjekt', 'dokument', 'ritning'];
+        const nameMatchers = ['filobjekt', 'ritningsobjekt', 'dokumentobjekt', 'dokument', 'ritning'];
         return objectTypes.find(type => nameMatchers.some(matcher => (type.name || '').toLowerCase().includes(matcher))) || null;
+    }
+
+    async loadLinkedBusinessObjects() {
+        try {
+            const relations = await ObjectsAPI.getRelations(this.objectId);
+            this.linkedDocumentObjects = (relations || [])
+                .filter(relation => {
+                    const linkedObject = relation.direction === 'incoming' ? relation.source_object : relation.target_object;
+                    const typeName = (linkedObject?.object_type?.name || '').toLowerCase();
+                    return !this.isFileObjectType(typeName);
+                })
+                .map(relation => ({
+                    relationId: relation.id,
+                    linkedObject: relation.direction === 'incoming' ? relation.source_object : relation.target_object,
+                    direction: relation.direction,
+                    relationType: relation.relation_type
+                }));
+
+            this.renderLinkedDocumentObjects();
+        } catch (error) {
+            console.error('Failed to load linked business objects:', error);
+        }
     }
 
     getObjectNameFieldName(objectType) {
@@ -294,7 +356,7 @@ class FileUploadComponent {
         if (!container) return;
 
         if (!this.linkedDocumentObjects.length) {
-            container.innerHTML = '<p class="empty-state">Inga dokumentobjekt kopplade ännu</p>';
+            container.innerHTML = `<p class="empty-state">${this.isCurrentObjectFileObject ? 'Inga objekt kopplade ännu' : 'Inga filobjekt kopplade ännu'}</p>`;
             return;
         }
 
@@ -319,7 +381,7 @@ class FileUploadComponent {
 
     openCreateDocumentObjectModal() {
         if (!this.documentObjectType) {
-            showToast('Kunde inte hitta en objekttyp för dokument/ritning', 'error');
+            showToast('Kunde inte hitta en objekttyp för filobjekt', 'error');
             return;
         }
         this.resetUploadForm();
@@ -337,7 +399,7 @@ class FileUploadComponent {
         const linkedIds = new Set(this.linkedDocumentObjects.map(item => item.linkedObject?.id));
         this.availableDocumentObjects = (Array.isArray(allObjects) ? allObjects : allObjects.items || []).filter(obj => {
             const typeName = (obj.object_type?.name || '').toLowerCase();
-            const isDocumentType = typeName.includes('ritning') || typeName.includes('dokument');
+            const isDocumentType = this.isFileObjectType(typeName) || typeName.includes('dokument');
             return isDocumentType && obj.id !== this.objectId && !linkedIds.has(obj.id);
         });
     }
@@ -347,7 +409,7 @@ class FileUploadComponent {
         if (!list) return;
 
         if (!this.availableDocumentObjects.length) {
-            list.innerHTML = '<p class="empty-state">Inga tillgängliga dokumentobjekt att koppla</p>';
+            list.innerHTML = '<p class="empty-state">Inga tillgängliga filobjekt att koppla</p>';
             return;
         }
 
@@ -370,7 +432,7 @@ class FileUploadComponent {
         const objectName = (nameInput?.value || '').trim();
 
         if (!objectName) {
-            showToast('Ange ett namn på dokumentobjektet', 'error');
+            showToast('Ange ett namn på filobjektet', 'error');
             return;
         }
 
@@ -381,7 +443,7 @@ class FileUploadComponent {
 
         const nameField = this.getObjectNameFieldName(this.documentObjectType);
         if (!nameField) {
-            showToast('Dokumentobjekttypen saknar ett textfält för namn', 'error');
+            showToast('Filobjekttypen saknar ett textfält för namn', 'error');
             return;
         }
 
@@ -401,14 +463,14 @@ class FileUploadComponent {
                 relation_type: 'dokumenterar'
             });
 
-            showToast('Dokumentobjekt skapat och kopplat', 'success');
+            showToast('Filobjekt skapat och kopplat', 'success');
             this.closeModal(`document-object-modal-${this.objectId}`);
             if (nameInput) nameInput.value = '';
             this.resetUploadForm();
             await this.loadLinkedDocumentObjects();
         } catch (error) {
             console.error('Failed to create and link document object:', error);
-            showToast(error.message || 'Kunde inte skapa/koppla dokumentobjekt', 'error');
+            showToast(error.message || 'Kunde inte skapa/koppla filobjekt', 'error');
         }
     }
 
@@ -437,7 +499,7 @@ class FileUploadComponent {
 
         const selectedIds = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(input => parseInt(input.value, 10));
         if (!selectedIds.length) {
-            showToast('Välj minst ett dokumentobjekt att koppla', 'error');
+            showToast('Välj minst ett filobjekt att koppla', 'error');
             return;
         }
 
@@ -447,12 +509,12 @@ class FileUploadComponent {
                 relation_type: 'dokumenterar'
             })));
 
-            showToast('Valda dokumentobjekt kopplades', 'success');
+            showToast('Valda filobjekt kopplades', 'success');
             this.closeModal(`existing-document-modal-${this.objectId}`);
             await this.loadLinkedDocumentObjects();
         } catch (error) {
             console.error('Failed to link existing document objects:', error);
-            showToast(error.message || 'Kunde inte koppla valda dokumentobjekt', 'error');
+            showToast(error.message || 'Kunde inte koppla valda filobjekt', 'error');
         }
     }
 
@@ -540,7 +602,11 @@ class FileUploadComponent {
     }
     
     async refresh() {
-        await this.loadDocuments();
+        if (this.isCurrentObjectFileObject) {
+            await this.loadDocuments();
+            return;
+        }
+        await this.loadLinkedDocumentObjects();
     }
 }
 
@@ -570,19 +636,19 @@ async function deleteDocument(objectId, documentId) {
 }
 
 async function unlinkDocumentObject(objectId, relationId) {
-    if (!confirm('Är du säker på att du vill koppla bort dokumentobjektet?')) {
+    if (!confirm('Är du säker på att du vill koppla bort filobjektet?')) {
         return;
     }
 
     try {
         await ObjectsAPI.deleteRelation(objectId, relationId);
-        showToast('Dokumentobjekt bortkopplat', 'success');
+        showToast('Filobjekt bortkopplat', 'success');
         const fileUpload = window.currentFileUpload;
         if (fileUpload) {
             await fileUpload.loadLinkedDocumentObjects();
         }
     } catch (error) {
         console.error('Failed to unlink document object:', error);
-        showToast(error.message || 'Kunde inte koppla bort dokumentobjekt', 'error');
+        showToast(error.message || 'Kunde inte koppla bort filobjekt', 'error');
     }
 }
