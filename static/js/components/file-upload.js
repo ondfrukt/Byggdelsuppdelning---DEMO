@@ -29,30 +29,7 @@ class FileUploadComponent {
                                style="display: none;">
                     </div>
                 </div>
-                
-                <div class="upload-metadata" id="upload-metadata-${this.objectId}" style="display: none;">
-                    <div class="form-group">
-                        <label>Dokumenttyp</label>
-                        <select id="document-type-${this.objectId}" class="form-control">
-                            <option value="pdf">PDF</option>
-                            <option value="cad">CAD-ritning</option>
-                            <option value="image">Bild</option>
-                            <option value="specification">Specifikation</option>
-                            <option value="certificate">Certifikat</option>
-                            <option value="other">Övrigt</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Beskrivning</label>
-                        <textarea id="document-description-${this.objectId}" 
-                                  class="form-control" 
-                                  rows="2"></textarea>
-                    </div>
-                    <button class="btn btn-primary" id="upload-btn-${this.objectId}">
-                        Ladda upp
-                    </button>
-                </div>
-                
+
                 <div class="progress-bar" id="progress-bar-${this.objectId}" style="display: none;">
                     <div class="progress-fill" id="progress-fill-${this.objectId}"></div>
                 </div>
@@ -71,7 +48,6 @@ class FileUploadComponent {
     attachEventListeners() {
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
-        const uploadBtn = document.getElementById(`upload-btn-${this.objectId}`);
         
         // Drag and drop
         if (uploadArea) {
@@ -100,39 +76,26 @@ class FileUploadComponent {
                 this.prepareUpload(files);
             });
         }
-        
-        // Upload button
-        if (uploadBtn) {
-            uploadBtn.addEventListener('click', () => this.uploadFiles());
-        }
     }
     
-    prepareUpload(files) {
-        if (files.length === 0) return;
-        
+    async prepareUpload(files) {
+        if (!files || files.length === 0) return;
+
         this.selectedFiles = files;
-        
-        // Show metadata form
-        const metadata = document.getElementById(`upload-metadata-${this.objectId}`);
-        if (metadata) {
-            metadata.style.display = 'block';
-        }
-        
-        // Update upload area text
+
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         if (uploadArea) {
             const content = uploadArea.querySelector('.upload-content p');
             if (content) {
-                content.textContent = `${files.length} fil(er) valda`;
+                content.textContent = `${files.length} fil(er) valda. Laddar upp...`;
             }
         }
+
+        await this.uploadFiles();
     }
     
     async uploadFiles() {
         if (!this.selectedFiles || this.selectedFiles.length === 0) return;
-        
-        const documentType = document.getElementById(`document-type-${this.objectId}`).value;
-        const description = document.getElementById(`document-description-${this.objectId}`).value;
         
         const progressBar = document.getElementById(`progress-bar-${this.objectId}`);
         const progressFill = document.getElementById(`progress-fill-${this.objectId}`);
@@ -143,16 +106,12 @@ class FileUploadComponent {
             for (let i = 0; i < this.selectedFiles.length; i++) {
                 const file = this.selectedFiles[i];
                 
-                // Update progress
                 if (progressFill) {
                     const progress = ((i + 1) / this.selectedFiles.length) * 100;
                     progressFill.style.width = `${progress}%`;
                 }
                 
-                await ObjectsAPI.uploadDocument(this.objectId, file, {
-                    document_type: documentType,
-                    description: description
-                });
+                await ObjectsAPI.uploadDocument(this.objectId, file);
             }
             
             showToast('Dokument uppladdade', 'success');
@@ -173,9 +132,6 @@ class FileUploadComponent {
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
         if (fileInput) fileInput.value = '';
         
-        const metadata = document.getElementById(`upload-metadata-${this.objectId}`);
-        if (metadata) metadata.style.display = 'none';
-        
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         if (uploadArea) {
             const content = uploadArea.querySelector('.upload-content p');
@@ -183,8 +139,6 @@ class FileUploadComponent {
                 content.innerHTML = 'Dra och släpp filer här eller <label for="file-input-' + this.objectId + '" class="file-label">välj filer</label>';
             }
         }
-        
-        document.getElementById(`document-description-${this.objectId}`).value = '';
     }
     
     async loadDocuments() {
@@ -211,10 +165,9 @@ class FileUploadComponent {
                     ${this.getFileIcon(doc.filename)}
                 </div>
                 <div class="document-info">
-                    <strong>${escapeHtml(doc.filename)}</strong>
-                    ${doc.description ? `<p>${escapeHtml(doc.description)}</p>` : ''}
+                    <strong>${escapeHtml(doc.original_filename || doc.filename)}</strong>
                     <small>
-                        ${doc.document_type || 'N/A'} • 
+                        ${doc.document_type || 'Okänd filtyp'} • 
                         ${this.formatFileSize(doc.file_size)} • 
                         ${formatDate(doc.uploaded_at)}
                     </small>
@@ -234,7 +187,7 @@ class FileUploadComponent {
     }
     
     getFileIcon(filename) {
-        const ext = filename.split('.').pop().toLowerCase();
+        const ext = (filename || '').split('.').pop().toLowerCase();
         const icons = {
             pdf: '📄',
             doc: '📝',
@@ -245,10 +198,10 @@ class FileUploadComponent {
             jpeg: '🖼️',
             png: '🖼️',
             gif: '🖼️',
+            webp: '🖼️',
             dwg: '📐',
             dxf: '📐',
-            zip: '📦',
-            rar: '📦'
+            rvt: '🏗️'
         };
         return icons[ext] || '📎';
     }
