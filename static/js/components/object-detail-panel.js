@@ -37,6 +37,9 @@ class ObjectDetailPanel {
     async render(objectId) {
         if (!this.container) return;
         
+        const previousObjectId = this.objectId;
+        const isObjectChange = Boolean(objectId && String(objectId) !== String(previousObjectId));
+
         if (objectId) {
             await this.loadObject(objectId);
         }
@@ -63,8 +66,15 @@ class ObjectDetailPanel {
         // Attach event listeners after rendering
         this.attachEventListeners();
 
+        if (isObjectChange) {
+            // Reset globally cached component references when the viewed object changes.
+            window.currentFileUpload = null;
+        }
+
         if (this.activeTab === 'relations') {
             await this.loadRelationsIfNeeded();
+        } else if (this.activeTab === 'files') {
+            await this.loadFilesIfNeeded();
         }
     }
     
@@ -122,9 +132,9 @@ class ObjectDetailPanel {
                         data-tab="relations">
                     Relationer
                 </button>
-                <button class="tab-btn ${this.activeTab === 'documents' ? 'active' : ''}" 
-                        data-tab="documents">
-                    Dokument
+                <button class="tab-btn ${this.activeTab === 'files' ? 'active' : ''}" 
+                        data-tab="files">
+                    Filer
                 </button>
             </div>
         `;
@@ -145,8 +155,8 @@ class ObjectDetailPanel {
             return this.renderDetails();
         } else if (this.activeTab === 'relations') {
             return this.renderRelationsTab();
-        } else if (this.activeTab === 'documents') {
-            return this.renderDocumentsTab();
+        } else if (this.activeTab === 'files') {
+            return this.renderFilesTab();
         }
         
         return '';
@@ -231,9 +241,9 @@ class ObjectDetailPanel {
         return `<div id="${containerId}"></div>`;
     }
     
-    renderDocumentsTab() {
+    renderFilesTab() {
         const obj = this.objectData;
-        const containerId = `panel-documents-container-${obj.id}`;
+        const containerId = `panel-files-container-${obj.id}`;
         
         const tabClass = this.options.layout === 'detail' ? 'documents-tab-content compact-documents' : 'documents-tab-content';
         return `<div id="${containerId}" class="${tabClass}"></div>`;
@@ -256,10 +266,10 @@ class ObjectDetailPanel {
         }
     }
     
-    async loadDocumentsIfNeeded() {
-        if (this.activeTab !== 'documents' || !this.objectData) return;
+    async loadFilesIfNeeded() {
+        if (this.activeTab !== 'files' || !this.objectData) return;
         
-        const containerId = `panel-documents-container-${this.objectData.id}`;
+        const containerId = `panel-files-container-${this.objectData.id}`;
         const container = document.getElementById(containerId);
         
         if (!container || container.dataset.loaded) return;
@@ -272,7 +282,7 @@ class ObjectDetailPanel {
             await fileUpload.render();
             container.dataset.loaded = 'true';
         } catch (error) {
-            console.error('Failed to load documents:', error);
+            console.error('Failed to load files:', error);
         }
     }
     
@@ -283,8 +293,8 @@ class ObjectDetailPanel {
         // Load content for the newly selected tab
         if (tab === 'relations') {
             await this.loadRelationsIfNeeded();
-        } else if (tab === 'documents') {
-            await this.loadDocumentsIfNeeded();
+        } else if (tab === 'files') {
+            await this.loadFilesIfNeeded();
         }
     }
     

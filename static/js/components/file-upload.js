@@ -11,6 +11,8 @@ class FileUploadComponent {
         this.linkedDocumentObjects = [];
         this.documentObjectType = null;
         this.availableDocumentObjects = [];
+        this.linkedFileObjects = [];
+        this.indirectDocuments = [];
         this.options = options;
         this.compactMode = options.compactMode === true;
         this.currentObject = null;
@@ -33,19 +35,9 @@ class FileUploadComponent {
         await this.loadCurrentObject();
 
         const rootClass = this.compactMode ? 'file-upload file-upload-compact' : 'file-upload';
-        const actionButtonClass = this.compactMode ? 'btn btn-sm btn-primary' : 'btn btn-primary';
-        const linkButtonClass = this.compactMode ? 'btn btn-sm btn-secondary' : 'btn btn-secondary';
-        const linkedTitle = this.compactMode ? '' : (this.isCurrentObjectFileObject ? '<h4>Länkade objekt</h4>' : '<h4>Kopplade filobjekt</h4>');
+        const linkedTitle = this.compactMode ? '' : (this.isCurrentObjectFileObject ? '<h4>Länkade objekt</h4>' : '<h4>Filer via kopplade filobjekt</h4>');
         const filesTitle = this.compactMode ? '' : '<h4>Filer på filobjekt</h4>';
-        const actionButtons = this.isCurrentObjectFileObject ? '' : `
-                <div class="document-link-actions">
-                    <button class="${actionButtonClass}" id="create-document-object-btn-${this.objectId}" title="Skapa och koppla nytt filobjekt">
-                        + Nytt filobjekt
-                    </button>
-                    <button class="${linkButtonClass}" id="link-existing-document-btn-${this.objectId}" title="Koppla befintliga filobjekt">
-                        Koppla befintliga
-                    </button>
-                </div>`;
+        const actionButtons = '';
 
         const fileSection = this.isCurrentObjectFileObject ? `
                 <div class="upload-area" id="upload-area-${this.objectId}">
@@ -69,56 +61,11 @@ class FileUploadComponent {
                     <div id="documents-list-${this.objectId}"></div>
                 </div>` : '';
 
-        const modals = this.isCurrentObjectFileObject ? '' : `
-                <div id="document-object-modal-${this.objectId}" class="modal document-object-modal">
-                    <div class="modal-content document-object-modal-content">
-                        <div class="modal-header">
-                            <h3>Skapa filobjekt</h3>
-                            <button class="close-btn" type="button" id="close-document-object-modal-${this.objectId}">&times;</button>
-                        </div>
+        const modals = this.isCurrentObjectFileObject ? '' : '';
 
-                        <div class="form-group">
-                            <label for="document-object-name-${this.objectId}">Namn på filobjekt *</label>
-                            <input type="text" class="form-control" id="document-object-name-${this.objectId}" placeholder="Ange namn" required>
-                        </div>
+        const indirectFilesHint = this.isCurrentObjectFileObject ? '' : `
+                <p class="text-muted">Visar endast filer som är kopplade via filobjekt.</p>`;
 
-                        <div class="upload-area" id="upload-area-${this.objectId}">
-                            <div class="upload-content">
-                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                    <polyline points="17 8 12 3 7 8"></polyline>
-                                    <line x1="12" y1="3" x2="12" y2="15"></line>
-                                </svg>
-                                <p>Dra och släpp filer här eller <label for="file-input-${this.objectId}" class="file-label">välj filer</label></p>
-                                <input type="file" id="file-input-${this.objectId}" multiple style="display: none;">
-                            </div>
-                        </div>
-
-                        <div class="progress-bar" id="progress-bar-${this.objectId}" style="display: none;">
-                            <div class="progress-fill" id="progress-fill-${this.objectId}"></div>
-                        </div>
-
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" id="cancel-document-object-modal-${this.objectId}">Avbryt</button>
-                            <button type="button" class="btn btn-primary" id="save-document-object-btn-${this.objectId}">Skapa och koppla</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="existing-document-modal-${this.objectId}" class="modal document-object-modal">
-                    <div class="modal-content document-object-modal-content">
-                        <div class="modal-header">
-                            <h3>Koppla befintliga filobjekt</h3>
-                            <button class="close-btn" type="button" id="close-existing-document-modal-${this.objectId}">&times;</button>
-                        </div>
-                        <p class="modal-subtitle">Markera ett eller flera filobjekt för att koppla till aktuellt objekt.</p>
-                        <div id="existing-document-list-${this.objectId}" class="existing-document-list"></div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" id="cancel-existing-document-modal-${this.objectId}">Avbryt</button>
-                            <button type="button" class="btn btn-primary" id="save-existing-document-links-btn-${this.objectId}">Koppla valda objekt</button>
-                        </div>
-                    </div>
-                </div>`;
 
         this.container.innerHTML = `
             <div class="${rootClass}">
@@ -126,6 +73,7 @@ class FileUploadComponent {
 
                 <div class="documents-list linked-documents-list">
                     ${linkedTitle}
+                    ${indirectFilesHint}
                     <div id="linked-documents-list-${this.objectId}"></div>
                 </div>
                 ${modals}
@@ -139,50 +87,13 @@ class FileUploadComponent {
             await this.loadLinkedBusinessObjects();
             await this.loadDocuments();
         } else {
-            await this.loadLinkedDocumentObjects();
+            await this.loadFilesViaLinkedDocumentObjects();
         }
     }
 
     attachEventListeners() {
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
-        const createButton = document.getElementById(`create-document-object-btn-${this.objectId}`);
-        const linkExistingButton = document.getElementById(`link-existing-document-btn-${this.objectId}`);
-        const saveNewButton = document.getElementById(`save-document-object-btn-${this.objectId}`);
-        const saveExistingButton = document.getElementById(`save-existing-document-links-btn-${this.objectId}`);
-        const closeNewModalButtons = [
-            document.getElementById(`close-document-object-modal-${this.objectId}`),
-            document.getElementById(`cancel-document-object-modal-${this.objectId}`)
-        ];
-        const closeExistingModalButtons = [
-            document.getElementById(`close-existing-document-modal-${this.objectId}`),
-            document.getElementById(`cancel-existing-document-modal-${this.objectId}`)
-        ];
-
-        if (createButton) {
-            createButton.addEventListener('click', () => this.openCreateDocumentObjectModal());
-        }
-
-        if (linkExistingButton) {
-            linkExistingButton.addEventListener('click', () => this.openLinkExistingDocumentsModal());
-        }
-
-        if (saveNewButton) {
-            saveNewButton.addEventListener('click', async () => this.createAndLinkDocumentObject());
-        }
-
-        if (saveExistingButton) {
-            saveExistingButton.addEventListener('click', async () => this.linkSelectedExistingDocumentObjects());
-        }
-
-        closeNewModalButtons.forEach(button => {
-            if (button) button.addEventListener('click', () => this.closeModal(`document-object-modal-${this.objectId}`));
-        });
-
-        closeExistingModalButtons.forEach(button => {
-            if (button) button.addEventListener('click', () => this.closeModal(`existing-document-modal-${this.objectId}`));
-        });
-        
         // Drag and drop
         if (uploadArea) {
             uploadArea.addEventListener('dragover', (e) => {
@@ -223,6 +134,10 @@ class FileUploadComponent {
             if (content) {
                 content.textContent = `${files.length} fil(er) valda. Laddar upp...`;
             }
+        }
+
+        if (this.isCurrentObjectFileObject) {
+            await this.uploadFiles();
         }
 
         return this.selectedFiles;
@@ -330,13 +245,17 @@ class FileUploadComponent {
     }
 
     async loadLinkedDocumentObjects() {
+        await this.loadFilesViaLinkedDocumentObjects();
+    }
+
+    async loadFilesViaLinkedDocumentObjects() {
         try {
             const relations = await ObjectsAPI.getRelations(this.objectId);
-            this.linkedDocumentObjects = (relations || [])
+            this.linkedFileObjects = (relations || [])
                 .filter(relation => {
                     const linkedObject = relation.direction === 'incoming' ? relation.source_object : relation.target_object;
                     const typeName = (linkedObject?.object_type?.name || '').toLowerCase();
-                    return typeName.includes('ritning') || typeName.includes('dokument');
+                    return this.isFileObjectType(typeName) || typeName.includes('dokument');
                 })
                 .map(relation => ({
                     relationId: relation.id,
@@ -345,10 +264,60 @@ class FileUploadComponent {
                     relationType: relation.relation_type
                 }));
 
-            this.renderLinkedDocumentObjects();
+            const documentsByObject = await Promise.all(
+                this.linkedFileObjects.map(async item => {
+                    const linkedObject = item.linkedObject || {};
+                    try {
+                        const documents = await ObjectsAPI.getDocuments(linkedObject.id);
+                        return (documents || []).map(doc => ({
+                            ...doc,
+                            linkedObjectId: linkedObject.id,
+                            linkedObjectAutoId: linkedObject.auto_id,
+                            linkedObjectName: linkedObject.data?.Namn || linkedObject.data?.namn || linkedObject.data?.name || linkedObject.auto_id || 'Filobjekt'
+                        }));
+                    } catch (error) {
+                        console.error('Failed to load documents for linked file object:', linkedObject.id, error);
+                        return [];
+                    }
+                })
+            );
+
+            this.indirectDocuments = documentsByObject.flat();
+            this.renderIndirectDocuments();
         } catch (error) {
-            console.error('Failed to load linked document objects:', error);
+            console.error('Failed to load files via linked file objects:', error);
         }
+    }
+
+    renderIndirectDocuments() {
+        const container = document.getElementById(`linked-documents-list-${this.objectId}`);
+        if (!container) return;
+
+        if (!this.indirectDocuments.length) {
+            container.innerHTML = '<p class="empty-state">Inga filer hittades via kopplade filobjekt</p>';
+            return;
+        }
+
+        container.innerHTML = this.indirectDocuments.map(doc => `
+            <div class="document-item ${this.compactMode ? 'compact' : ''}">
+                <div class="document-icon">${this.getFileIcon(doc.filename)}</div>
+                <div class="document-info">
+                    <strong>${escapeHtml(doc.original_filename || doc.filename)}</strong>
+                    <small>
+                        ${escapeHtml(doc.document_type || 'Okänd filtyp')} •
+                        ${this.formatFileSize(doc.file_size)} •
+                        Från ${escapeHtml(doc.linkedObjectName)} (${escapeHtml(doc.linkedObjectAutoId || 'N/A')})
+                    </small>
+                </div>
+                <div class="document-actions">
+                    <button class="btn btn-sm btn-secondary"
+                            onclick="downloadDocument(${doc.linkedObjectId}, ${doc.id})"
+                            title="Ladda ner fil">
+                        ${this.compactMode ? '↓' : 'Ladda ner'}
+                    </button>
+                </div>
+            </div>
+        `).join('');
     }
 
     renderLinkedDocumentObjects() {
@@ -606,7 +575,7 @@ class FileUploadComponent {
             await this.loadDocuments();
             return;
         }
-        await this.loadLinkedDocumentObjects();
+        await this.loadFilesViaLinkedDocumentObjects();
     }
 }
 
@@ -645,7 +614,7 @@ async function unlinkDocumentObject(objectId, relationId) {
         showToast('Filobjekt bortkopplat', 'success');
         const fileUpload = window.currentFileUpload;
         if (fileUpload) {
-            await fileUpload.loadLinkedDocumentObjects();
+            await fileUpload.loadFilesViaLinkedDocumentObjects();
         }
     } catch (error) {
         console.error('Failed to unlink document object:', error);
