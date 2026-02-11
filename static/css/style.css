@@ -1095,6 +1095,59 @@ body {
 }
 
 /* File Upload Styles */
+
+.document-link-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.document-path-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    padding: var(--spacing-md);
+}
+
+.document-path-card h4 {
+    margin-bottom: var(--spacing-xs);
+}
+
+.document-path-card p {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.document-object-modal {
+    z-index: 1003;
+}
+
+.document-object-modal-content {
+    max-width: 720px;
+}
+
+.existing-document-list {
+    max-height: 340px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm);
+    background-color: var(--bg-secondary);
+}
+
+.existing-document-option {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+}
+
+.existing-document-option:hover {
+    background-color: var(--bg-tertiary);
+}
+
 .file-upload {
     padding: var(--spacing-lg);
 }
