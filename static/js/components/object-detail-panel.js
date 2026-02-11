@@ -235,7 +235,8 @@ class ObjectDetailPanel {
         const obj = this.objectData;
         const containerId = `panel-documents-container-${obj.id}`;
         
-        return `<div id="${containerId}"></div>`;
+        const tabClass = this.options.layout === 'detail' ? 'documents-tab-content compact-documents' : 'documents-tab-content';
+        return `<div id="${containerId}" class="${tabClass}"></div>`;
     }
     
     async loadRelationsIfNeeded() {
@@ -264,7 +265,9 @@ class ObjectDetailPanel {
         if (!container || container.dataset.loaded) return;
         
         try {
-            const fileUpload = new FileUploadComponent(containerId, this.objectData.id);
+            const fileUpload = new FileUploadComponent(containerId, this.objectData.id, {
+                compactMode: this.options.layout === 'detail'
+            });
             window.currentFileUpload = fileUpload;
             await fileUpload.render();
             container.dataset.loaded = 'true';

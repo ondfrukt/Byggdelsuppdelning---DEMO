@@ -1252,6 +1252,63 @@ body {
     gap: var(--spacing-sm);
 }
 
+
+.documents-tab-content.compact-documents {
+    padding: 0;
+}
+
+.file-upload.file-upload-compact {
+    padding: 4px;
+}
+
+.file-upload.file-upload-compact .document-link-actions {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.file-upload.file-upload-compact .documents-list {
+    margin-top: 8px;
+}
+
+.file-upload.file-upload-compact .empty-state {
+    padding: 8px;
+    font-size: 0.8rem;
+}
+
+.file-upload.file-upload-compact .document-item {
+    gap: 6px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    border-radius: var(--radius-sm);
+}
+
+.file-upload.file-upload-compact .document-icon {
+    font-size: 1rem;
+}
+
+.file-upload.file-upload-compact .document-info strong {
+    margin-bottom: 0;
+    font-size: 0.82rem;
+    line-height: 1.2;
+}
+
+.file-upload.file-upload-compact .document-info small {
+    font-size: 0.7rem;
+    line-height: 1.2;
+}
+
+.file-upload.file-upload-compact .document-actions {
+    gap: 4px;
+}
+
+.file-upload.file-upload-compact .document-actions .btn {
+    min-width: 28px;
+    padding: 2px 6px;
+    line-height: 1.1;
+    font-size: 0.75rem;
+}
+
 .empty-state {
     text-align: center;
     padding: var(--spacing-xl);
