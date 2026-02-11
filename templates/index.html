@@ -37,7 +37,7 @@
         <div id="objects-view" class="view active">
             <div class="view-header">
                 <h2>Objekt</h2>
-                <div>
+                <div class="view-header-actions">
                     <button class="btn btn-secondary" onclick="toggleTreeView()">
                         Trädvy
                     </button>
@@ -54,7 +54,10 @@
                 <!-- Detail Panel -->
                 <div id="detail-panel" class="detail-panel">
                     <div class="detail-panel-header">
-                        <h2 id="detail-panel-title">Objektdetaljer</h2>
+                        <div class="detail-panel-heading">
+                            <h2 id="detail-panel-title">Objektdetaljer</h2>
+                            <p id="detail-panel-category" class="detail-panel-category">Kategori: -</p>
+                        </div>
                         <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
                     </div>
                     <div id="detail-panel-body" class="detail-panel-content"></div>
@@ -276,6 +279,7 @@
     <!-- Scripts -->
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/object-list-display-name.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-form.js') }}"></script>
