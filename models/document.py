@@ -1,5 +1,33 @@
 from models import db
 from datetime import datetime
+import os
+
+
+
+def infer_document_type(filename):
+    """Infer standardized document type from file extension."""
+    ext = os.path.splitext(filename or '')[1].lower()
+
+    type_map = {
+        '.xls': 'Excel',
+        '.xlsx': 'Excel',
+        '.doc': 'Word',
+        '.docx': 'Word',
+        '.pdf': 'PDF',
+        '.dwg': 'CAD (DWG)',
+        '.dxf': 'CAD (DXF)',
+        '.rvt': 'Revit',
+        '.png': 'Bild',
+        '.jpg': 'Bild',
+        '.jpeg': 'Bild',
+        '.gif': 'Bild',
+        '.bmp': 'Bild',
+        '.webp': 'Bild',
+        '.tif': 'Bild',
+        '.tiff': 'Bild'
+    }
+
+    return type_map.get(ext, 'Övrigt')
 
 class Document(db.Model):
     """Document model - stores file attachments for objects"""
@@ -27,5 +55,6 @@ class Document(db.Model):
             'file_size': self.file_size,
             'mime_type': self.mime_type,
             'uploaded_at': self.uploaded_at.isoformat() if self.uploaded_at else None,
-            'uploaded_by': self.uploaded_by
+            'uploaded_by': self.uploaded_by,
+            'document_type': infer_document_type(self.original_filename or self.filename)
         }
