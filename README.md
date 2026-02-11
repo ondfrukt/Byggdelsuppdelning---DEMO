@@ -212,6 +212,12 @@ GET    /api/documents/{id}/download   # Ladda ner
 DELETE /api/documents/{id}            # Ta bort
 ```
 
+### Dokumentflöde i detaljpanelen (Dokument-tabben)
+- Två separata vägar visas i UI:t:
+  1. **Skapa och koppla nytt dokumentobjekt** (öppnar dialog med namn + filuppladdning)
+  2. **Koppla befintligt dokumentobjekt** (öppnar dialog med flervalslista av ritnings-/dokumentobjekt)
+- Nytt dokumentobjekt skapas som objekttypen **Ritningsobjekt/Dokumentobjekt** (första matchande typnamn), får namn via textfält och kopplas sedan med relationstypen `dokumenterar`.
+- Dokument-tabben visar även en lista över redan kopplade dokumentobjekt, med knappar för att öppna objektet eller koppla bort relationen.
 
 Relationer traverseras nu från båda håll i både API och frontend (objektpanel + trädvy), vilket ersätter behovet av direkta barn/förälder-kopplingar i objekten.
 

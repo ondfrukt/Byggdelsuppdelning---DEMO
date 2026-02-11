@@ -265,6 +265,7 @@ class ObjectDetailPanel {
         
         try {
             const fileUpload = new FileUploadComponent(containerId, this.objectData.id);
+            window.currentFileUpload = fileUpload;
             await fileUpload.render();
             container.dataset.loaded = 'true';
         } catch (error) {

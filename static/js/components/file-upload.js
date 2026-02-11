@@ -8,6 +8,9 @@ class FileUploadComponent {
         this.container = document.getElementById(containerId);
         this.objectId = objectId;
         this.documents = [];
+        this.linkedDocumentObjects = [];
+        this.documentObjectType = null;
+        this.availableDocumentObjects = [];
     }
     
     async render() {
@@ -15,39 +18,130 @@ class FileUploadComponent {
         
         this.container.innerHTML = `
             <div class="file-upload">
-                <div class="upload-area" id="upload-area-${this.objectId}">
-                    <div class="upload-content">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <p>Dra och släpp filer här eller <label for="file-input-${this.objectId}" class="file-label">välj filer</label></p>
-                        <input type="file" 
-                               id="file-input-${this.objectId}" 
-                               multiple 
-                               style="display: none;">
+                <div class="document-link-actions">
+                    <div class="document-path-card">
+                        <h4>Skapa och koppla nytt dokumentobjekt</h4>
+                        <p>Skapa ett nytt dokument-/ritningsobjekt, namnge det och ladda upp filer i samma flöde.</p>
+                        <button class="btn btn-primary" id="create-document-object-btn-${this.objectId}">
+                            + Skapa nytt dokumentobjekt
+                        </button>
+                    </div>
+                    <div class="document-path-card">
+                        <h4>Koppla befintligt dokumentobjekt</h4>
+                        <p>Välj ett eller flera redan skapade dokument-/ritningsobjekt och koppla dem till aktuellt objekt.</p>
+                        <button class="btn btn-secondary" id="link-existing-document-btn-${this.objectId}">
+                            Koppla befintliga dokumentobjekt
+                        </button>
                     </div>
                 </div>
 
-                <div class="progress-bar" id="progress-bar-${this.objectId}" style="display: none;">
-                    <div class="progress-fill" id="progress-fill-${this.objectId}"></div>
-                </div>
-                
                 <div class="documents-list">
-                    <h4>Uppladdade Dokument</h4>
+                    <h4>Kopplade dokumentobjekt</h4>
+                    <div id="linked-documents-list-${this.objectId}"></div>
+                </div>
+
+                <div id="document-object-modal-${this.objectId}" class="modal document-object-modal">
+                    <div class="modal-content document-object-modal-content">
+                        <div class="modal-header">
+                            <h3>Skapa dokumentobjekt</h3>
+                            <button class="close-btn" type="button" id="close-document-object-modal-${this.objectId}">&times;</button>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="document-object-name-${this.objectId}">Namn på dokumentobjekt *</label>
+                            <input type="text" class="form-control" id="document-object-name-${this.objectId}" placeholder="Ange namn" required>
+                        </div>
+
+                        <div class="upload-area" id="upload-area-${this.objectId}">
+                            <div class="upload-content">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                    <polyline points="17 8 12 3 7 8"></polyline>
+                                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                                </svg>
+                                <p>Dra och släpp filer här eller <label for="file-input-${this.objectId}" class="file-label">välj filer</label></p>
+                                <input type="file" id="file-input-${this.objectId}" multiple style="display: none;">
+                            </div>
+                        </div>
+
+                        <div class="progress-bar" id="progress-bar-${this.objectId}" style="display: none;">
+                            <div class="progress-fill" id="progress-fill-${this.objectId}"></div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" id="cancel-document-object-modal-${this.objectId}">Avbryt</button>
+                            <button type="button" class="btn btn-primary" id="save-document-object-btn-${this.objectId}">Skapa och koppla</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="existing-document-modal-${this.objectId}" class="modal document-object-modal">
+                    <div class="modal-content document-object-modal-content">
+                        <div class="modal-header">
+                            <h3>Koppla befintliga dokumentobjekt</h3>
+                            <button class="close-btn" type="button" id="close-existing-document-modal-${this.objectId}">&times;</button>
+                        </div>
+                        <p class="modal-subtitle">Markera ett eller flera dokument-/ritningsobjekt för att koppla till aktuellt objekt.</p>
+                        <div id="existing-document-list-${this.objectId}" class="existing-document-list"></div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" id="cancel-existing-document-modal-${this.objectId}">Avbryt</button>
+                            <button type="button" class="btn btn-primary" id="save-existing-document-links-btn-${this.objectId}">Koppla valda objekt</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="documents-list">
+                    <h4>Filer på aktuellt objekt</h4>
                     <div id="documents-list-${this.objectId}"></div>
                 </div>
             </div>
         `;
         
         this.attachEventListeners();
+        await this.loadDocumentObjectType();
+        await this.loadLinkedDocumentObjects();
         await this.loadDocuments();
     }
     
     attachEventListeners() {
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
+        const createButton = document.getElementById(`create-document-object-btn-${this.objectId}`);
+        const linkExistingButton = document.getElementById(`link-existing-document-btn-${this.objectId}`);
+        const saveNewButton = document.getElementById(`save-document-object-btn-${this.objectId}`);
+        const saveExistingButton = document.getElementById(`save-existing-document-links-btn-${this.objectId}`);
+        const closeNewModalButtons = [
+            document.getElementById(`close-document-object-modal-${this.objectId}`),
+            document.getElementById(`cancel-document-object-modal-${this.objectId}`)
+        ];
+        const closeExistingModalButtons = [
+            document.getElementById(`close-existing-document-modal-${this.objectId}`),
+            document.getElementById(`cancel-existing-document-modal-${this.objectId}`)
+        ];
+
+        if (createButton) {
+            createButton.addEventListener('click', () => this.openCreateDocumentObjectModal());
+        }
+
+        if (linkExistingButton) {
+            linkExistingButton.addEventListener('click', () => this.openLinkExistingDocumentsModal());
+        }
+
+        if (saveNewButton) {
+            saveNewButton.addEventListener('click', async () => this.createAndLinkDocumentObject());
+        }
+
+        if (saveExistingButton) {
+            saveExistingButton.addEventListener('click', async () => this.linkSelectedExistingDocumentObjects());
+        }
+
+        closeNewModalButtons.forEach(button => {
+            if (button) button.addEventListener('click', () => this.closeModal(`document-object-modal-${this.objectId}`));
+        });
+
+        closeExistingModalButtons.forEach(button => {
+            if (button) button.addEventListener('click', () => this.closeModal(`existing-document-modal-${this.objectId}`));
+        });
         
         // Drag and drop
         if (uploadArea) {
@@ -91,7 +185,7 @@ class FileUploadComponent {
             }
         }
 
-        await this.uploadFiles();
+        return this.selectedFiles;
     }
     
     async uploadFiles() {
@@ -147,6 +241,236 @@ class FileUploadComponent {
             this.renderDocuments();
         } catch (error) {
             console.error('Failed to load documents:', error);
+        }
+    }
+
+    async loadDocumentObjectType() {
+        try {
+            const objectTypes = await ObjectTypesAPI.getAll(true);
+            this.documentObjectType = this.findDocumentObjectType(objectTypes || []);
+        } catch (error) {
+            console.error('Failed to load object types for document flow:', error);
+        }
+    }
+
+    findDocumentObjectType(objectTypes) {
+        const nameMatchers = ['ritningsobjekt', 'dokumentobjekt', 'dokument', 'ritning'];
+        return objectTypes.find(type => nameMatchers.some(matcher => (type.name || '').toLowerCase().includes(matcher))) || null;
+    }
+
+    getObjectNameFieldName(objectType) {
+        if (!objectType?.fields) return null;
+        const preferred = objectType.fields.find(field => ['namn', 'name'].includes((field.field_name || '').toLowerCase()));
+        if (preferred) return preferred.field_name;
+
+        const firstTextField = objectType.fields.find(field => ['text', 'textarea'].includes(field.field_type));
+        return firstTextField?.field_name || null;
+    }
+
+    async loadLinkedDocumentObjects() {
+        try {
+            const relations = await ObjectsAPI.getRelations(this.objectId);
+            this.linkedDocumentObjects = (relations || [])
+                .filter(relation => {
+                    const linkedObject = relation.direction === 'incoming' ? relation.source_object : relation.target_object;
+                    const typeName = (linkedObject?.object_type?.name || '').toLowerCase();
+                    return typeName.includes('ritning') || typeName.includes('dokument');
+                })
+                .map(relation => ({
+                    relationId: relation.id,
+                    linkedObject: relation.direction === 'incoming' ? relation.source_object : relation.target_object,
+                    direction: relation.direction,
+                    relationType: relation.relation_type
+                }));
+
+            this.renderLinkedDocumentObjects();
+        } catch (error) {
+            console.error('Failed to load linked document objects:', error);
+        }
+    }
+
+    renderLinkedDocumentObjects() {
+        const container = document.getElementById(`linked-documents-list-${this.objectId}`);
+        if (!container) return;
+
+        if (!this.linkedDocumentObjects.length) {
+            container.innerHTML = '<p class="empty-state">Inga dokumentobjekt kopplade ännu</p>';
+            return;
+        }
+
+        container.innerHTML = this.linkedDocumentObjects.map(item => {
+            const obj = item.linkedObject || {};
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id || 'Okänt objekt';
+            return `
+                <div class="document-item">
+                    <div class="document-icon">🔗</div>
+                    <div class="document-info">
+                        <strong>${escapeHtml(displayName)}</strong>
+                        <small>${escapeHtml(obj.auto_id || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
+                    </div>
+                    <div class="document-actions">
+                        <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${parseInt(obj.id || 0, 10)})">Öppna</button>
+                        <button class="btn btn-sm btn-danger" onclick="unlinkDocumentObject(${this.objectId}, ${parseInt(item.relationId, 10)})">Koppla bort</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    openCreateDocumentObjectModal() {
+        if (!this.documentObjectType) {
+            showToast('Kunde inte hitta en objekttyp för dokument/ritning', 'error');
+            return;
+        }
+        this.resetUploadForm();
+        this.openModal(`document-object-modal-${this.objectId}`);
+    }
+
+    async openLinkExistingDocumentsModal() {
+        await this.loadAvailableDocumentObjects();
+        this.renderAvailableDocumentObjects();
+        this.openModal(`existing-document-modal-${this.objectId}`);
+    }
+
+    async loadAvailableDocumentObjects() {
+        const allObjects = await ObjectsAPI.getAllPaginated({ minimal: true });
+        const linkedIds = new Set(this.linkedDocumentObjects.map(item => item.linkedObject?.id));
+        this.availableDocumentObjects = (Array.isArray(allObjects) ? allObjects : allObjects.items || []).filter(obj => {
+            const typeName = (obj.object_type?.name || '').toLowerCase();
+            const isDocumentType = typeName.includes('ritning') || typeName.includes('dokument');
+            return isDocumentType && obj.id !== this.objectId && !linkedIds.has(obj.id);
+        });
+    }
+
+    renderAvailableDocumentObjects() {
+        const list = document.getElementById(`existing-document-list-${this.objectId}`);
+        if (!list) return;
+
+        if (!this.availableDocumentObjects.length) {
+            list.innerHTML = '<p class="empty-state">Inga tillgängliga dokumentobjekt att koppla</p>';
+            return;
+        }
+
+        list.innerHTML = this.availableDocumentObjects.map(obj => {
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id;
+            return `
+                <label class="existing-document-option">
+                    <input type="checkbox" value="${obj.id}">
+                    <span>
+                        <strong>${escapeHtml(displayName || 'Namnlöst objekt')}</strong><br>
+                        <small>${escapeHtml(obj.auto_id || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
+                    </span>
+                </label>
+            `;
+        }).join('');
+    }
+
+    async createAndLinkDocumentObject() {
+        const nameInput = document.getElementById(`document-object-name-${this.objectId}`);
+        const objectName = (nameInput?.value || '').trim();
+
+        if (!objectName) {
+            showToast('Ange ett namn på dokumentobjektet', 'error');
+            return;
+        }
+
+        if (!this.selectedFiles || this.selectedFiles.length === 0) {
+            showToast('Välj minst en fil innan du skapar dokumentobjektet', 'error');
+            return;
+        }
+
+        const nameField = this.getObjectNameFieldName(this.documentObjectType);
+        if (!nameField) {
+            showToast('Dokumentobjekttypen saknar ett textfält för namn', 'error');
+            return;
+        }
+
+        try {
+            // 1) Skapa dokumentobjekt
+            const createdObject = await ObjectsAPI.create({
+                object_type_id: this.documentObjectType.id,
+                data: { [nameField]: objectName }
+            });
+
+            // 2) Ladda upp valda filer på det skapade dokumentobjektet
+            await this.uploadFilesToObject(createdObject.id, this.selectedFiles);
+
+            // 3) Koppla dokumentobjektet till aktivt objekt
+            await ObjectsAPI.addRelation(this.objectId, {
+                target_object_id: createdObject.id,
+                relation_type: 'dokumenterar'
+            });
+
+            showToast('Dokumentobjekt skapat och kopplat', 'success');
+            this.closeModal(`document-object-modal-${this.objectId}`);
+            if (nameInput) nameInput.value = '';
+            this.resetUploadForm();
+            await this.loadLinkedDocumentObjects();
+        } catch (error) {
+            console.error('Failed to create and link document object:', error);
+            showToast(error.message || 'Kunde inte skapa/koppla dokumentobjekt', 'error');
+        }
+    }
+
+    async uploadFilesToObject(targetObjectId, files) {
+        const progressBar = document.getElementById(`progress-bar-${this.objectId}`);
+        const progressFill = document.getElementById(`progress-fill-${this.objectId}`);
+        if (progressBar) progressBar.style.display = 'block';
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                if (progressFill) {
+                    const progress = ((i + 1) / files.length) * 100;
+                    progressFill.style.width = `${progress}%`;
+                }
+                await ObjectsAPI.uploadDocument(targetObjectId, files[i]);
+            }
+        } finally {
+            if (progressBar) progressBar.style.display = 'none';
+            if (progressFill) progressFill.style.width = '0%';
+        }
+    }
+
+    async linkSelectedExistingDocumentObjects() {
+        const list = document.getElementById(`existing-document-list-${this.objectId}`);
+        if (!list) return;
+
+        const selectedIds = Array.from(list.querySelectorAll('input[type="checkbox"]:checked')).map(input => parseInt(input.value, 10));
+        if (!selectedIds.length) {
+            showToast('Välj minst ett dokumentobjekt att koppla', 'error');
+            return;
+        }
+
+        try {
+            await Promise.all(selectedIds.map(targetId => ObjectsAPI.addRelation(this.objectId, {
+                target_object_id: targetId,
+                relation_type: 'dokumenterar'
+            })));
+
+            showToast('Valda dokumentobjekt kopplades', 'success');
+            this.closeModal(`existing-document-modal-${this.objectId}`);
+            await this.loadLinkedDocumentObjects();
+        } catch (error) {
+            console.error('Failed to link existing document objects:', error);
+            showToast(error.message || 'Kunde inte koppla valda dokumentobjekt', 'error');
+        }
+    }
+
+    openModal(modalId) {
+        const overlay = document.getElementById('modal-overlay');
+        const modal = document.getElementById(modalId);
+        if (overlay) overlay.style.display = 'block';
+        if (modal) modal.style.display = 'block';
+    }
+
+    closeModal(modalId) {
+        const overlay = document.getElementById('modal-overlay');
+        const modal = document.getElementById(modalId);
+        if (modal) modal.style.display = 'none';
+
+        const stillOpenModal = Array.from(document.querySelectorAll('.modal')).some(item => item.style.display === 'block');
+        if (overlay && !stillOpenModal) {
+            overlay.style.display = 'none';
         }
     }
     
@@ -240,5 +564,23 @@ async function deleteDocument(objectId, documentId) {
     } catch (error) {
         console.error('Failed to delete document:', error);
         showToast(error.message || 'Kunde inte ta bort dokument', 'error');
+    }
+}
+
+async function unlinkDocumentObject(objectId, relationId) {
+    if (!confirm('Är du säker på att du vill koppla bort dokumentobjektet?')) {
+        return;
+    }
+
+    try {
+        await ObjectsAPI.deleteRelation(objectId, relationId);
+        showToast('Dokumentobjekt bortkopplat', 'success');
+        const fileUpload = window.currentFileUpload;
+        if (fileUpload) {
+            await fileUpload.loadLinkedDocumentObjects();
+        }
+    } catch (error) {
+        console.error('Failed to unlink document object:', error);
+        showToast(error.message || 'Kunde inte koppla bort dokumentobjekt', 'error');
     }
 }
