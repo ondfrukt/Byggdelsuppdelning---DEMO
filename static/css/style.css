@@ -198,6 +198,7 @@ body {
     overflow-y: auto;
     max-height: calc(100vh - 300px);
     position: relative;
+    isolation: isolate;
 }
 
 .data-table {
@@ -260,6 +261,13 @@ body {
 
 .data-table thead {
     background-color: var(--bg-tertiary);
+    position: relative;
+    z-index: 30;
+}
+
+.data-table tbody {
+    position: relative;
+    z-index: 1;
 }
 
 .data-table th {
@@ -273,7 +281,7 @@ body {
     position: sticky;
     top: 0;
     background-color: var(--bg-tertiary);
-    z-index: 10;
+    z-index: 30;
     transition: background-color 0.2s;
 }
 
@@ -592,6 +600,13 @@ body {
     flex-direction: column;
     height: 100%;
     min-height: 0;
+}
+
+.modal-context {
+    margin: var(--spacing-xs) 0 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
 }
 
 .modal-subtitle {
@@ -1951,7 +1966,7 @@ body {
     position: sticky;
     top: calc(4px + 8px + 12px + 8px + 4px); /* Calculate header height */
     background-color: var(--bg-secondary);
-    z-index: 9;
+    z-index: 29;
     padding: var(--spacing-xs) var(--spacing-sm);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     vertical-align: middle; /* Endast denna för vertikal centrering */
