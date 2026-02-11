@@ -42,9 +42,12 @@ class TreeView {
                 <table class="tree-table sortable-table" id="tree-table">
                     <thead>
                         <tr>
-                            <th data-sortable data-sort-type="text" style="width: 50%;">Namn</th>
-                            <th data-sortable data-sort-type="text" style="width: 20%;">ID</th>
-                            <th data-sortable data-sort-type="text" style="width: 30%;">Typ / Relation</th>
+                            <th data-sortable data-sort-type="text" style="width: 34%;">Namn</th>
+                            <th data-sortable data-sort-type="text" style="width: 14%;">ID</th>
+                            <th data-sortable data-sort-type="text" style="width: 12%;">Typ</th>
+                            <th data-sortable data-sort-type="text" style="width: 14%;">Kravtext</th>
+                            <th data-sortable data-sort-type="text" style="width: 14%;">Beskrivning</th>
+                            <th data-sortable data-sort-type="text" style="width: 12%;">Filer</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -72,7 +75,7 @@ class TreeView {
     renderNode(node, level) {
         const hasChildren = node.children && node.children.length > 0;
         const isExpanded = this.expandedNodes.has(node.id);
-        const indent = level * 16; // Compact indentation: 16px per level
+        const indent = level * 12; // Reduced indentation (~25% less) for denser hierarchy
         
         let html = '';
         
@@ -86,15 +89,20 @@ class TreeView {
                                 ${isExpanded ? '▼' : '▶'}
                             </span>
                         ` : '<span class="tree-spacer"></span>'}
-                        <span class="tree-label tree-label-group">${node.name}</span>
+                        <span class="tree-label tree-label-group">${this.escapeHtml(node.name)} <span class="tree-count">(${node.children?.length || 0})</span></span>
                     </td>
                     <td></td>
-                    <td>
-                        <span class="tree-count">(${node.children?.length || 0})</span>
-                    </td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
                 </tr>
             `;
         } else {
+            const kravtext = this.escapeHtml(node.kravtext || '');
+            const beskrivning = this.escapeHtml(node.beskrivning || '');
+            const filesHtml = this.renderFiles(node.files || []);
+
             // Regular node - display as table row with columns
             html += `
                 <tr class="tree-node ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-node-type="${node.type}" data-has-children="${hasChildren}">
@@ -104,12 +112,15 @@ class TreeView {
                                 ${isExpanded ? '▼' : '▶'}
                             </span>
                         ` : '<span class="tree-spacer"></span>'}
-                        <span class="tree-label">${node.name}</span>
+                        <span class="tree-label">${this.escapeHtml(node.name)}</span>
                     </td>
                     <td>
-                        ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${node.auto_id}</a>` : ''}
+                        ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.escapeHtml(node.auto_id)}</a>` : ''}
                     </td>
-                    <td>${node.type || ''}${node.relation ? `<br><small>${node.relation.relation_type} (${node.direction === 'incoming' ? 'inkommande' : 'utgående'})</small>` : ''}</td>
+                    <td>${this.escapeHtml(node.type || '')}</td>
+                    <td>${kravtext}</td>
+                    <td>${beskrivning}</td>
+                    <td>${filesHtml}</td>
                 </tr>
             `;
         }
@@ -122,6 +133,29 @@ class TreeView {
         }
         
         return html;
+    }
+
+    renderFiles(files) {
+        if (!Array.isArray(files) || files.length === 0) {
+            return '';
+        }
+
+        return files
+            .map(file => {
+                const fileName = this.escapeHtml(file.original_filename || file.filename || 'Fil');
+                const fileUrl = `/api/objects/documents/${file.id}/download`;
+                return `<a href="${this.escapeHtml(fileUrl)}" class="tree-file-link" title="Ladda ner ${fileName}">${fileName}</a>`;
+            })
+            .join('<br>');
+    }
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
     
     attachEventListeners() {
@@ -143,6 +177,14 @@ class TreeView {
             });
         });
         
+        // File link click - do not trigger row toggle
+        const fileLinks = this.container.querySelectorAll('.tree-file-link');
+        fileLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        });
+
         // ID link click - opens detail view
         const idLinks = this.container.querySelectorAll('.tree-id-link');
         idLinks.forEach(link => {
