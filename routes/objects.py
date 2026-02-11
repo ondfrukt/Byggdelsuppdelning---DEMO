@@ -52,6 +52,22 @@ def get_display_name(obj, object_type_name, view_config):
         return f"ID: {obj.auto_id}"
 
 
+def get_data_value_case_insensitive(data, field_name):
+    """Get a field value from object data with case-insensitive fallback."""
+    if not isinstance(data, dict):
+        return None
+
+    if field_name in data:
+        return data[field_name]
+
+    field_name_lower = field_name.lower()
+    for key, value in data.items():
+        if isinstance(key, str) and key.lower() == field_name_lower:
+            return value
+
+    return None
+
+
 @bp.route('', methods=['GET'])
 def list_objects():
     """List all objects with optional filtering and optional pagination."""
@@ -382,21 +398,17 @@ def get_tree():
 
                     display_name = get_display_name(linked_object, type_name, view_config)
 
+                    linked_object_data = linked_object.data or {}
+
                     children_by_type[type_name].append({
                         'id': str(linked_object.id),
                         'auto_id': linked_object.auto_id,
                         'name': display_name,
                         'type': type_name,
                         'direction': direction,
-                        'relation': {
-                            'id': relation.id,
-                            'relation_type': relation.relation_type,
-                            'objectA_id': relation.source_object_id,
-                            'objectA_type': relation.source_object.object_type.name if relation.source_object else None,
-                            'objectB_id': relation.target_object_id,
-                            'objectB_type': relation.target_object.object_type.name if relation.target_object else None,
-                            'metadata': relation.relation_metadata
-                        }
+                        'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
+                        'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
+                        'files': [doc.to_dict() for doc in linked_object.documents]
                     })
 
             for type_name, objects in children_by_type.items():
