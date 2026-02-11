@@ -15,6 +15,7 @@ class ObjectListComponent {
         this.tableSortInstance = null;
         this.viewConfig = null;
         this.columnSearches = {}; // Store search terms per column
+        this.typeDisplayFieldMap = {};
     }
     
     async render() {
@@ -108,6 +109,8 @@ class ObjectListComponent {
     
     async loadViewConfig() {
         try {
+            await this.loadTypeDisplayFieldMap();
+
             // Load view configuration for the selected type
             if (this.selectedType) {
                 // Get object type by name
@@ -123,6 +126,24 @@ class ObjectListComponent {
         } catch (error) {
             console.error('Failed to load view config:', error);
             this.viewConfig = null;
+            this.typeDisplayFieldMap = {};
+        }
+    }
+
+    async loadTypeDisplayFieldMap() {
+        try {
+            const response = await fetchAPI('/view-config/tree-display');
+            this.typeDisplayFieldMap = Object.fromEntries(
+                Object.entries(response || {}).map(([typeName, config]) => [
+                    this.normalizeTypeName(typeName),
+                    config?.tree_view_name_field && config.tree_view_name_field !== 'ID'
+                        ? config.tree_view_name_field
+                        : ''
+                ])
+            );
+        } catch (error) {
+            console.error('Failed to load type display field map:', error);
+            this.typeDisplayFieldMap = {};
         }
     }
     
@@ -175,11 +196,13 @@ class ObjectListComponent {
         // Render search row with column classes
         searchRow.innerHTML = columns.map(col => {
             const colClass = this.getColumnClass(col);
+            const width = this.getColumnWidth(col.field_name);
+            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
             // Skip search input for actions column
             if (col.field_name === 'actions') {
-                return `<th class="${colClass}"></th>`;
+                return `<th ${widthStyle} class="${colClass}"></th>`;
             }
-            return `<th class="${colClass}">
+            return `<th ${widthStyle} class="${colClass}">
                 <input type="text" 
                        class="column-search-input" 
                        placeholder="Sök..."
@@ -393,11 +416,19 @@ class ObjectListComponent {
     }
     
     getObjectDisplayName(obj) {
-        // Try to find a "name" field in the object data
-        if (obj.data) {
-            return obj.data.namn || obj.data.name || obj.data.title || obj.auto_id;
+        if (window.ObjectListDisplayName?.resolveObjectDisplayName) {
+            return window.ObjectListDisplayName.resolveObjectDisplayName(obj, this.typeDisplayFieldMap);
         }
-        return obj.auto_id;
+
+        return obj?.data?.name || obj?.data?.title || obj?.data?.label || obj?.auto_id || '';
+    }
+
+    normalizeTypeName(typeName) {
+        if (window.ObjectListDisplayName?.normalizeTypeName) {
+            return window.ObjectListDisplayName.normalizeTypeName(typeName);
+        }
+
+        return (typeName || '').toString().trim().toLowerCase();
     }
     
     toggleColumnConfig() {

@@ -100,6 +100,29 @@ async function loadObjectsView() {
 let treeViewActive = false;
 let treeViewInstance = null;
 
+function updateDetailPanelHeader(object) {
+    const panelTitle = document.getElementById('detail-panel-title');
+    const panelCategory = document.getElementById('detail-panel-category');
+
+    const displayName =
+        object?.data?.Namn ||
+        object?.data?.namn ||
+        object?.data?.Name ||
+        object?.data?.name ||
+        object?.data?.title ||
+        object?.auto_id ||
+        'Objektdetaljer';
+
+    if (panelTitle) {
+        panelTitle.textContent = displayName;
+    }
+
+    if (panelCategory) {
+        panelCategory.textContent = `Kategori: ${object?.object_type?.name || '-'}`;
+    }
+}
+
+
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;
     window.treeViewActive = treeViewActive; // Update global reference
@@ -124,12 +147,8 @@ async function toggleTreeView() {
                 // Load object data once
                 const object = await ObjectsAPI.getById(objectId);
                 
-                // Update panel title
-                const panelTitle = document.getElementById('detail-panel-title');
-                if (panelTitle) {
-                    const displayName = object.data?.Namn || object.data?.namn || object.auto_id;
-                    panelTitle.textContent = displayName;
-                }
+                // Update detail panel header
+                updateDetailPanelHeader(object);
 
                 // Create or reuse unified detail panel instance
                 if (!currentDetailPanelInstance) {
@@ -205,18 +224,8 @@ async function openDetailPanel(objectId) {
         // Ladda objektdata
         const object = await ObjectsAPI.getById(objectId);
         
-        // Uppdatera panel-title (visar namn, eller ID som fallback)
-        const panelTitle = document.getElementById('detail-panel-title');
-        if (panelTitle) {
-            const displayName =
-                object.data?.Namn ||
-                object.data?.namn ||
-                object.data?.Name ||
-                object.data?.name ||
-                object.data?.title ||
-                object.auto_id;
-            panelTitle.textContent = displayName;
-        }
+        // Uppdatera panel-header (namn + kategori)
+        updateDetailPanelHeader(object);
         
         // Skapa eller återanvänd enhetlig detaljpanel-instans
         if (!currentDetailPanelInstance) {
@@ -242,6 +251,7 @@ function closeDetailPanel() {
     const objectsWrapper = document.getElementById('objects-container-wrapper');
     const treeWrapper = document.getElementById('tree-view-wrapper');
     const panelTitle = document.getElementById('detail-panel-title');
+    const panelCategory = document.getElementById('detail-panel-category');
     const panelBody = document.getElementById('detail-panel-body');
 
     
@@ -253,6 +263,7 @@ function closeDetailPanel() {
     if (treeWrapper) treeWrapper.classList.remove('panel-open');
 
     if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
+    if (panelCategory) panelCategory.textContent = 'Kategori: -';
     if (panelBody) panelBody.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
     
     // Clean up the instance
