@@ -26,6 +26,26 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
+def is_file_object_type(type_name):
+    """Check if an object type should be treated as a file object."""
+    normalized = (type_name or '').strip().lower()
+    return normalized in {'filobjekt', 'ritningsobjekt'}
+
+
+def ensure_file_object_or_422(obj):
+    """Validate file ownership rule and return Flask error tuple on violation."""
+    object_type_name = obj.object_type.name if obj and obj.object_type else None
+    if is_file_object_type(object_type_name):
+        return None
+
+    return jsonify({
+        'error': 'FILE_OWNER_TYPE_INVALID',
+        'message': 'Only Filobjekt can own documents',
+        'object_id': obj.id if obj else None,
+        'object_type': object_type_name
+    }), 422
+
+
 def get_document_storage_candidates(document):
     """Generate possible storage paths for a document.
 
@@ -97,7 +117,11 @@ def infer_mime_type(filename):
 def list_documents(id):
     """List all documents for an object"""
     try:
-        Object.query.get_or_404(id)
+        obj = Object.query.get_or_404(id)
+        file_object_error = ensure_file_object_or_422(obj)
+        if file_object_error:
+            return file_object_error
+
         documents = Document.query.filter_by(object_id=id).all()
         return jsonify([doc.to_dict() for doc in documents]), 200
     except HTTPException:
@@ -112,6 +136,9 @@ def upload_document(id):
     """Upload a document for an object"""
     try:
         obj = Object.query.get_or_404(id)
+        file_object_error = ensure_file_object_or_422(obj)
+        if file_object_error:
+            return file_object_error
 
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400

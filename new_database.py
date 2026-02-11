@@ -103,8 +103,8 @@ def seed_data(app):
                     ]
                 },
                 {
-                    'name': 'Ritningsobjekt',
-                    'description': 'Ritningar och dokument',
+                    'name': 'Filobjekt',
+                    'description': 'Filer och dokument',
                     'icon': 'fa-file-pdf',
                     'is_system': True,
                     'fields': [

@@ -1,0 +1,166 @@
+version: 1
+suite: filobjekt_integrity_and_ux
+
+preconditions:
+  - object_type Filobjekt exists (or code=FILE_OBJECT)
+  - object_type Byggdel exists
+  - object A of type Byggdel
+  - object F of type Filobjekt
+
+api_tests:
+  - id: API-001
+    name: Upload allowed for Filobjekt
+    request:
+      method: POST
+      path: /api/objects/{F.id}/documents
+      multipart:
+        file: sample.pdf
+    expect:
+      status: 201
+      body_contains:
+        - id
+        - original_filename
+
+  - id: API-002
+    name: Upload blocked for non-Filobjekt
+    request:
+      method: POST
+      path: /api/objects/{A.id}/documents
+      multipart:
+        file: sample.pdf
+    expect:
+      status: 422
+      body_equals:
+        error: FILE_OWNER_TYPE_INVALID
+
+  - id: API-003
+    name: List direct documents blocked for non-Filobjekt
+    request:
+      method: GET
+      path: /api/objects/{A.id}/documents
+    expect:
+      status: 422
+
+  - id: API-004
+    name: Link Byggdel -> Filobjekt allowed
+    request:
+      method: POST
+      path: /api/objects/{A.id}/linked-file-objects
+      json:
+        file_object_id: "{F.id}"
+    expect:
+      status: 201
+
+  - id: API-005
+    name: Link Filobjekt -> Filobjekt blocked for dokumenterar
+    request:
+      method: POST
+      path: /api/objects/{F.id}/linked-file-objects
+      json:
+        file_object_id: "{F2.id}"
+    expect:
+      status: 422
+
+  - id: API-006
+    name: Prevent duplicate link
+    setup:
+      - existing relation A --dokumenterar--> F
+    request:
+      method: POST
+      path: /api/objects/{A.id}/linked-file-objects
+      json:
+        file_object_id: "{F.id}"
+    expect:
+      status: 409
+
+  - id: API-007
+    name: Delete file from Filobjekt only
+    request:
+      method: DELETE
+      path: /api/objects/documents/{doc.id}
+    expect:
+      status: 200
+
+db_tests:
+  - id: DB-001
+    name: documents owner must be Filobjekt (trigger)
+    sql: |
+      INSERT INTO documents (filobjekt_id, filename, original_filename, file_path)
+      VALUES (:non_file_object_id, 'a.pdf', 'a.pdf', 'a.pdf');
+    expect:
+      error_contains: Only Filobjekt can own files
+
+  - id: DB-002
+    name: dokumenterar must connect exactly one Filobjekt
+    sql: |
+      INSERT INTO object_relations (source_object_id, target_object_id, relation_type)
+      VALUES (:non_file_a, :non_file_b, 'dokumenterar');
+    expect:
+      error_contains: must connect exactly one Filobjekt
+
+  - id: DB-003
+    name: No orphan document owners
+    sql: |
+      SELECT COUNT(*) AS invalid_count
+      FROM documents d
+      LEFT JOIN objects o ON o.id = d.filobjekt_id
+      WHERE o.id IS NULL;
+    expect:
+      rows:
+        - invalid_count: 0
+
+ui_tests:
+  - id: UI-001
+    name: Detail panel for non-Filobjekt hides direct file upload
+    steps:
+      - Open object A (Byggdel)
+      - Go to tab Dokument
+    expect:
+      - visible: "Kopplade filobjekt"
+      - visible: "Skapa filobjekt"
+      - not_visible: "Dra och släpp filer"
+
+  - id: UI-002
+    name: Detail panel for Filobjekt shows direct file upload
+    steps:
+      - Open object F (Filobjekt)
+      - Go to tab Dokument
+    expect:
+      - visible: "Dra och släpp filer"
+      - visible: "Ladda ner"
+
+  - id: UI-003
+    name: One-click create file object from regular object
+    steps:
+      - Open object A (Byggdel)
+      - Click "Skapa filobjekt"
+      - Enter name and attach two files
+      - Submit
+    expect:
+      - relation_created: true
+      - linked_file_objects_count_incremented: 1
+      - uploaded_files_count_incremented_on_new_file_object: 2
+
+migration_tests:
+  - id: MIG-001
+    name: Documents previously owned by non-file objects are remapped
+    sql: |
+      SELECT COUNT(*) AS still_invalid
+      FROM documents d
+      JOIN objects o ON o.id = d.filobjekt_id
+      JOIN object_types ot ON ot.id = o.object_type_id
+      WHERE lower(ot.name) <> 'filobjekt';
+    expect:
+      rows:
+        - still_invalid: 0
+
+  - id: MIG-002
+    name: Traceability relation exists after migration
+    sql: |
+      SELECT COUNT(*) AS migrated_links
+      FROM object_relations
+      WHERE relation_type = 'dokumenterar'
+        AND relation_metadata->>'migrated' = 'true';
+    expect:
+      rows_min:
+        migrated_links: 1

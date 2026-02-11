@@ -72,7 +72,7 @@ def get_data_value_case_insensitive(data, field_name):
 def is_document_object_type(type_name):
     """Check whether an object type is a document/drawing object."""
     normalized = (type_name or '').lower()
-    return 'ritning' in normalized or 'dokument' in normalized
+    return 'filobjekt' in normalized or 'ritning' in normalized or 'dokument' in normalized
 
 
 def is_pdf_document(document):

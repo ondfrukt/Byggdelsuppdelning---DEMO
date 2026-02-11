@@ -106,6 +106,7 @@ function getObjectTypeColor(typeName) {
         'Kravställning': '#e74c3c',
         'Anslutning': '#f39c12',
         'Ritningsobjekt': '#9b59b6',
+        'Filobjekt': '#9b59b6',
         'Egenskap': '#1abc9c',
         'Anvisning': '#34495e'
     };
