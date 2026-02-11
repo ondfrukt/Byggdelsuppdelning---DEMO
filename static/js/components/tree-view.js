@@ -42,12 +42,12 @@ class TreeView {
                 <table class="tree-table sortable-table" id="tree-table">
                     <thead>
                         <tr>
-                            <th data-sortable data-sort-type="text" style="width: 34%;">Namn</th>
-                            <th data-sortable data-sort-type="text" style="width: 14%;">ID</th>
-                            <th data-sortable data-sort-type="text" style="width: 12%;">Typ</th>
-                            <th data-sortable data-sort-type="text" style="width: 14%;">Kravtext</th>
-                            <th data-sortable data-sort-type="text" style="width: 14%;">Beskrivning</th>
-                            <th data-sortable data-sort-type="text" style="width: 12%;">Filer</th>
+                            <th data-sortable data-sort-type="text">Namn</th>
+                            <th data-sortable data-sort-type="text">ID</th>
+                            <th data-sortable data-sort-type="text">Typ</th>
+                            <th data-sortable data-sort-type="text">Kravtext</th>
+                            <th data-sortable data-sort-type="text">Beskrivning</th>
+                            <th data-sortable data-sort-type="text">Filer</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -142,9 +142,9 @@ class TreeView {
 
         return files
             .map(file => {
-                const fileName = this.escapeHtml(file.original_filename || file.filename || 'Fil');
+                const fileDescription = this.escapeHtml(file.description || file.original_filename || file.filename || 'PDF-dokument');
                 const fileUrl = `/api/objects/documents/${file.id}/download`;
-                return `<a href="${this.escapeHtml(fileUrl)}" class="tree-file-link" title="Ladda ner ${fileName}">${fileName}</a>`;
+                return `<a href="${this.escapeHtml(fileUrl)}" class="tree-file-link" title="Öppna ${fileDescription}" target="_blank" rel="noopener noreferrer">${fileDescription}</a>`;
             })
             .join('<br>');
     }

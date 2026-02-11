@@ -5,6 +5,7 @@ from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
@@ -66,6 +67,75 @@ def get_data_value_case_insensitive(data, field_name):
             return value
 
     return None
+
+
+def is_document_object_type(type_name):
+    """Check whether an object type is a document/drawing object."""
+    normalized = (type_name or '').lower()
+    return 'ritning' in normalized or 'dokument' in normalized
+
+
+def is_pdf_document(document):
+    """Check whether a document is a PDF file."""
+    filename = (document.original_filename or document.filename or '').lower()
+    mime_type = (document.mime_type or '').lower()
+    return filename.endswith('.pdf') or mime_type == 'application/pdf'
+
+
+def get_document_link_description(document, owner_object=None):
+    """Resolve a readable description for a document link in the tree."""
+    owner_data = owner_object.data if owner_object else {}
+
+    object_description = get_data_value_case_insensitive(owner_data, 'beskrivning')
+    if object_description:
+        return str(object_description)
+
+    object_name = (
+        get_data_value_case_insensitive(owner_data, 'namn')
+        or get_data_value_case_insensitive(owner_data, 'name')
+    )
+    if object_name:
+        return str(object_name)
+
+    original_filename = document.original_filename or document.filename or ''
+    stem = os.path.splitext(original_filename)[0]
+    return stem or 'PDF-dokument'
+
+
+def collect_tree_files_for_object(obj):
+    """Collect direct and indirectly linked PDF files for an object in tree view."""
+    files = []
+    seen_ids = set()
+
+    def add_document(document, owner=None, source='direct'):
+        if not document or document.id in seen_ids or not is_pdf_document(document):
+            return
+
+        seen_ids.add(document.id)
+        payload = document.to_dict()
+        payload['description'] = get_document_link_description(document, owner)
+        payload['source'] = source
+        files.append(payload)
+
+    # Direct files on object
+    for document in obj.documents:
+        add_document(document, owner=obj, source='direct')
+
+    # Indirect files through related document/drawing objects
+    relations = ObjectRelation.query.filter(
+        (ObjectRelation.source_object_id == obj.id) |
+        (ObjectRelation.target_object_id == obj.id)
+    ).all()
+
+    for relation in relations:
+        linked_object = relation.target_object if relation.source_object_id == obj.id else relation.source_object
+        if not linked_object or not is_document_object_type(linked_object.object_type.name):
+            continue
+
+        for document in linked_object.documents:
+            add_document(document, owner=linked_object, source='indirect')
+
+    return files
 
 
 @bp.route('', methods=['GET'])
@@ -408,7 +478,7 @@ def get_tree():
                         'direction': direction,
                         'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
                         'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
-                        'files': [doc.to_dict() for doc in linked_object.documents]
+                        'files': collect_tree_files_for_object(linked_object)
                     })
 
             for type_name, objects in children_by_type.items():

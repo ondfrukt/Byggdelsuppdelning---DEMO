@@ -4,39 +4,39 @@
  */
 
 class FileUploadComponent {
-    constructor(containerId, objectId) {
+    constructor(containerId, objectId, options = {}) {
         this.container = document.getElementById(containerId);
         this.objectId = objectId;
         this.documents = [];
         this.linkedDocumentObjects = [];
         this.documentObjectType = null;
         this.availableDocumentObjects = [];
+        this.options = options;
+        this.compactMode = options.compactMode === true;
     }
     
     async render() {
         if (!this.container) return;
-        
+
+        const rootClass = this.compactMode ? 'file-upload file-upload-compact' : 'file-upload';
+        const actionButtonClass = this.compactMode ? 'btn btn-sm btn-primary' : 'btn btn-primary';
+        const linkButtonClass = this.compactMode ? 'btn btn-sm btn-secondary' : 'btn btn-secondary';
+        const linkedTitle = this.compactMode ? '' : '<h4>Kopplade dokumentobjekt</h4>';
+        const filesTitle = this.compactMode ? '' : '<h4>Filer på aktuellt objekt</h4>';
+
         this.container.innerHTML = `
-            <div class="file-upload">
+            <div class="${rootClass}">
                 <div class="document-link-actions">
-                    <div class="document-path-card">
-                        <h4>Skapa och koppla nytt dokumentobjekt</h4>
-                        <p>Skapa ett nytt dokument-/ritningsobjekt, namnge det och ladda upp filer i samma flöde.</p>
-                        <button class="btn btn-primary" id="create-document-object-btn-${this.objectId}">
-                            + Skapa nytt dokumentobjekt
-                        </button>
-                    </div>
-                    <div class="document-path-card">
-                        <h4>Koppla befintligt dokumentobjekt</h4>
-                        <p>Välj ett eller flera redan skapade dokument-/ritningsobjekt och koppla dem till aktuellt objekt.</p>
-                        <button class="btn btn-secondary" id="link-existing-document-btn-${this.objectId}">
-                            Koppla befintliga dokumentobjekt
-                        </button>
-                    </div>
+                    <button class="${actionButtonClass}" id="create-document-object-btn-${this.objectId}" title="Skapa och koppla nytt dokumentobjekt">
+                        + Nytt dokumentobjekt
+                    </button>
+                    <button class="${linkButtonClass}" id="link-existing-document-btn-${this.objectId}" title="Koppla befintliga dokumentobjekt">
+                        Koppla befintliga
+                    </button>
                 </div>
 
-                <div class="documents-list">
-                    <h4>Kopplade dokumentobjekt</h4>
+                <div class="documents-list linked-documents-list">
+                    ${linkedTitle}
                     <div id="linked-documents-list-${this.objectId}"></div>
                 </div>
 
@@ -90,19 +90,19 @@ class FileUploadComponent {
                     </div>
                 </div>
 
-                <div class="documents-list">
-                    <h4>Filer på aktuellt objekt</h4>
+                <div class="documents-list current-documents-list">
+                    ${filesTitle}
                     <div id="documents-list-${this.objectId}"></div>
                 </div>
             </div>
         `;
-        
+
         this.attachEventListeners();
         await this.loadDocumentObjectType();
         await this.loadLinkedDocumentObjects();
         await this.loadDocuments();
     }
-    
+
     attachEventListeners() {
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
@@ -302,15 +302,15 @@ class FileUploadComponent {
             const obj = item.linkedObject || {};
             const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id || 'Okänt objekt';
             return `
-                <div class="document-item">
+                <div class="document-item ${this.compactMode ? 'compact' : ''}">
                     <div class="document-icon">🔗</div>
                     <div class="document-info">
                         <strong>${escapeHtml(displayName)}</strong>
                         <small>${escapeHtml(obj.auto_id || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
                     </div>
                     <div class="document-actions">
-                        <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${parseInt(obj.id || 0, 10)})">Öppna</button>
-                        <button class="btn btn-sm btn-danger" onclick="unlinkDocumentObject(${this.objectId}, ${parseInt(item.relationId, 10)})">Koppla bort</button>
+                        <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${parseInt(obj.id || 0, 10)})" title="Öppna objekt">${this.compactMode ? '↗' : 'Öppna'}</button>
+                        <button class="btn btn-sm btn-danger" onclick="unlinkDocumentObject(${this.objectId}, ${parseInt(item.relationId, 10)})" title="Koppla bort">${this.compactMode ? '✕' : 'Koppla bort'}</button>
                     </div>
                 </div>
             `;
@@ -484,7 +484,7 @@ class FileUploadComponent {
         }
         
         listContainer.innerHTML = this.documents.map(doc => `
-            <div class="document-item">
+            <div class="document-item ${this.compactMode ? 'compact' : ''}">
                 <div class="document-icon">
                     ${this.getFileIcon(doc.filename)}
                 </div>
@@ -498,12 +498,14 @@ class FileUploadComponent {
                 </div>
                 <div class="document-actions">
                     <button class="btn btn-sm btn-secondary" 
-                            onclick="downloadDocument(${this.objectId}, ${doc.id})">
-                        Ladda ner
+                            onclick="downloadDocument(${this.objectId}, ${doc.id})"
+                            title="Ladda ner dokument">
+                        ${this.compactMode ? '↓' : 'Ladda ner'}
                     </button>
                     <button class="btn btn-sm btn-danger" 
-                            onclick="deleteDocument(${this.objectId}, ${doc.id})">
-                        Ta bort
+                            onclick="deleteDocument(${this.objectId}, ${doc.id})"
+                            title="Ta bort dokument">
+                        ${this.compactMode ? '🗑' : 'Ta bort'}
                     </button>
                 </div>
             </div>
