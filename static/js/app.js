@@ -2,28 +2,16 @@
  * Main Application - Object-based Byggdelssystem
  */
 
-// Constants
-const PANEL_ANIMATION_DELAY = 50; // Delay in ms before adjusting wrapper when opening detail panel
-
 let currentView = 'objects';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
 let currentDetailPanelInstance = null;
-let detailPanelTimeout = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
 window.treeViewInstance = null;
 window.sidePanelInstance = null;
-
-// Clear any pending detail panel animation timeout
-function clearDetailPanelTimeout() {
-    if (detailPanelTimeout) {
-        clearTimeout(detailPanelTimeout);
-        detailPanelTimeout = null;
-    }
-}
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
@@ -169,11 +157,6 @@ async function toggleTreeView() {
                 const detailPanel = document.getElementById('detail-panel');
                 if (detailPanel) {
                     detailPanel.classList.add('active');
-                    
-                }
-
-                if (treeWrapper) {
-                    treeWrapper.classList.add('panel-open');
                 }
             });
         }
@@ -183,7 +166,6 @@ async function toggleTreeView() {
         if (objectsWrapper) objectsWrapper.style.display = 'block';
         if (treeWrapper) {
             treeWrapper.style.display = 'none';
-            treeWrapper.classList.remove('panel-open');
         }
     }
 }
@@ -208,18 +190,13 @@ async function viewObjectDetail(objectId) {
 // Open detail panel
 async function openDetailPanel(objectId) {
     const panel = document.getElementById('detail-panel');
-    const wrapper = document.getElementById('objects-container-wrapper');
     const panelBody = document.getElementById('detail-panel-body');
     
     if (!panel || !panelBody) return;
     
-    // Säkerställ att inga gamla tidsutlösare ligger kvar
-    clearDetailPanelTimeout();
-    
     try {
-        // Visa panel och sätt flex-wrapper på en gång
+        // Visa panel direkt och låt CSS hantera animationen
         panel.classList.add('active');
-        if (wrapper) wrapper.classList.add('panel-open');
         
         // Ladda objektdata
         const object = await ObjectsAPI.getById(objectId);
@@ -248,19 +225,11 @@ async function openDetailPanel(objectId) {
 // Close detail panel
 function closeDetailPanel() {
     const panel = document.getElementById('detail-panel');
-    const objectsWrapper = document.getElementById('objects-container-wrapper');
-    const treeWrapper = document.getElementById('tree-view-wrapper');
     const panelTitle = document.getElementById('detail-panel-title');
     const panelCategory = document.getElementById('detail-panel-category');
     const panelBody = document.getElementById('detail-panel-body');
 
-    
-    // Clear any pending timeout to prevent race condition
-    clearDetailPanelTimeout();
-    
     if (panel) panel.classList.remove('active');
-    if (objectsWrapper) objectsWrapper.classList.remove('panel-open');
-    if (treeWrapper) treeWrapper.classList.remove('panel-open');
 
     if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
     if (panelCategory) panelCategory.textContent = 'Kategori: -';

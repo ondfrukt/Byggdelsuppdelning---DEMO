@@ -1857,7 +1857,6 @@ body {
 .object-list-layout {
     display: flex;
     gap: 0;
-    transition: all 0.3s ease;
     width: 100%;
 }
 
@@ -1865,11 +1864,6 @@ body {
     flex: 1;
     min-width: 0;
     margin-right: 10px;
-    transition: all 0.3s ease;
-}
-
-.object-list-wrapper.panel-open {
-    flex: 0 1 75%;
 }
 
 .detail-panel-overlay {
@@ -1893,22 +1887,31 @@ body {
 
 
 .detail-panel {
-    display: none;
-    flex: 0 0 25%;
-    min-width: 350px;
-    max-width: 500px;
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 0;
+    min-width: 0;
+    max-width: 0;
     height: calc(100vh - var(--main-header-height) - var(--main-padding));
     background-color: var(--bg-primary);
-    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
-    overflow-y: auto;
-    transition: all 0.3s ease;
-
-    border-left: 2px solid var(--border-color);
+    box-shadow: none;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: width 0.3s ease, min-width 0.3s ease, max-width 0.3s ease, opacity 0.2s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    border-left: 2px solid transparent;
 }
 
 .detail-panel.active {
-    display: flex;
-    flex-direction: column;
+    width: clamp(350px, 25vw, 500px);
+    min-width: clamp(350px, 25vw, 500px);
+    max-width: clamp(350px, 25vw, 500px);
+    box-shadow: -4px 0 15px rgba(0, 0, 0, 0.2);
+    overflow-y: auto;
+    opacity: 1;
+    pointer-events: auto;
+    border-left-color: var(--border-color);
 }
 
 .detail-panel-header {
@@ -2171,13 +2174,14 @@ body {
 
 /* Responsive layout for smaller screens */
 @media (max-width: 1200px) {
-    .object-list-wrapper.panel-open {
-        flex: 0 1 60%;
-    }
-    
     .detail-panel {
-        flex: 0 0 40%;
-        min-width: 300px;
+        height: calc(100vh - var(--main-header-height) - var(--main-padding));
+    }
+
+    .detail-panel.active {
+        width: clamp(300px, 40vw, 480px);
+        min-width: clamp(300px, 40vw, 480px);
+        max-width: clamp(300px, 40vw, 480px);
     }
 }
 
@@ -2203,21 +2207,25 @@ body {
     .object-list-layout {
         flex-direction: column;
     }
-    
-    .object-list-wrapper.panel-open {
-        flex: 1;
-    }
-    
+
     .detail-panel {
         position: fixed;
         top: 0;
         right: 0;
         bottom: 0;
         flex: none;
-        width: 90%;
-        max-width: 400px;
+        width: 0;
+        min-width: 0;
+        max-width: 0;
         height: 100vh;
         z-index: 999;
+        box-shadow: none;
+    }
+
+    .detail-panel.active {
+        width: min(90vw, 400px);
+        min-width: min(90vw, 400px);
+        max-width: min(90vw, 400px);
         box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
     }
 
