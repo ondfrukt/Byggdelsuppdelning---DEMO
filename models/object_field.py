@@ -1,6 +1,9 @@
 from models import db
 from datetime import datetime
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 class ObjectField(db.Model):
     """ObjectField model - defines metadata fields for object types"""
@@ -11,7 +14,7 @@ class ObjectField(db.Model):
     field_name = db.Column(db.String(100), nullable=False)
     display_name = db.Column(db.String(200))
     field_type = db.Column(db.String(50), nullable=False)  # text, textarea, number, date, select, file, boolean
-    field_options = db.Column(JSONB)  # For select/dropdown options
+    field_options = db.Column(JSON_TYPE)  # JSONB on PostgreSQL, JSON elsewhere
     is_required = db.Column(db.Boolean, default=False)
     help_text = db.Column(db.String(500))
     display_order = db.Column(db.Integer)

@@ -1,7 +1,10 @@
 from models import db
 from datetime import datetime
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from decimal import Decimal
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 class ObjectData(db.Model):
     """ObjectData model - stores flexible metadata for objects"""
@@ -14,7 +17,7 @@ class ObjectData(db.Model):
     value_number = db.Column(db.Numeric(15, 4))
     value_date = db.Column(db.Date)
     value_boolean = db.Column(db.Boolean)
-    value_json = db.Column(JSONB)
+    value_json = db.Column(JSON_TYPE)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

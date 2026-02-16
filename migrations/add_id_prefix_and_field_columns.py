@@ -1,8 +1,5 @@
-"""
-Migration script to add id_prefix column to object_types table
-and display_name, help_text columns to object_fields table
-"""
-from sqlalchemy import text
+"""Add id_prefix/display_name/help_text columns when missing."""
+from sqlalchemy import inspect, text
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,26 +7,23 @@ logger = logging.getLogger(__name__)
 def run_migration(db):
     """Run the migration"""
     try:
-        # Add id_prefix column to object_types
-        logger.info("Adding id_prefix column to object_types table...")
-        db.session.execute(text("""
-            ALTER TABLE object_types 
-            ADD COLUMN IF NOT EXISTS id_prefix VARCHAR(10)
-        """))
-        
-        # Add display_name column to object_fields
-        logger.info("Adding display_name column to object_fields table...")
-        db.session.execute(text("""
-            ALTER TABLE object_fields 
-            ADD COLUMN IF NOT EXISTS display_name VARCHAR(200)
-        """))
-        
-        # Add help_text column to object_fields
-        logger.info("Adding help_text column to object_fields table...")
-        db.session.execute(text("""
-            ALTER TABLE object_fields 
-            ADD COLUMN IF NOT EXISTS help_text VARCHAR(500)
-        """))
+        engine = db.session.get_bind()
+        inspector = inspect(engine)
+
+        object_types_columns = {c["name"] for c in inspector.get_columns("object_types")}
+        object_fields_columns = {c["name"] for c in inspector.get_columns("object_fields")}
+
+        if "id_prefix" not in object_types_columns:
+            logger.info("Adding id_prefix column to object_types table...")
+            db.session.execute(text("ALTER TABLE object_types ADD COLUMN id_prefix VARCHAR(10)"))
+
+        if "display_name" not in object_fields_columns:
+            logger.info("Adding display_name column to object_fields table...")
+            db.session.execute(text("ALTER TABLE object_fields ADD COLUMN display_name VARCHAR(200)"))
+
+        if "help_text" not in object_fields_columns:
+            logger.info("Adding help_text column to object_fields table...")
+            db.session.execute(text("ALTER TABLE object_fields ADD COLUMN help_text VARCHAR(500)"))
         
         db.session.commit()
         logger.info("Migration completed successfully")

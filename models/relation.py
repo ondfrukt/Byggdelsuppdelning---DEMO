@@ -1,6 +1,9 @@
 from models import db
 from datetime import datetime
+from sqlalchemy import JSON
 from sqlalchemy.dialects.postgresql import JSONB
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 class ObjectRelation(db.Model):
     """ObjectRelation model - represents relationships between objects"""
@@ -11,7 +14,7 @@ class ObjectRelation(db.Model):
     target_object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     relation_type = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    relation_metadata = db.Column(JSONB)  # Renamed to avoid SQLAlchemy reserved 'metadata' attribute
+    relation_metadata = db.Column(JSON_TYPE)  # JSONB on PostgreSQL, JSON elsewhere
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
