@@ -15,6 +15,7 @@
             <nav class="nav">
                 <button class="nav-btn active" data-view="objects">Objekt</button>
                 <button class="nav-btn" data-view="file-objects">Filobjekt</button>
+                <button class="nav-btn" data-view="tree">Trädvy</button>
                 <button class="nav-btn" data-view="admin">Admin</button>
             </nav>
         </div>
@@ -42,12 +43,9 @@
         <!-- Objects View - full width, outside container -->
         <div id="objects-view" class="view active">
             <div class="view-header">
-                <h2>Objekt</h2>
+                <h2 id="objects-view-title">Objekt</h2>
                 <div class="view-header-actions">
-                    <button class="btn btn-secondary" onclick="toggleTreeView()">
-                        Trädvy
-                    </button>
-                    <button class="btn btn-primary" onclick="showCreateObjectModal()">
+                    <button class="btn btn-primary" id="objects-create-btn" onclick="showCreateObjectModal()">
                         Skapa Objekt
                     </button>
                 </div>

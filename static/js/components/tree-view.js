@@ -17,7 +17,8 @@ class TreeView {
             type: '',
             kravtext: '',
             beskrivning: '',
-            files: ''
+            files: '',
+            has_files: ''
         };
         this.searchExpandedNodes = new Set();
         this.searchDebounceTimer = null;
@@ -70,7 +71,9 @@ class TreeView {
                             <th><input type="text" class="tree-column-search-input" data-field="type" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.type || '')}"></th>
                             <th><input type="text" class="tree-column-search-input" data-field="kravtext" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.kravtext || '')}"></th>
                             <th><input type="text" class="tree-column-search-input" data-field="beskrivning" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.beskrivning || '')}"></th>
-                            <th class="col-paperclip"></th>
+                            <th class="col-paperclip" title="Visa endast objekt med filer">
+                                <input type="checkbox" class="tree-column-search-input tree-paperclip-filter" data-field="has_files" ${this.columnSearches.has_files === '1' ? 'checked' : ''}>
+                            </th>
                             <th><input type="text" class="tree-column-search-input" data-field="files" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.files || '')}"></th>
                         </tr>
                     </thead>
@@ -242,6 +245,7 @@ class TreeView {
         if (field === 'type') return node?.type || '';
         if (field === 'kravtext') return node?.kravtext || '';
         if (field === 'beskrivning') return node?.beskrivning || '';
+        if (field === 'has_files') return Array.isArray(node?.files) && node.files.length > 0 ? '1' : '';
         if (field === 'files') {
             if (!Array.isArray(node?.files)) return '';
             return node.files
@@ -318,6 +322,22 @@ class TreeView {
                 this.searchDebounceTimer = setTimeout(() => {
                     this.searchDebounceTimer = null;
                     this.render({ preserveSearchFocus: true });
+                }, this.searchDebounceMs);
+            });
+        });
+        this.container.querySelectorAll('.tree-paperclip-filter').forEach(input => {
+            input.addEventListener('change', (event) => {
+                const field = event.target.getAttribute('data-field');
+                if (!field || !(field in this.columnSearches)) return;
+                this.columnSearches[field] = event.target.checked ? '1' : '';
+                this.searchFocusState = null;
+
+                if (this.searchDebounceTimer) {
+                    clearTimeout(this.searchDebounceTimer);
+                }
+                this.searchDebounceTimer = setTimeout(() => {
+                    this.searchDebounceTimer = null;
+                    this.render();
                 }, this.searchDebounceMs);
             });
         });

@@ -56,6 +56,13 @@
     border-color: var(--primary-color);
 }
 
+.tree-paperclip-filter {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    display: inline-block;
+}
+
 /* Compact row design */
 .tree-table tbody tr {
     border-bottom: 1px solid var(--border-color);
@@ -213,9 +220,9 @@
 
 .tree-table th:nth-child(6),
 .tree-table td:nth-child(6) {
-    width: 5px;
-    min-width: 5px;
-    max-width: 5px;
+    width: 20px;
+    min-width: 20px;
+    max-width: 20px;
     text-align: center;
     padding-left: 0;
     padding-right: 0;
@@ -228,9 +235,9 @@
 }
 
 .tree-table .col-paperclip {
-    width: 5px !important;
-    min-width: 5px !important;
-    max-width: 5px !important;
+    width: 20px !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
     text-align: center;
     padding-left: 0;
     padding-right: 0;

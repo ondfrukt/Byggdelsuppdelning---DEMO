@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Initialize navigation
 function initializeNavigation() {
+    ensureTreeNavButton();
     const navBtns = document.querySelectorAll('.nav-btn');
     
     navBtns.forEach(btn => {
@@ -41,20 +42,53 @@ function initializeNavigation() {
     });
 }
 
+function ensureTreeNavButton() {
+    const nav = document.querySelector('.nav');
+    if (!nav) return;
+
+    const hasTreeButton = Array.from(nav.querySelectorAll('.nav-btn'))
+        .some(btn => btn.dataset.view === 'tree');
+    if (hasTreeButton) return;
+
+    const treeBtn = document.createElement('button');
+    treeBtn.className = 'nav-btn';
+    treeBtn.dataset.view = 'tree';
+    treeBtn.textContent = 'Trädvy';
+
+    const adminBtn = nav.querySelector('.nav-btn[data-view="admin"]');
+    if (adminBtn) {
+        nav.insertBefore(treeBtn, adminBtn);
+    } else {
+        nav.appendChild(treeBtn);
+    }
+}
+
 // Switch between views
 async function switchView(viewName) {
     currentView = viewName;
     updateNavigation(viewName);
-    showView(`${viewName}-view`);
+    closeDetailPanel();
     
     switch (viewName) {
         case 'objects':
-            await loadObjectsView();
+            showView('objects-view');
+            await loadObjectsView({
+                objectType: null,
+                title: 'Objekt',
+                showCreateButton: true
+            });
             break;
         case 'file-objects':
+            showView('objects-view');
             await loadFileObjectsView();
             break;
+        case 'tree':
+            showView('objects-view');
+            await loadTreeViewPage();
+            break;
         case 'admin':
+            showView('admin-view');
+            closeDetailPanel();
             await loadAdminView();
             break;
     }
@@ -66,8 +100,60 @@ function updateTreeToggleButtonLabel() {
     toggleButton.textContent = treeViewActive ? 'Objektvy' : 'Trädvy';
 }
 
+function updateObjectsWorkspaceHeader(options = {}) {
+    const {
+        title = 'Objekt',
+        showCreateButton = true,
+        createButtonLabel = 'Skapa Objekt',
+        createButtonAction = 'showCreateObjectModal()'
+    } = options;
+
+    const objectsView = document.getElementById('objects-view');
+    if (!objectsView) return;
+
+    let titleElement = document.getElementById('objects-view-title');
+    if (!titleElement) {
+        titleElement = objectsView.querySelector('.view-header h2');
+        if (titleElement) titleElement.id = 'objects-view-title';
+    }
+
+    const actionsContainer = objectsView.querySelector('.view-header-actions');
+    if (!actionsContainer) return;
+
+    if (titleElement) {
+        titleElement.textContent = title;
+    }
+
+    // Normalize legacy markup: keep only one action button in this workspace header.
+    Array.from(actionsContainer.querySelectorAll('button')).forEach(button => {
+        if (button.id !== 'objects-create-btn') {
+            button.remove();
+        }
+    });
+
+    let createButton = document.getElementById('objects-create-btn');
+    if (!createButton) {
+        createButton = document.createElement('button');
+        createButton.id = 'objects-create-btn';
+        createButton.className = 'btn btn-primary';
+        actionsContainer.appendChild(createButton);
+    }
+
+    createButton.style.display = showCreateButton ? 'inline-flex' : 'none';
+    createButton.textContent = createButtonLabel;
+    createButton.setAttribute('onclick', createButtonAction);
+}
+
 // Load objects view
-async function loadObjectsView() {
+async function loadObjectsView(options = {}) {
+    const {
+        objectType = null,
+        title = 'Objekt',
+        showCreateButton = true,
+        createButtonLabel = 'Skapa Objekt',
+        createButtonAction = 'showCreateObjectModal()'
+    } = options;
+
     const objectListWrapper = document.getElementById('objects-container-wrapper');
     const treeWrapper = document.getElementById('tree-view-wrapper');
     if (!objectListWrapper) return;
@@ -77,6 +163,13 @@ async function loadObjectsView() {
         objectListWrapper.innerHTML = '<div id="objects-container"></div>';
     }
     
+    updateObjectsWorkspaceHeader({
+        title,
+        showCreateButton,
+        createButtonLabel,
+        createButtonAction
+    });
+
     // Show list view by default
     treeViewActive = false;
     window.treeViewActive = false;
@@ -85,16 +178,18 @@ async function loadObjectsView() {
     objectListWrapper.style.display = 'block';
     if (treeWrapper) treeWrapper.style.display = 'none';
     
-    currentObjectListComponent = new ObjectListComponent('objects-container');
+    currentObjectListComponent = new ObjectListComponent('objects-container', objectType);
     await currentObjectListComponent.render();
 }
 
 async function loadFileObjectsView() {
-    const container = document.getElementById('file-objects-container');
-    if (!container) return;
-
-    currentFileObjectsViewComponent = new FileObjectsViewComponent('file-objects-container');
-    await currentFileObjectsViewComponent.render();
+    await loadObjectsView({
+        objectType: 'Filobjekt',
+        title: 'Filobjekt',
+        showCreateButton: true,
+        createButtonLabel: 'Lägg till filer',
+        createButtonAction: 'showCreateFileObjectModal()'
+    });
 }
 
 // Toggle tree view
@@ -148,64 +243,69 @@ window.setSelectedDetailObject = setSelectedDetailObject;
 
 
 async function toggleTreeView() {
-    treeViewActive = !treeViewActive;
-    window.treeViewActive = treeViewActive; // Update global reference
-    updateTreeToggleButtonLabel();
-    
+    const targetView = treeViewActive ? 'objects' : 'tree';
+    await switchView(targetView);
+}
+
+async function loadTreeViewPage() {
     const objectsWrapper = document.getElementById('objects-container-wrapper');
     const treeWrapper = document.getElementById('tree-view-wrapper');
+    if (!treeWrapper) return;
 
     // Reset and collapse detail panel when switching views
     closeDetailPanel();
-    
-    if (treeViewActive) {
-        if (objectsWrapper) objectsWrapper.style.display = 'none';
-        if (treeWrapper) treeWrapper.style.display = 'block';
-        // Initialize tree view if not already done
-        if (!treeViewInstance) {
-            treeViewInstance = new TreeView('tree-view-container');
-            window.treeViewInstance = treeViewInstance; // Update global reference
-            
-            // Set up click handler
-            treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
-                setSelectedDetailObject(objectId);
 
-                // Load object data once
-                const object = await ObjectsAPI.getById(objectId);
-                
-                // Update detail panel header
-                updateDetailPanelHeader(object);
+    updateObjectsWorkspaceHeader({
+        title: 'Trädvy',
+        showCreateButton: false
+    });
 
-                // Create or reuse unified detail panel instance
-                if (!currentDetailPanelInstance) {
-                    currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
-                        layout: 'detail',
-                        showHeader: false
-                    });
-                }
+    treeViewActive = true;
+    window.treeViewActive = true;
+    updateTreeToggleButtonLabel();
 
-                
-                // Set the object data on the panel instance to avoid duplicate API call
-                currentDetailPanelInstance.objectData = object;
-                currentDetailPanelInstance.objectId = objectId;
-                
-                // Render with unified component (won't fetch again since objectData is set)
-                await currentDetailPanelInstance.render();
+    if (objectsWrapper) objectsWrapper.style.display = 'none';
+    treeWrapper.style.display = 'block';
 
-                const detailPanel = document.getElementById('detail-panel');
-                if (detailPanel) {
-                    detailPanel.classList.add('active');
-                }
-            });
-        }
+    // Initialize tree view if not already done
+    if (!treeViewInstance) {
+        treeViewInstance = new TreeView('tree-view-container');
+        window.treeViewInstance = treeViewInstance; // Update global reference
         
-        await treeViewInstance.render();
-    } else {
-        if (objectsWrapper) objectsWrapper.style.display = 'block';
-        if (treeWrapper) {
-            treeWrapper.style.display = 'none';
-        }
+        // Set up click handler
+        treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
+            setSelectedDetailObject(objectId);
+
+            // Load object data once
+            const object = await ObjectsAPI.getById(objectId);
+            
+            // Update detail panel header
+            updateDetailPanelHeader(object);
+
+            // Create or reuse unified detail panel instance
+            if (!currentDetailPanelInstance) {
+                currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
+                    layout: 'detail',
+                    showHeader: false
+                });
+            }
+
+            
+            // Set the object data on the panel instance to avoid duplicate API call
+            currentDetailPanelInstance.objectData = object;
+            currentDetailPanelInstance.objectId = objectId;
+            
+            // Render with unified component (won't fetch again since objectData is set)
+            await currentDetailPanelInstance.render();
+
+            const detailPanel = document.getElementById('detail-panel');
+            if (detailPanel) {
+                detailPanel.classList.add('active');
+            }
+        });
     }
+
+    await treeViewInstance.render();
 }
 
 // Load admin view
@@ -347,6 +447,56 @@ async function showCreateObjectModal() {
     }
 }
 
+async function showCreateFileObjectModal() {
+    const modal = document.getElementById('object-modal');
+    const overlay = document.getElementById('modal-overlay');
+    const typeSelect = document.getElementById('object-type-select');
+
+    if (!modal || !overlay || !typeSelect) return;
+
+    // Clear previous form data
+    window.currentObjectForm = null;
+    const formContainer = document.getElementById('object-form-container');
+    if (formContainer) {
+        formContainer.innerHTML = '';
+    }
+
+    try {
+        const types = await ObjectTypesAPI.getAll();
+        const fileObjectType = (types || []).find(type => (type.name || '').toLowerCase().trim() === 'filobjekt');
+        if (!fileObjectType) {
+            showToast('Kunde inte hitta objekttypen Filobjekt', 'error');
+            return;
+        }
+
+        typeSelect.disabled = true;
+        typeSelect.innerHTML = `<option value="${fileObjectType.id}" selected>${fileObjectType.name}</option>`;
+
+        const formComponent = new ObjectFormComponent(fileObjectType);
+        await formComponent.render('object-form-container');
+        window.currentObjectForm = formComponent;
+
+        // Add required file upload field for this flow
+        if (formContainer) {
+            const uploadGroup = document.createElement('div');
+            uploadGroup.className = 'form-group';
+            uploadGroup.id = 'file-object-upload-group';
+            uploadGroup.innerHTML = `
+                <label for="file-object-files">Filer *</label>
+                <input type="file" id="file-object-files" class="form-control" multiple required>
+            `;
+            formContainer.appendChild(uploadGroup);
+        }
+
+        modal.dataset.mode = 'create-file-object';
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+    } catch (error) {
+        console.error('Failed to prepare file object modal:', error);
+        showToast('Kunde inte öppna dialog för filobjekt', 'error');
+    }
+}
+
 // Edit object
 async function editObject(objectId) {
     try {
@@ -420,6 +570,19 @@ async function saveObject(event) {
         if (mode === 'create') {
             await ObjectsAPI.create(data);
             showToast('Objekt skapat', 'success');
+        } else if (mode === 'create-file-object') {
+            const filesInput = document.getElementById('file-object-files');
+            const files = Array.from(filesInput?.files || []);
+            if (!files.length) {
+                showToast('Välj minst en fil', 'error');
+                return;
+            }
+
+            const createdObject = await ObjectsAPI.create(data);
+            for (const file of files) {
+                await ObjectsAPI.uploadDocument(createdObject.id, file);
+            }
+            showToast('Filobjekt skapat med filer', 'success');
         } else {
             await ObjectsAPI.update(objectId, data);
             showToast('Objekt uppdaterat', 'success');

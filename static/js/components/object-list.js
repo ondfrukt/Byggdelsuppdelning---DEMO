@@ -198,9 +198,14 @@ class ObjectListComponent {
             const colClass = this.getColumnClass(col);
             const width = this.getColumnWidth(col, colClass);
             const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            // Skip search input for utility columns
-            if (col.field_name === 'actions' || col.field_name === 'files_indicator') {
+            if (col.field_name === 'actions') {
                 return `<th ${widthStyle} class="${colClass}"></th>`;
+            }
+            if (col.field_name === 'files_indicator') {
+                const checked = this.columnSearches.files_indicator === '1' ? 'checked' : '';
+                return `<th ${widthStyle} class="${colClass}" title="Visa endast objekt med filer">
+                    <input type="checkbox" class="column-paperclip-filter" data-field="files_indicator" ${checked}>
+                </th>`;
             }
             return `<th ${widthStyle} class="${colClass}">
                 <input type="text" 
@@ -216,6 +221,13 @@ class ObjectListComponent {
             input.addEventListener('input', (e) => {
                 const field = e.target.getAttribute('data-field');
                 this.columnSearches[field] = e.target.value;
+                this.renderFilteredObjects();
+            });
+        });
+        searchRow.querySelectorAll('.column-paperclip-filter').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const field = e.target.getAttribute('data-field');
+                this.columnSearches[field] = e.target.checked ? '1' : '';
                 this.renderFilteredObjects();
             });
         });
@@ -245,11 +257,15 @@ class ObjectListComponent {
         // Filter by column searches
         for (const [field, searchTerm] of Object.entries(this.columnSearches)) {
             if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                filteredObjects = filteredObjects.filter(obj => {
-                    const value = this.getColumnValue(obj, field);
-                    return String(value).toLowerCase().includes(term);
-                });
+                if (field === 'files_indicator') {
+                    filteredObjects = filteredObjects.filter(obj => this.getObjectFileCount(obj) > 0);
+                } else {
+                    const term = searchTerm.toLowerCase();
+                    filteredObjects = filteredObjects.filter(obj => {
+                        const value = this.getColumnValue(obj, field);
+                        return String(value).toLowerCase().includes(term);
+                    });
+                }
             }
         }
         
