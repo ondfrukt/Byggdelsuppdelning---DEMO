@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from models import db, Object, ObjectRelation
 
 bp = Blueprint('relation_entities', __name__, url_prefix='/api/relations')
+DEFAULT_RELATION_TYPE = 'relaterad'
 
 
 @bp.route('', methods=['GET'])
@@ -35,10 +36,10 @@ def create_relation():
 
     source_object_id = data.get('source_object_id') or data.get('objectA_id')
     target_object_id = data.get('target_object_id') or data.get('objectB_id')
-    relation_type = data.get('relation_type')
+    relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
 
-    if not source_object_id or not target_object_id or not relation_type:
-        return jsonify({'error': 'source_object_id/objectA_id, target_object_id/objectB_id and relation_type are required'}), 400
+    if not source_object_id or not target_object_id:
+        return jsonify({'error': 'source_object_id/objectA_id and target_object_id/objectB_id are required'}), 400
 
     if source_object_id == target_object_id:
         return jsonify({'error': 'Self-relations are not allowed'}), 400
@@ -84,11 +85,11 @@ def create_relations_batch():
 
     for index, relation_data in enumerate(relations):
         target_id = relation_data.get('targetId')
-        relation_type = relation_data.get('relationType')
+        relation_type = (relation_data.get('relationType') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
         metadata = relation_data.get('metadata') or {}
 
-        if not target_id or not relation_type:
-            errors.append({'index': index, 'targetId': target_id, 'error': 'targetId and relationType are required'})
+        if not target_id:
+            errors.append({'index': index, 'targetId': target_id, 'error': 'targetId is required'})
             continue
 
         if source_id == target_id:

@@ -2060,6 +2060,37 @@ body {
     color: var(--text-primary);
 }
 
+.detail-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-panel-nav-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.detail-panel-nav-btn:hover:not(:disabled) {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.detail-panel-nav-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .detail-panel-content {
     padding: 5px;
 }
@@ -2143,6 +2174,13 @@ body {
     margin: 0;
 }
 
+.detail-panel .relation-add-compact-btn {
+    min-height: 26px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    line-height: 1.1;
+}
+
 .detail-panel .relations-section {
     margin-bottom: var(--spacing-lg);
 }
@@ -2158,6 +2196,22 @@ body {
 
 .detail-panel .relations-table {
     font-size: 0.8rem;
+}
+
+.detail-panel .relation-compact-table-container {
+    max-height: none;
+    box-shadow: none;
+}
+
+.detail-panel .relation-compact-table {
+    width: 100%;
+    min-width: 100%;
+}
+
+.detail-panel .relation-compact-table th,
+.detail-panel .relation-compact-table td {
+    padding: 4px 6px;
+    font-size: 12px;
 }
 
 .detail-panel .relations-table th,

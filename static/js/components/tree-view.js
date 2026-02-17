@@ -20,10 +20,12 @@ class TreeView {
             files: '',
             has_files: ''
         };
+        this.renderedTreeData = [];
         this.searchExpandedNodes = new Set();
         this.searchDebounceTimer = null;
         this.searchDebounceMs = 350;
         this.searchFocusState = null;
+        this.pendingToggleTimer = null;
     }
     
     async loadData() {
@@ -50,6 +52,7 @@ class TreeView {
         }
         
         const filteredData = this.getFilteredTreeData();
+        this.renderedTreeData = filteredData;
         const treeHtml = filteredData.map(node => this.renderNode(node, 0)).join('');
         
         this.container.innerHTML = `
@@ -301,6 +304,32 @@ class TreeView {
             .map(node => this.filterTreeNode(node))
             .filter(node => node !== null);
     }
+
+    findNodeById(nodes, nodeId) {
+        const stack = Array.isArray(nodes) ? [...nodes] : [];
+        const target = String(nodeId);
+
+        while (stack.length > 0) {
+            const current = stack.pop();
+            if (String(current?.id) === target) return current;
+            const children = Array.isArray(current?.children) ? current.children : [];
+            for (let i = children.length - 1; i >= 0; i -= 1) {
+                stack.push(children[i]);
+            }
+        }
+
+        return null;
+    }
+
+    collectExpandableNodeIds(node, ids = []) {
+        if (!node || !Array.isArray(node.children) || node.children.length === 0) {
+            return ids;
+        }
+
+        ids.push(String(node.id));
+        node.children.forEach(child => this.collectExpandableNodeIds(child, ids));
+        return ids;
+    }
     
     attachEventListeners() {
         // Column search
@@ -386,23 +415,69 @@ class TreeView {
         });
         
         // Row click - toggle expand/collapse for nodes with children
+        // Double-click toggles the whole subtree.
         const nodes = this.container.querySelectorAll('.tree-node');
         nodes.forEach(node => {
+            node.addEventListener('mousedown', (e) => {
+                const hasChildren = node.dataset.hasChildren === 'true';
+                if (!hasChildren) return;
+                if (e.detail < 2) return;
+
+                // Keep native behavior on explicit interactive controls.
+                if (e.target.closest('a, button, input, textarea, select, label')) return;
+                e.preventDefault();
+            });
+
             node.addEventListener('click', (e) => {
                 const hasChildren = node.dataset.hasChildren === 'true';
                 
                 // Only toggle if node has children
                 if (hasChildren) {
                     const nodeId = node.dataset.nodeId;
-                    
-                    if (this.expandedNodes.has(nodeId)) {
-                        this.expandedNodes.delete(nodeId);
-                    } else {
-                        this.expandedNodes.add(nodeId);
+
+                    if (this.pendingToggleTimer) {
+                        clearTimeout(this.pendingToggleTimer);
+                        this.pendingToggleTimer = null;
                     }
-                    
-                    this.render();
+
+                    this.pendingToggleTimer = setTimeout(() => {
+                        this.pendingToggleTimer = null;
+                        if (this.expandedNodes.has(nodeId)) {
+                            this.expandedNodes.delete(nodeId);
+                        } else {
+                            this.expandedNodes.add(nodeId);
+                        }
+                        this.render();
+                    }, 220);
                 }
+            });
+
+            node.addEventListener('dblclick', (e) => {
+                const hasChildren = node.dataset.hasChildren === 'true';
+                if (!hasChildren) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (this.pendingToggleTimer) {
+                    clearTimeout(this.pendingToggleTimer);
+                    this.pendingToggleTimer = null;
+                }
+
+                const nodeId = node.dataset.nodeId;
+                const sourceTree = this.renderedTreeData || this.getFilteredTreeData();
+                const nodeData = this.findNodeById(sourceTree, nodeId);
+                const expandableIds = this.collectExpandableNodeIds(nodeData, []);
+                if (!expandableIds.length) return;
+
+                const allExpanded = expandableIds.every(id => this.expandedNodes.has(id));
+                if (allExpanded) {
+                    expandableIds.forEach(id => this.expandedNodes.delete(id));
+                } else {
+                    expandableIds.forEach(id => this.expandedNodes.add(id));
+                }
+
+                this.render();
             });
         });
     }

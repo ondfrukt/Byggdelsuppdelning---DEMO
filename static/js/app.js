@@ -9,6 +9,9 @@ let currentObjectDetailComponent = null;
 let currentDetailPanelInstance = null;
 let currentFileObjectsViewComponent = null;
 window.currentSelectedObjectId = null;
+let detailHistory = [];
+let detailHistoryIndex = -1;
+const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
@@ -26,6 +29,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     initializeNavigation();
+    restoreDetailHistory();
+    ensureDetailHistoryControls();
+    updateDetailHistoryButtons();
     await loadObjectsView();
 });
 
@@ -67,6 +73,7 @@ function ensureTreeNavButton() {
 async function switchView(viewName) {
     currentView = viewName;
     updateNavigation(viewName);
+    resetDetailHistory();
     closeDetailPanel();
     
     switch (viewName) {
@@ -216,6 +223,8 @@ function updateDetailPanelHeader(object) {
     if (panelCategory) {
         panelCategory.textContent = `Kategori: ${object?.object_type?.name || '-'}`;
     }
+
+    updateDetailHistoryButtons();
 }
 
 function applySelectedRowHighlight() {
@@ -240,6 +249,143 @@ function setSelectedDetailObject(objectId) {
 
 window.applySelectedRowHighlight = applySelectedRowHighlight;
 window.setSelectedDetailObject = setSelectedDetailObject;
+window.navigateDetailHistory = navigateDetailHistory;
+
+function ensureDetailHistoryControls() {
+    const header = document.querySelector('#detail-panel .detail-panel-header');
+    if (!header) return;
+
+    let actions = header.querySelector('.detail-panel-header-actions');
+    if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'detail-panel-header-actions';
+
+        const closeBtn = header.querySelector('.detail-panel-close');
+        if (closeBtn) {
+            header.insertBefore(actions, closeBtn);
+            actions.appendChild(closeBtn);
+        } else {
+            header.appendChild(actions);
+        }
+    }
+
+    let backBtn = document.getElementById('detail-nav-back');
+    if (!backBtn) {
+        backBtn = document.createElement('button');
+        backBtn.id = 'detail-nav-back';
+        backBtn.className = 'detail-panel-nav-btn';
+        backBtn.type = 'button';
+        backBtn.title = 'Föregående objekt';
+        backBtn.setAttribute('aria-label', 'Föregående objekt');
+        backBtn.disabled = true;
+        backBtn.textContent = '←';
+        backBtn.addEventListener('click', () => navigateDetailHistory(-1));
+        actions.insertBefore(backBtn, actions.firstChild);
+    }
+
+    let forwardBtn = document.getElementById('detail-nav-forward');
+    if (!forwardBtn) {
+        forwardBtn = document.createElement('button');
+        forwardBtn.id = 'detail-nav-forward';
+        forwardBtn.className = 'detail-panel-nav-btn';
+        forwardBtn.type = 'button';
+        forwardBtn.title = 'Nästa objekt';
+        forwardBtn.setAttribute('aria-label', 'Nästa objekt');
+        forwardBtn.disabled = true;
+        forwardBtn.textContent = '→';
+        forwardBtn.addEventListener('click', () => navigateDetailHistory(1));
+        actions.insertBefore(forwardBtn, backBtn.nextSibling);
+    }
+}
+
+function updateDetailHistoryButtons() {
+    ensureDetailHistoryControls();
+    const backBtn = document.getElementById('detail-nav-back');
+    const forwardBtn = document.getElementById('detail-nav-forward');
+    if (!backBtn || !forwardBtn) return;
+
+    const hasBack = detailHistoryIndex > 0;
+    const hasForward = detailHistoryIndex >= 0 && detailHistoryIndex < detailHistory.length - 1;
+    backBtn.disabled = !hasBack;
+    forwardBtn.disabled = !hasForward;
+}
+
+function persistDetailHistory() {
+    try {
+        const payload = {
+            history: detailHistory,
+            index: detailHistoryIndex
+        };
+        sessionStorage.setItem(DETAIL_HISTORY_STORAGE_KEY, JSON.stringify(payload));
+    } catch (_error) {
+        // Best effort only.
+    }
+}
+
+function restoreDetailHistory() {
+    try {
+        const raw = sessionStorage.getItem(DETAIL_HISTORY_STORAGE_KEY);
+        if (!raw) return;
+
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed?.history)) return;
+
+        const sanitizedHistory = parsed.history
+            .map(item => Number(item))
+            .filter(item => Number.isFinite(item));
+
+        detailHistory = sanitizedHistory;
+        detailHistoryIndex = Number.isInteger(parsed?.index) ? parsed.index : (sanitizedHistory.length - 1);
+        if (detailHistoryIndex < 0 || detailHistoryIndex >= detailHistory.length) {
+            detailHistoryIndex = detailHistory.length - 1;
+        }
+    } catch (_error) {
+        detailHistory = [];
+        detailHistoryIndex = -1;
+    }
+}
+
+function resetDetailHistory() {
+    detailHistory = [];
+    detailHistoryIndex = -1;
+    try {
+        sessionStorage.removeItem(DETAIL_HISTORY_STORAGE_KEY);
+    } catch (_error) {
+        // Best effort only.
+    }
+}
+
+function pushDetailHistory(objectId) {
+    const normalized = Number(objectId);
+    if (!Number.isFinite(normalized)) return;
+
+    if (detailHistoryIndex >= 0 && detailHistory[detailHistoryIndex] === normalized) {
+        updateDetailHistoryButtons();
+        return;
+    }
+
+    if (detailHistoryIndex < detailHistory.length - 1) {
+        detailHistory = detailHistory.slice(0, detailHistoryIndex + 1);
+    }
+
+    detailHistory.push(normalized);
+    detailHistoryIndex = detailHistory.length - 1;
+    persistDetailHistory();
+    updateDetailHistoryButtons();
+}
+
+async function navigateDetailHistory(step) {
+    if (!step || !detailHistory.length) return;
+
+    const nextIndex = detailHistoryIndex + (step > 0 ? 1 : -1);
+    if (nextIndex < 0 || nextIndex >= detailHistory.length) return;
+
+    detailHistoryIndex = nextIndex;
+    const targetObjectId = detailHistory[detailHistoryIndex];
+    persistDetailHistory();
+    updateDetailHistoryButtons();
+    await openDetailPanel(targetObjectId, { fromHistory: true });
+}
 
 
 async function toggleTreeView() {
@@ -274,34 +420,7 @@ async function loadTreeViewPage() {
         
         // Set up click handler
         treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
-            setSelectedDetailObject(objectId);
-
-            // Load object data once
-            const object = await ObjectsAPI.getById(objectId);
-            
-            // Update detail panel header
-            updateDetailPanelHeader(object);
-
-            // Create or reuse unified detail panel instance
-            if (!currentDetailPanelInstance) {
-                currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
-                    layout: 'detail',
-                    showHeader: false
-                });
-            }
-
-            
-            // Set the object data on the panel instance to avoid duplicate API call
-            currentDetailPanelInstance.objectData = object;
-            currentDetailPanelInstance.objectId = objectId;
-            
-            // Render with unified component (won't fetch again since objectData is set)
-            await currentDetailPanelInstance.render();
-
-            const detailPanel = document.getElementById('detail-panel');
-            if (detailPanel) {
-                detailPanel.classList.add('active');
-            }
+            await openDetailPanel(objectId);
         });
     }
 
@@ -324,13 +443,25 @@ async function viewObjectDetail(objectId) {
 }
 
 // Open detail panel
-async function openDetailPanel(objectId) {
+async function openDetailPanel(objectId, options = {}) {
+    const { fromHistory = false } = options;
     const panel = document.getElementById('detail-panel');
     const panelBody = document.getElementById('detail-panel-body');
     
     if (!panel || !panelBody) return;
     
     try {
+        // If panel is closed and user opens a new object directly, start a fresh history chain.
+        if (!fromHistory && !panel.classList.contains('active')) {
+            resetDetailHistory();
+        }
+
+        if (!fromHistory) {
+            pushDetailHistory(objectId);
+        } else {
+            updateDetailHistoryButtons();
+        }
+
         setSelectedDetailObject(objectId);
 
         // Visa panel direkt och låt CSS hantera animationen
@@ -367,6 +498,8 @@ function closeDetailPanel() {
     const panelCategory = document.getElementById('detail-panel-category');
     const panelBody = document.getElementById('detail-panel-body');
 
+    resetDetailHistory();
+
     if (panel) panel.classList.remove('active');
 
     if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
@@ -379,6 +512,7 @@ function closeDetailPanel() {
     if (currentDetailPanelInstance) {
         currentDetailPanelInstance.close();
     }
+    updateDetailHistoryButtons();
 }
 
 // Format field value based on type

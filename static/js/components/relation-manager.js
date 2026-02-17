@@ -41,7 +41,7 @@ class RelationManagerComponent {
             <div class="relation-manager">
                 <div class="view-header">
                     <h3>Relationer</h3>
-                    <button class="btn btn-primary" onclick="showAddRelationModal(${this.objectId})">
+                    <button class="btn btn-primary btn-sm relation-add-compact-btn" onclick="showAddRelationModal(${this.objectId})">
                         Lägg till Relation
                     </button>
                 </div>
@@ -86,35 +86,34 @@ class RelationManagerComponent {
             return;
         }
 
-        const grouped = {};
-        visibleRelations.forEach(rel => {
-            const key = `${rel.relation_type || 'Övriga'}|${rel.direction || 'outgoing'}`;
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(rel);
+        const sortedRelations = [...visibleRelations].sort((a, b) => {
+            const aObj = this.getLinkedObject(a);
+            const bObj = this.getLinkedObject(b);
+            const aType = String(aObj?.object_type?.name || '');
+            const bType = String(bObj?.object_type?.name || '');
+            const typeCompare = aType.localeCompare(bType, 'sv', { sensitivity: 'base' });
+            if (typeCompare !== 0) return typeCompare;
+
+            const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.auto_id || '');
+            const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.auto_id || '');
+            return aName.localeCompare(bName, 'sv', { sensitivity: 'base' });
         });
 
-        listContainer.innerHTML = Object.entries(grouped).map(([key, rels]) => {
-            const [type, direction] = key.split('|');
-            const heading = `${this.formatRelationType(type)} (${direction === 'incoming' ? 'inkommande' : 'utgående'})`;
-            return `
-                <div class="relations-section">
-                    <div class="relations-section-header">
-                        <h4>${heading}</h4>
-                        <button class="btn btn-sm btn-primary" data-object-id="${this.objectId}" data-relation-type="${escapeHtml(type)}">
-                            + Lägg till
-                        </button>
-                    </div>
-                    <table class="relations-table">
-                        <thead><tr><th>ID</th><th>Namn</th><th>Typ</th><th style="width: 50px;"></th></tr></thead>
-                        <tbody>${rels.map(rel => this.renderRelationRow(rel)).join('')}</tbody>
-                    </table>
-                </div>
-            `;
-        }).join('');
-
-        listContainer.querySelectorAll('.btn-primary').forEach(btn => {
-            btn.addEventListener('click', () => showAddRelationModal(parseInt(btn.dataset.objectId, 10), btn.dataset.relationType));
-        });
+        listContainer.innerHTML = `
+            <div class="table-container relation-compact-table-container">
+                <table class="data-table relation-compact-table">
+                    <thead>
+                        <tr>
+                            <th class="col-id">ID</th>
+                            <th class="col-name">Namn</th>
+                            <th class="col-type">Typ</th>
+                            <th class="col-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>${sortedRelations.map(rel => this.renderRelationRow(rel)).join('')}</tbody>
+                </table>
+            </div>
+        `;
 
         listContainer.querySelectorAll('.relation-link').forEach(link => {
             link.addEventListener('click', (e) => {
@@ -138,25 +137,16 @@ class RelationManagerComponent {
 
         return `
             <tr class="relation-row">
-                <td class="relation-id"><a href="#" data-object-id="${parseInt(linkedObject.id || 0, 10)}" class="relation-link">${escapeHtml(autoId)}</a></td>
-                <td class="relation-name"><strong>${escapeHtml(displayName)}</strong></td>
-                <td class="relation-type-cell">${escapeHtml(typeName)}</td>
-                <td class="relation-actions-cell">
+                <td class="col-id relation-id"><a href="#" data-object-id="${parseInt(linkedObject.id || 0, 10)}" class="relation-link">${escapeHtml(autoId)}</a></td>
+                <td class="col-name relation-name"><strong>${escapeHtml(displayName)}</strong></td>
+                <td class="col-type relation-type-cell">${escapeHtml(typeName)}</td>
+                <td class="col-actions relation-actions-cell">
                     <button class="btn-icon btn-danger relation-delete-btn" data-owner-object-id="${relationOwnerObjectId}" data-relation-id="${parseInt(relation.id || 0, 10)}" aria-label="Ta bort relation med ${escapeHtml(displayName)}" title="Ta bort">
                         <span aria-hidden="true">🗑️</span><span class="sr-only">Ta bort</span>
                     </button>
                 </td>
             </tr>
         `;
-    }
-
-    formatRelationType(type) {
-        const types = {
-            'består_av': 'Består av', 'variant_av': 'Variant av', 'ersätter': 'Ersätter', 'ersätts_av': 'Ersätts av',
-            'kopplas_till': 'Kopplas till', 'dokumenterar': 'Dokumenterar', 'specificerar': 'Specificerar',
-            'relaterad_till': 'Relaterad till', 'ingår_i': 'Ingår i'
-        };
-        return types[type] || type;
     }
 
     async refresh() {
@@ -546,14 +536,13 @@ async function refreshCandidatesAndRender() {
     }
 }
 
-async function showAddRelationModal(objectId, preSelectedType = null) {
+async function showAddRelationModal(objectId) {
     const modal = document.getElementById('relation-modal');
     const overlay = document.getElementById('modal-overlay');
     if (!modal || !overlay) return;
 
     relationModalState.sourceId = objectId;
     relationModalState.sourceObject = null;
-    relationModalState.preSelectedType = preSelectedType;
     relationModalState.selectedType = '';
     relationModalState.search = '';
     relationModalState.page = 1;
@@ -575,15 +564,6 @@ async function showAddRelationModal(objectId, preSelectedType = null) {
         const typeFilter = document.getElementById('relation-object-type-filter');
         if (typeFilter) {
             typeFilter.innerHTML = '<option value="">Alla objekttyper</option>' + relationModalState.objectTypes.map(type => `<option value="${escapeHtml(type.name)}">${escapeHtml(type.name)}</option>`).join('');
-            if (preSelectedType) {
-                typeFilter.value = preSelectedType;
-                relationModalState.selectedType = preSelectedType;
-            }
-        }
-
-        const relationTypeSelect = document.getElementById('relation-type');
-        if (relationTypeSelect && preSelectedType) {
-            relationTypeSelect.value = preSelectedType;
         }
 
         modal.dataset.objectId = String(objectId);
@@ -618,12 +598,11 @@ async function saveRelation(event) {
 
     const modal = document.getElementById('relation-modal');
     const objectId = parseInt(modal?.dataset.objectId || '0', 10);
-    const relationType = document.getElementById('relation-type')?.value;
     const note = document.getElementById('relation-metadata-note')?.value?.trim();
     const description = document.getElementById('relation-description')?.value?.trim();
 
-    if (!objectId || !relationType) {
-        setRelationModalFeedback('Källobjekt och relationstyp krävs.');
+    if (!objectId) {
+        setRelationModalFeedback('Källobjekt krävs.');
         return;
     }
 
@@ -634,7 +613,6 @@ async function saveRelation(event) {
 
     const relationsPayload = relationModalState.basket.map(item => ({
         targetId: item.id,
-        relationType,
         metadata: {
             ...(note ? { note } : {}),
             ...(description ? { description } : {})

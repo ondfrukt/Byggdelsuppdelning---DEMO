@@ -62,7 +62,11 @@
                             <h2 id="detail-panel-title">Objektdetaljer</h2>
                             <p id="detail-panel-category" class="detail-panel-category">Kategori: -</p>
                         </div>
-                        <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
+                        <div class="detail-panel-header-actions">
+                            <button id="detail-nav-back" class="detail-panel-nav-btn" type="button" onclick="navigateDetailHistory(-1)" title="Föregående objekt" aria-label="Föregående objekt" disabled>←</button>
+                            <button id="detail-nav-forward" class="detail-panel-nav-btn" type="button" onclick="navigateDetailHistory(1)" title="Nästa objekt" aria-label="Nästa objekt" disabled>→</button>
+                            <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
+                        </div>
                     </div>
                     <div id="detail-panel-body" class="detail-panel-content"></div>
                 </div>
@@ -150,21 +154,6 @@
                     <div id="relation-basket-list" class="relation-basket-list"></div>
 
                     <form id="relation-form" class="relation-settings-form" onsubmit="saveRelation(event)">
-                        <div class="form-group">
-                            <label for="relation-type">Relationstyp *</label>
-                            <select id="relation-type" class="form-control" required>
-                                <option value="består_av">Består av</option>
-                                <option value="variant_av">Variant av</option>
-                                <option value="ersätter">Ersätter</option>
-                                <option value="ersätts_av">Ersätts av</option>
-                                <option value="kopplas_till">Kopplas till</option>
-                                <option value="dokumenterar">Dokumenterar</option>
-                                <option value="specificerar">Specificerar</option>
-                                <option value="relaterad_till">Relaterad till</option>
-                                <option value="linked">Linked</option>
-                                <option value="child">Child</option>
-                            </select>
-                        </div>
                         <div class="form-group">
                             <label for="relation-metadata-note">Metadata: Notering</label>
                             <textarea id="relation-metadata-note" class="form-control" rows="2" placeholder="Gemensam notering för valda relationer"></textarea>

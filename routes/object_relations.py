@@ -5,6 +5,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
+DEFAULT_RELATION_TYPE = 'relaterad'
 
 
 def is_file_object(obj):
@@ -42,32 +43,24 @@ def create_relation(id):
     """Create a new relation"""
     try:
         source_object = Object.query.get_or_404(id)
-        data = request.get_json()
+        data = request.get_json() or {}
         
         # Validate required fields
-        if not data.get('target_object_id') or not data.get('relation_type'):
-            return jsonify({'error': 'target_object_id and relation_type are required'}), 400
+        if not data.get('target_object_id'):
+            return jsonify({'error': 'target_object_id is required'}), 400
         
         # Check if target object exists
         target_object = Object.query.get(data['target_object_id'])
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
-        relation_type = (data.get('relation_type') or '').strip().lower()
-        if relation_type == 'dokumenterar':
-            source_is_file = is_file_object(source_object)
-            target_is_file = is_file_object(target_object)
-            if source_is_file == target_is_file:
-                return jsonify({
-                    'error': 'DOCUMENT_RELATION_INVALID',
-                    'message': 'Relationen dokumenterar måste koppla exakt ett filobjekt och ett vanligt objekt'
-                }), 422
+        relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
 
         # Create relation
         relation = ObjectRelation(
             source_object_id=id,
             target_object_id=data['target_object_id'],
-            relation_type=data['relation_type'],
+            relation_type=relation_type,
             description=data.get('description'),
             relation_metadata=data.get('metadata')
         )
@@ -137,7 +130,7 @@ def update_relation(id, relation_id):
 
 @bp.route('/<int:id>/linked-file-objects', methods=['GET'])
 def get_linked_file_objects(id):
-    """Get all file objects linked to a non-file object via 'dokumenterar'."""
+    """Get all file objects linked to a non-file object, independent of relation type."""
     try:
         source_object = Object.query.get_or_404(id)
         if is_file_object(source_object):
@@ -147,8 +140,7 @@ def get_linked_file_objects(id):
             or_(
                 ObjectRelation.source_object_id == id,
                 ObjectRelation.target_object_id == id
-            ),
-            ObjectRelation.relation_type == 'dokumenterar'
+            )
         ).all()
 
         response = []

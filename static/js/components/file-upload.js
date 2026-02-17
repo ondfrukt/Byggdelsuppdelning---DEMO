@@ -657,8 +657,7 @@ class FileUploadComponent {
 
             // 3) Koppla dokumentobjektet till aktivt objekt
             await ObjectsAPI.addRelation(this.objectId, {
-                target_object_id: createdObject.id,
-                relation_type: 'dokumenterar'
+                target_object_id: createdObject.id
             });
 
             showToast('Filobjekt skapat och kopplat', 'success');
@@ -704,8 +703,7 @@ class FileUploadComponent {
 
         try {
             await Promise.all(selectedIds.map(targetId => ObjectsAPI.addRelation(this.objectId, {
-                target_object_id: targetId,
-                relation_type: 'dokumenterar'
+                target_object_id: targetId
             })));
 
             showToast('Valda filobjekt kopplades', 'success');
