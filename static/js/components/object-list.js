@@ -31,11 +31,6 @@ class ObjectListComponent {
                            placeholder="Sök..." 
                            class="search-input"
                            value="${this.searchTerm}">
-                    ${!this.objectType ? `
-                        <select id="object-type-filter-${this.containerId}" class="filter-select">
-                            <option value="">Alla typer</option>
-                        </select>
-                    ` : ''}
                     <button class="btn btn-primary btn-sm bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" disabled>
                         Koppla markerade (0)
                     </button>
@@ -76,19 +71,7 @@ class ObjectListComponent {
                 this.filterObjects();
             });
         }
-        
-        const typeFilter = document.getElementById(`object-type-filter-${this.containerId}`);
-        if (typeFilter) {
-            typeFilter.addEventListener('change', async (e) => {
-                this.selectedType = e.target.value;
-                await this.loadViewConfig();
-                await this.loadObjects();
-            });
-            
-            // Load object types for filter
-            this.loadObjectTypes(typeFilter);
-        }
-        
+
         // Column config button
         const columnConfigBtn = document.getElementById(`column-config-btn-${this.containerId}`);
         if (columnConfigBtn) {
@@ -102,20 +85,6 @@ class ObjectListComponent {
             bulkRelateBtn.addEventListener('click', () => {
                 this.openBulkRelationModal();
             });
-        }
-    }
-    
-    async loadObjectTypes(selectElement) {
-        try {
-            const types = await ObjectTypesAPI.getAll();
-            types.forEach(type => {
-                const option = document.createElement('option');
-                option.value = type.name;
-                option.textContent = type.name;
-                selectElement.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Failed to load object types:', error);
         }
     }
     
@@ -133,12 +102,88 @@ class ObjectListComponent {
                     this.viewConfig = response;
                 }
             } else {
-                this.viewConfig = null;
+                await this.loadGlobalViewConfig();
             }
         } catch (error) {
             console.error('Failed to load view config:', error);
             this.viewConfig = null;
             this.typeDisplayFieldMap = {};
+        }
+    }
+
+    async loadGlobalViewConfig() {
+        try {
+            const response = await fetchAPI('/view-config/list-view');
+            const typeConfigs = Object.values(response || {});
+            const fieldMap = new Map();
+
+            typeConfigs.forEach(typeConfig => {
+                (typeConfig?.available_fields || []).forEach(field => {
+                    if (!field || !field.field_name) return;
+                    if (!fieldMap.has(field.field_name)) {
+                        fieldMap.set(field.field_name, {
+                            field_name: field.field_name,
+                            display_name: field.display_name || field.field_name,
+                            field_type: field.field_type
+                        });
+                    }
+                });
+            });
+
+            if (!fieldMap.has('files')) {
+                fieldMap.set('files', {
+                    field_name: 'files',
+                    display_name: 'Filer',
+                    field_type: 'text'
+                });
+            }
+
+            const available_fields = Array.from(fieldMap.values())
+                .sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
+            const allFieldNames = available_fields.map(field => field.field_name);
+            const preferredNameField =
+                allFieldNames.find(name => String(name).toLowerCase() === 'namn') ||
+                allFieldNames.find(name => String(name).toLowerCase() === 'name') ||
+                null;
+            const remainingFieldNames = allFieldNames.filter(fieldName =>
+                fieldName !== preferredNameField && fieldName !== 'files'
+            );
+            const baseVisibleColumns = [
+                { field_name: 'auto_id', visible: true, width: 120 },
+                { field_name: 'object_type', visible: true, width: 160 }
+            ];
+
+            if (preferredNameField) {
+                baseVisibleColumns.push({
+                    field_name: preferredNameField,
+                    visible: true,
+                    width: 220
+                });
+            }
+
+            baseVisibleColumns.push({
+                field_name: 'files',
+                visible: true,
+                width: 220
+            });
+            baseVisibleColumns.push({ field_name: 'created_at', visible: true, width: 150 });
+
+            this.viewConfig = {
+                available_fields,
+                visible_columns: baseVisibleColumns,
+                column_order: [
+                    'auto_id',
+                    'object_type',
+                    ...(preferredNameField ? [preferredNameField] : []),
+                    'files',
+                    ...remainingFieldNames,
+                    'created_at'
+                ],
+                column_widths: {}
+            };
+        } catch (error) {
+            console.error('Failed to load global view config:', error);
+            this.viewConfig = null;
         }
     }
 
@@ -369,12 +414,16 @@ class ObjectListComponent {
     }
     
     getVisibleColumns() {
+        const lockedColumns = [
+            { field_name: 'auto_id', display_name: 'ID' },
+            { field_name: 'object_type', display_name: 'Typ' }
+        ];
+
         if (!this.viewConfig) {
             // Default columns when no config
             return [
-                { field_name: 'auto_id', display_name: 'ID' },
-                { field_name: 'object_type', display_name: 'Typ' },
-                { field_name: 'display_name', display_name: 'Namn' },
+                ...lockedColumns,
+                { field_name: 'namn', display_name: 'Namn' },
                 { field_name: 'created_at', display_name: 'Skapad' },
                 { field_name: 'files_indicator', display_name: '📎' },
                 { field_name: 'actions', display_name: 'Åtgärder' }
@@ -386,16 +435,16 @@ class ObjectListComponent {
         const column_order = this.viewConfig.column_order || [];
         
         // Build columns based on configuration
-        const columns = [];
+        const columns = [...lockedColumns];
+        const lockedFieldNames = new Set(lockedColumns.map(col => col.field_name));
         
         // Add columns in specified order
         for (const fieldName of column_order) {
+            if (lockedFieldNames.has(fieldName)) continue;
             const colConfig = visible_columns.find(c => c.field_name === fieldName);
             if (!colConfig || !colConfig.visible) continue;
             
-            if (fieldName === 'auto_id') {
-                columns.push({ field_name: 'auto_id', display_name: 'ID' });
-            } else if (fieldName === 'created_at') {
+            if (fieldName === 'created_at') {
                 columns.push({ field_name: 'created_at', display_name: 'Skapad' });
             } else {
                 const field = available_fields.find(f => f.field_name === fieldName);
@@ -496,7 +545,7 @@ class ObjectListComponent {
     getColumnValue(obj, fieldName) {
         if (fieldName === 'auto_id') return obj.auto_id;
         if (fieldName === 'object_type') return obj.object_type?.name || '';
-        if (fieldName === 'display_name') return this.getObjectDisplayName(obj);
+        if (fieldName === 'files') return Array.isArray(obj.files) ? obj.files : [];
         if (fieldName === 'created_at') return obj.created_at;
         if (fieldName === 'actions') return '';
         if (fieldName === 'files_indicator') {
@@ -761,19 +810,23 @@ class ObjectListComponent {
         // Build list of all possible columns
         const allColumns = [
             { field_name: 'auto_id', display_name: 'ID' },
+            { field_name: 'object_type', display_name: 'Typ' },
             ...available_fields.map(f => ({ field_name: f.field_name, display_name: f.display_name })),
             { field_name: 'created_at', display_name: 'Skapad' }
         ];
+        const lockedFieldNames = new Set(['auto_id', 'object_type']);
         
         container.innerHTML = allColumns.map(col => {
             const colConfig = visible_columns.find(c => c.field_name === col.field_name);
-            const isVisible = colConfig ? colConfig.visible : false;
+            const isLocked = lockedFieldNames.has(col.field_name);
+            const isVisible = isLocked ? true : (colConfig ? colConfig.visible : false);
             
             return `
                 <label class="column-toggle">
                     <input type="checkbox" 
                            data-field="${col.field_name}" 
-                           ${isVisible ? 'checked' : ''}>
+                           ${isVisible ? 'checked' : ''}
+                           ${isLocked ? 'disabled' : ''}>
                     ${col.display_name}
                 </label>
             `;
@@ -789,8 +842,10 @@ class ObjectListComponent {
     
     toggleColumnVisibility(fieldName, visible) {
         if (!this.viewConfig) return;
+        if (fieldName === 'auto_id' || fieldName === 'object_type') return;
         
         const visible_columns = this.viewConfig.visible_columns || [];
+        const column_order = this.viewConfig.column_order || [];
         const colIndex = visible_columns.findIndex(c => c.field_name === fieldName);
         
         if (colIndex >= 0) {
@@ -798,8 +853,13 @@ class ObjectListComponent {
         } else {
             visible_columns.push({ field_name: fieldName, visible: visible, width: 150 });
         }
+
+        if (!column_order.includes(fieldName)) {
+            column_order.push(fieldName);
+        }
         
         this.viewConfig.visible_columns = visible_columns;
+        this.viewConfig.column_order = column_order;
         this.renderObjects();
     }
     

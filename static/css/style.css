@@ -42,7 +42,11 @@
 
     /* Object list column widths (single place to tweak) */
     --data-col-id-width: 1%;
-    --data-col-type-width: 130px;
+    --data-col-id-min-width: max-content;
+    --data-col-type-width: 1%;
+    --data-col-type-min-width: max-content;
+    --data-col-select-width: 2%;
+    --data-col-select-min-width: max-content;
     --data-col-tight-width: 1%;
     --data-col-name-min: 150px;
     --data-col-name-max: 300px;
@@ -250,15 +254,15 @@ body {
 
 .data-table .col-id {
     width: var(--data-col-id-width);
-    min-width: 0;
+    min-width: var(--data-col-id-min-width);
     max-width: none;
     white-space: nowrap;
 }
 
 .data-table .col-type {
     width: var(--data-col-type-width);
-    min-width: var(--data-col-type-width);
-    max-width: var(--data-col-type-width);
+    min-width: var(--data-col-type-min-width);
+    max-width: none;
     white-space: nowrap;
 }
 
@@ -288,9 +292,9 @@ body {
 }
 
 .data-table .col-select {
-    width: 36px;
-    min-width: 36px;
-    max-width: 36px;
+    width: var(--data-col-select-width);
+    min-width: var(--data-col-select-min-width);
+    max-width: none;
     text-align: center;
     padding-left: 0;
     padding-right: 0;
