@@ -16,6 +16,7 @@ class ObjectField(db.Model):
     field_type = db.Column(db.String(50), nullable=False)  # text, textarea, number, date, select, file, boolean
     field_options = db.Column(JSON_TYPE)  # JSONB on PostgreSQL, JSON elsewhere
     is_required = db.Column(db.Boolean, default=False)
+    is_table_visible = db.Column(db.Boolean, nullable=False, default=True)
     help_text = db.Column(db.String(500))
     display_order = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -33,6 +34,7 @@ class ObjectField(db.Model):
             'field_type': self.field_type,
             'field_options': self.field_options,
             'is_required': self.is_required,
+            'is_table_visible': self.is_table_visible,
             'help_text': self.help_text,
             'display_order': self.display_order,
             'created_at': self.created_at.isoformat() if self.created_at else None

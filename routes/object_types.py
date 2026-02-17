@@ -5,6 +5,16 @@ import logging
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_types', __name__, url_prefix='/api/object-types')
 
+REQUIRED_NAME_FIELD = 'namn'
+
+
+def normalize_field_name(value):
+    return (value or '').strip().lower()
+
+
+def is_name_field_name(value):
+    return normalize_field_name(value) == REQUIRED_NAME_FIELD
+
 
 @bp.route('', methods=['GET'])
 def list_object_types():
@@ -54,6 +64,19 @@ def create_object_type():
         )
         
         db.session.add(object_type)
+        db.session.flush()
+
+        # Every object type must have an obligatory namn-field.
+        name_field = ObjectField(
+            object_type_id=object_type.id,
+            field_name=REQUIRED_NAME_FIELD,
+            display_name='Namn',
+            field_type='text',
+            is_required=True,
+            is_table_visible=True,
+            display_order=1
+        )
+        db.session.add(name_field)
         db.session.commit()
         
         logger.info(f"Created object type: {object_type.name}")
@@ -147,21 +170,28 @@ def add_field(id):
             return jsonify({'error': 'field_name and field_type are required'}), 400
         
         # Check if field name already exists for this type
-        existing = ObjectField.query.filter_by(
-            object_type_id=id,
-            field_name=data['field_name']
-        ).first()
+        field_name = data['field_name']
+        existing = next(
+            (
+                field for field in ObjectField.query.filter_by(object_type_id=id).all()
+                if normalize_field_name(field.field_name) == normalize_field_name(field_name)
+            ),
+            None
+        )
         if existing:
             return jsonify({'error': 'Field with this name already exists for this object type'}), 400
+
+        is_name_field = is_name_field_name(field_name)
         
         # Create field
         field = ObjectField(
             object_type_id=id,
-            field_name=data['field_name'],
+            field_name=REQUIRED_NAME_FIELD if is_name_field else field_name,
             display_name=data.get('display_name'),
             field_type=data['field_type'],
             field_options=data.get('field_options'),
-            is_required=data.get('is_required', False),
+            is_required=True if is_name_field else data.get('is_required', False),
+            is_table_visible=data.get('is_table_visible', True),
             help_text=data.get('help_text'),
             display_order=data.get('display_order')
         )
@@ -179,17 +209,30 @@ def add_field(id):
 
 def _update_field_data(field, field_id, data):
     """Helper function to update field properties"""
+    current_is_name_field = is_name_field_name(field.field_name)
+
     # Update field properties
     if 'field_name' in data:
+        new_field_name = data['field_name']
+        new_is_name_field = is_name_field_name(new_field_name)
+
+        if current_is_name_field and not new_is_name_field:
+            return {'error': "Field 'namn' is required and cannot be renamed"}, 400
+
         # Check if new name already exists for this type
-        existing = ObjectField.query.filter(
-            ObjectField.object_type_id == field.object_type_id,
-            ObjectField.field_name == data['field_name'],
-            ObjectField.id != field_id
-        ).first()
+        existing = next(
+            (
+                candidate for candidate in ObjectField.query.filter(
+                    ObjectField.object_type_id == field.object_type_id,
+                    ObjectField.id != field_id
+                ).all()
+                if normalize_field_name(candidate.field_name) == normalize_field_name(new_field_name)
+            ),
+            None
+        )
         if existing:
             return {'error': 'Field with this name already exists for this object type'}, 400
-        field.field_name = data['field_name']
+        field.field_name = REQUIRED_NAME_FIELD if new_is_name_field else new_field_name
     
     if 'display_name' in data:
         field.display_name = data['display_name']
@@ -201,7 +244,12 @@ def _update_field_data(field, field_id, data):
         field.field_options = data['field_options']
     
     if 'is_required' in data:
+        if current_is_name_field and data['is_required'] is not True:
+            return {'error': "Field 'namn' must remain required"}, 400
         field.is_required = data['is_required']
+
+    if 'is_table_visible' in data:
+        field.is_table_visible = bool(data['is_table_visible'])
     
     if 'help_text' in data:
         field.help_text = data['help_text']
@@ -276,6 +324,9 @@ def delete_field_with_type(type_id, field_id):
         # Verify the field belongs to this object type
         if field.object_type_id != type_id:
             return jsonify({'error': 'Field does not belong to this object type'}), 400
+
+        if is_name_field_name(field.field_name):
+            return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
         
         # Check if there are object data entries using this field
         if len(field.object_data) > 0:
@@ -297,6 +348,9 @@ def delete_field(field_id):
     """Delete a field"""
     try:
         field = ObjectField.query.get_or_404(field_id)
+
+        if is_name_field_name(field.field_name):
+            return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
         
         # Check if there are object data entries using this field
         if len(field.object_data) > 0:

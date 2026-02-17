@@ -56,6 +56,10 @@ def validate_object_data(fields, data):
                 valid_options = []
                 if isinstance(field.field_options, list):
                     valid_options = field.field_options
+                elif isinstance(field.field_options, dict):
+                    if isinstance(field.field_options.get('values'), list):
+                        valid_options = field.field_options.get('values', [])
+                    # Dynamic sources are allowed and validated client-side
                 elif isinstance(field.field_options, str):
                     # Parse comma-separated string
                     valid_options = [opt.strip() for opt in field.field_options.split(',') if opt.strip()]

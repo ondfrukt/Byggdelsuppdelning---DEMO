@@ -20,12 +20,14 @@ class TreeView {
             files: '',
             has_files: ''
         };
+        this.columnVisibility = this.loadColumnVisibility();
         this.renderedTreeData = [];
         this.searchExpandedNodes = new Set();
         this.searchDebounceTimer = null;
         this.searchDebounceMs = 350;
         this.searchFocusState = null;
         this.pendingToggleTimer = null;
+        this.pendingToggleDelayMs = 170;
     }
     
     async loadData() {
@@ -53,31 +55,29 @@ class TreeView {
         
         const filteredData = this.getFilteredTreeData();
         this.renderedTreeData = filteredData;
-        const treeHtml = filteredData.map(node => this.renderNode(node, 0)).join('');
-        
+        const visibleColumns = this.getVisibleColumns();
+        const treeHtml = filteredData.map(node => this.renderNode(node, 0, visibleColumns)).join('');
+
         this.container.innerHTML = `
             <div class="tree-view">
+                <div class="tree-toolbar">
+                    <button type="button" class="btn btn-secondary btn-sm" id="tree-column-config-btn">
+                        ⚙️ Kolumner
+                    </button>
+                </div>
+                <div id="tree-column-config-panel" class="column-config-panel" style="display: none;">
+                    <div class="column-config-content">
+                        <h4>Visa/Dölj Kolumner</h4>
+                        <div id="tree-column-toggles"></div>
+                    </div>
+                </div>
                 <table class="tree-table" id="tree-table">
                     <thead>
                         <tr>
-                            <th>Namn</th>
-                            <th>ID</th>
-                            <th>Typ</th>
-                            <th>Kravtext</th>
-                            <th>Beskrivning</th>
-                            <th class="col-paperclip">📎</th>
-                            <th>Filer</th>
+                            ${visibleColumns.map(column => this.renderHeaderCell(column)).join('')}
                         </tr>
                         <tr class="tree-search-row">
-                            <th><input type="text" class="tree-column-search-input" data-field="name" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.name || '')}"></th>
-                            <th><input type="text" class="tree-column-search-input" data-field="id" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.id || '')}"></th>
-                            <th><input type="text" class="tree-column-search-input" data-field="type" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.type || '')}"></th>
-                            <th><input type="text" class="tree-column-search-input" data-field="kravtext" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.kravtext || '')}"></th>
-                            <th><input type="text" class="tree-column-search-input" data-field="beskrivning" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.beskrivning || '')}"></th>
-                            <th class="col-paperclip" title="Visa endast objekt med filer">
-                                <input type="checkbox" class="tree-column-search-input tree-paperclip-filter" data-field="has_files" ${this.columnSearches.has_files === '1' ? 'checked' : ''}>
-                            </th>
-                            <th><input type="text" class="tree-column-search-input" data-field="files" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches.files || '')}"></th>
+                            ${visibleColumns.map(column => this.renderSearchCell(column)).join('')}
                         </tr>
                     </thead>
                     <tbody>
@@ -86,7 +86,8 @@ class TreeView {
                 </table>
             </div>
         `;
-        
+
+        this.renderColumnConfig();
         this.attachEventListeners();
         this.applySelectionToDOM();
         if (options.preserveSearchFocus) {
@@ -96,8 +97,90 @@ class TreeView {
         // Tree view sorting is intentionally disabled.
         this.tableSortInstance = null;
     }
-    
-    renderNode(node, level) {
+
+    getVisibleColumns() {
+        const columns = [
+            { id: 'name', label: 'Namn' },
+            { id: 'id', label: 'ID' },
+            { id: 'type', label: 'Typ' },
+            { id: 'kravtext', label: 'Kravtext' },
+            { id: 'beskrivning', label: 'Beskrivning' },
+            { id: 'has_files', label: '📎', paperclip: true },
+            { id: 'files', label: 'Filer' }
+        ];
+        return columns.filter(column => this.columnVisibility[column.id] !== false);
+    }
+
+    renderHeaderCell(column) {
+        const extraClass = column.paperclip ? ' class="col-paperclip"' : '';
+        return `<th${extraClass}>${this.escapeHtml(column.label)}</th>`;
+    }
+
+    renderSearchCell(column) {
+        if (column.id === 'has_files') {
+            const checked = this.columnSearches.has_files === '1' ? 'checked' : '';
+            return `<th class="col-paperclip" title="Visa endast objekt med filer">
+                <input type="checkbox" class="tree-column-search-input tree-paperclip-filter" data-field="has_files" ${checked}>
+            </th>`;
+        }
+        return `<th><input type="text" class="tree-column-search-input" data-field="${column.id}" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches[column.id] || '')}"></th>`;
+    }
+
+    renderColumnConfig() {
+        const container = this.container?.querySelector('#tree-column-toggles');
+        if (!container) return;
+
+        const columns = [
+            { id: 'name', label: 'Namn' },
+            { id: 'id', label: 'ID' },
+            { id: 'type', label: 'Typ' },
+            { id: 'kravtext', label: 'Kravtext' },
+            { id: 'beskrivning', label: 'Beskrivning' },
+            { id: 'has_files', label: '📎' },
+            { id: 'files', label: 'Filer' }
+        ];
+
+        container.innerHTML = columns.map(column => `
+            <label class="column-toggle">
+                <input type="checkbox" data-column-id="${column.id}" ${this.columnVisibility[column.id] !== false ? 'checked' : ''}>
+                ${this.escapeHtml(column.label)}
+            </label>
+        `).join('');
+
+        container.querySelectorAll('input[type="checkbox"]').forEach(input => {
+            input.addEventListener('change', (event) => {
+                const columnId = event.target.getAttribute('data-column-id');
+                if (!columnId) return;
+                this.columnVisibility[columnId] = event.target.checked;
+                if (!event.target.checked) {
+                    this.columnSearches[columnId] = '';
+                }
+                this.saveColumnVisibility();
+                this.render();
+            });
+        });
+    }
+
+    loadColumnVisibility() {
+        try {
+            const raw = localStorage.getItem('tree-view-column-visibility');
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
+    saveColumnVisibility() {
+        try {
+            localStorage.setItem('tree-view-column-visibility', JSON.stringify(this.columnVisibility || {}));
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    renderNode(node, level, visibleColumns) {
         const hasChildren = node.children && node.children.length > 0;
         const forceExpanded = this.hasActiveSearch() && this.searchExpandedNodes.has(String(node.id));
         const isExpanded = forceExpanded || this.expandedNodes.has(node.id);
@@ -106,9 +189,11 @@ class TreeView {
         let html = '';
         
         if (node.type === 'group') {
-            // Type group node
-            html += `
-                <tr class="tree-node tree-node-group ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-has-children="${hasChildren}">
+            const cellsHtml = visibleColumns.map((column, index) => {
+                if (index !== 0) {
+                    return `<td${column.paperclip ? ' class="col-paperclip"' : ''}></td>`;
+                }
+                return `
                     <td style="padding-left: ${indent}px">
                         ${hasChildren ? `
                             <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
@@ -117,12 +202,12 @@ class TreeView {
                         ` : '<span class="tree-spacer"></span>'}
                         <span class="tree-label tree-label-group">${this.highlightMatch(node.name, 'name')} <span class="tree-count">(${node.children?.length || 0})</span></span>
                     </td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td class="col-paperclip"></td>
-                    <td></td>
+                `;
+            }).join('');
+
+            html += `
+                <tr class="tree-node tree-node-group ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-has-children="${hasChildren}" data-tree-level="${level}">
+                    ${cellsHtml}
                 </tr>
             `;
         } else {
@@ -133,25 +218,43 @@ class TreeView {
             const filesHtml = this.renderFiles(files);
             const isSelected = String(this.selectedObjectId ?? '') === String(node.id);
 
-            // Regular node - display as table row with columns
+            const cellsHtml = visibleColumns.map(column => {
+                if (column.id === 'name') {
+                    return `
+                        <td style="padding-left: ${indent}px">
+                            ${hasChildren ? `
+                                <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
+                                    ${isExpanded ? '▼' : '▶'}
+                                </span>
+                            ` : '<span class="tree-spacer"></span>'}
+                            <span class="tree-label">${this.highlightMatch(node.name, 'name')}</span>
+                        </td>
+                    `;
+                }
+                if (column.id === 'id') {
+                    return `<td>${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(node.auto_id, 'id')}</a>` : ''}</td>`;
+                }
+                if (column.id === 'type') {
+                    return `<td>${this.renderTypeBadge(node.type || '')}</td>`;
+                }
+                if (column.id === 'kravtext') {
+                    return `<td>${kravtext}</td>`;
+                }
+                if (column.id === 'beskrivning') {
+                    return `<td>${beskrivning}</td>`;
+                }
+                if (column.id === 'has_files') {
+                    return `<td class="col-paperclip" data-value="${hasFiles ? files.length : 0}">${hasFiles ? `<span title="${files.length} fil(er) kopplade">📎</span>` : ''}</td>`;
+                }
+                if (column.id === 'files') {
+                    return `<td>${filesHtml}</td>`;
+                }
+                return '<td></td>';
+            }).join('');
+
             html += `
-                <tr class="tree-node ${hasChildren ? 'has-children' : ''} ${isSelected ? 'tree-node-selected' : ''}" data-node-id="${node.id}" data-node-type="${node.type}" data-has-children="${hasChildren}" aria-selected="${isSelected ? 'true' : 'false'}">
-                    <td style="padding-left: ${indent}px">
-                        ${hasChildren ? `
-                            <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
-                                ${isExpanded ? '▼' : '▶'}
-                            </span>
-                        ` : '<span class="tree-spacer"></span>'}
-                        <span class="tree-label">${this.highlightMatch(node.name, 'name')}</span>
-                    </td>
-                    <td>
-                        ${node.auto_id ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(node.auto_id, 'id')}</a>` : ''}
-                    </td>
-                    <td>${this.highlightMatch(node.type || '', 'type')}</td>
-                    <td>${kravtext}</td>
-                    <td>${beskrivning}</td>
-                    <td class="col-paperclip" data-value="${hasFiles ? files.length : 0}">${hasFiles ? `<span title="${files.length} fil(er) kopplade">📎</span>` : ''}</td>
-                    <td>${filesHtml}</td>
+                <tr class="tree-node ${hasChildren ? 'has-children' : ''} ${isSelected ? 'tree-node-selected' : ''}" data-node-id="${node.id}" data-node-type="${node.type}" data-has-children="${hasChildren}" data-tree-level="${level}" aria-selected="${isSelected ? 'true' : 'false'}">
+                    ${cellsHtml}
                 </tr>
             `;
         }
@@ -159,7 +262,7 @@ class TreeView {
         // Render children if expanded
         if (hasChildren && isExpanded) {
             node.children.forEach(child => {
-                html += this.renderNode(child, level + 1);
+                html += this.renderNode(child, level + 1, visibleColumns);
             });
         }
         
@@ -194,6 +297,15 @@ class TreeView {
         const name = String(file?.original_filename || file?.filename || '').toLowerCase();
         const mimeType = String(file?.mime_type || '').toLowerCase();
         return mimeType === 'application/pdf' || name.endsWith('.pdf');
+    }
+
+    renderTypeBadge(typeName) {
+        const rawType = String(typeName || '');
+        const color = typeof getObjectTypeColor === 'function'
+            ? getObjectTypeColor(rawType)
+            : '#95a5a6';
+        const label = this.highlightMatch(rawType, 'type');
+        return `<span class="object-type-badge" style="background-color: ${color};">${label}</span>`;
     }
 
     escapeHtml(value) {
@@ -332,6 +444,14 @@ class TreeView {
     }
     
     attachEventListeners() {
+        const configButton = this.container.querySelector('#tree-column-config-btn');
+        const configPanel = this.container.querySelector('#tree-column-config-panel');
+        if (configButton && configPanel) {
+            configButton.addEventListener('click', () => {
+                configPanel.style.display = configPanel.style.display === 'none' ? 'block' : 'none';
+            });
+        }
+
         // Column search
         this.container.querySelectorAll('.tree-column-search-input').forEach(input => {
             input.addEventListener('input', (event) => {
@@ -418,9 +538,13 @@ class TreeView {
         // Double-click toggles the whole subtree.
         const nodes = this.container.querySelectorAll('.tree-node');
         nodes.forEach(node => {
+            const nodeLevel = parseInt(node.dataset.treeLevel || '0', 10);
+            const disableDoubleClickRule = nodeLevel === 1;
+
             node.addEventListener('mousedown', (e) => {
                 const hasChildren = node.dataset.hasChildren === 'true';
                 if (!hasChildren) return;
+                if (disableDoubleClickRule) return;
                 if (e.detail < 2) return;
 
                 // Keep native behavior on explicit interactive controls.
@@ -435,6 +559,16 @@ class TreeView {
                 if (hasChildren) {
                     const nodeId = node.dataset.nodeId;
 
+                    if (disableDoubleClickRule) {
+                        if (this.expandedNodes.has(nodeId)) {
+                            this.expandedNodes.delete(nodeId);
+                        } else {
+                            this.expandedNodes.add(nodeId);
+                        }
+                        this.render();
+                        return;
+                    }
+
                     if (this.pendingToggleTimer) {
                         clearTimeout(this.pendingToggleTimer);
                         this.pendingToggleTimer = null;
@@ -448,13 +582,14 @@ class TreeView {
                             this.expandedNodes.add(nodeId);
                         }
                         this.render();
-                    }, 220);
+                    }, this.pendingToggleDelayMs);
                 }
             });
 
             node.addEventListener('dblclick', (e) => {
                 const hasChildren = node.dataset.hasChildren === 'true';
                 if (!hasChildren) return;
+                if (disableDoubleClickRule) return;
 
                 e.preventDefault();
                 e.stopPropagation();

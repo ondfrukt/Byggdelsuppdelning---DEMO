@@ -125,9 +125,11 @@ def get_list_view_config():
                 {
                     'field_name': field.field_name,
                     'display_name': field.display_name or field.field_name,
-                    'field_type': field.field_type
+                    'field_type': field.field_type,
+                    'is_table_visible': field.is_table_visible
                 }
                 for field in sorted(obj_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
+                if field.is_table_visible
             ]
             
             # Build default visible columns if not configured
@@ -243,9 +245,11 @@ def get_list_view_config_by_type(object_type_id):
             {
                 'field_name': field.field_name,
                 'display_name': field.display_name or field.field_name,
-                'field_type': field.field_type
+                'field_type': field.field_type,
+                'is_table_visible': field.is_table_visible
             }
             for field in sorted(object_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
+            if field.is_table_visible
         ]
         
         # Build default visible columns if not configured
@@ -278,4 +282,3 @@ def get_list_view_config_by_type(object_type_id):
     except Exception as e:
         logger.error(f"Error getting list view config for type {object_type_id}: {str(e)}")
         return jsonify({'error': 'Failed to get list view config'}), 500
-

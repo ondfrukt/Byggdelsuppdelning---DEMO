@@ -752,8 +752,8 @@ async function deleteObject(objectId) {
         await ObjectsAPI.delete(objectId);
         showToast('Objekt borttaget', 'success');
         
-        // Go back to list view
-        await switchView('objects');
+        // Keep user in current workspace (objects/file-objects/tree) and refresh it.
+        await switchView(currentView || 'objects');
     } catch (error) {
         console.error('Failed to delete object:', error);
         showToast(error.message || 'Kunde inte ta bort objekt', 'error');

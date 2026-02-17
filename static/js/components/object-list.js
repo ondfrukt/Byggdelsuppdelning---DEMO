@@ -16,6 +16,8 @@ class ObjectListComponent {
         this.viewConfig = null;
         this.columnSearches = {}; // Store search terms per column
         this.typeDisplayFieldMap = {};
+        this.selectedObjectIds = new Set();
+        this.filteredObjects = [];
     }
     
     async render() {
@@ -34,6 +36,9 @@ class ObjectListComponent {
                             <option value="">Alla typer</option>
                         </select>
                     ` : ''}
+                    <button class="btn btn-primary btn-sm bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" disabled>
+                        Koppla markerade (0)
+                    </button>
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
                         ⚙️ Kolumner
                     </button>
@@ -89,6 +94,13 @@ class ObjectListComponent {
         if (columnConfigBtn) {
             columnConfigBtn.addEventListener('click', () => {
                 this.toggleColumnConfig();
+            });
+        }
+
+        const bulkRelateBtn = document.getElementById(`bulk-relate-btn-${this.containerId}`);
+        if (bulkRelateBtn) {
+            bulkRelateBtn.addEventListener('click', () => {
+                this.openBulkRelationModal();
             });
         }
     }
@@ -158,6 +170,10 @@ class ObjectListComponent {
             }
             
             this.objects = await ObjectsAPI.getAll(filters);
+            const validIds = new Set(this.objects.map(obj => Number(obj.id)));
+            this.selectedObjectIds = new Set(
+                Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
+            );
             this.renderObjects();
         } catch (error) {
             console.error('Failed to load objects:', error);
@@ -175,7 +191,9 @@ class ObjectListComponent {
         const searchRow = document.getElementById(`table-search-row-${this.containerId}`);
         
         if (!this.objects || this.objects.length === 0) {
+            this.filteredObjects = [];
             tbody.innerHTML = '<tr><td colspan="10" class="loading">Inga objekt hittades</td></tr>';
+            this.updateBulkRelationButton();
             return;
         }
         
@@ -192,6 +210,11 @@ class ObjectListComponent {
                 ${col.display_name}
             </th>`;
         }).join('');
+        thead.insertAdjacentHTML('afterbegin', `
+            <th class="col-select">
+                <input type="checkbox" id="select-all-${this.containerId}" aria-label="Markera alla rader i listan">
+            </th>
+        `);
         
         // Render search row with column classes
         searchRow.innerHTML = columns.map(col => {
@@ -215,6 +238,7 @@ class ObjectListComponent {
                        value="${this.columnSearches[col.field_name] || ''}">
             </th>`;
         }).join('');
+        searchRow.insertAdjacentHTML('afterbegin', '<th class="col-select"></th>');
         
         // Attach column search listeners
         searchRow.querySelectorAll('.column-search-input').forEach(input => {
@@ -231,6 +255,14 @@ class ObjectListComponent {
                 this.renderFilteredObjects();
             });
         });
+
+        const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('click', (event) => event.stopPropagation());
+            selectAllCheckbox.addEventListener('change', (event) => {
+                this.toggleSelectAllFiltered(event.target.checked);
+            });
+        }
         
         this.renderFilteredObjects();
         
@@ -268,6 +300,7 @@ class ObjectListComponent {
                 }
             }
         }
+        this.filteredObjects = filteredObjects;
         
         // Render rows with data-value attributes for sorting and column classes
         const selectedObjectId = String(window.currentSelectedObjectId ?? '');
@@ -279,6 +312,14 @@ class ObjectListComponent {
                 onclick="viewObjectDetail(${obj.id})"
                 style="cursor: pointer;"
             >
+                <td class="col-select" onclick="event.stopPropagation()">
+                    <input
+                        type="checkbox"
+                        class="row-select-checkbox"
+                        data-object-id="${obj.id}"
+                        ${this.selectedObjectIds.has(Number(obj.id)) ? 'checked' : ''}
+                        aria-label="Markera objekt ${escapeHtml(obj.auto_id || String(obj.id))}">
+                </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
                     const displayValue = this.formatColumnValue(obj, col.field_name, value);
@@ -287,6 +328,21 @@ class ObjectListComponent {
                 }).join('')}
             </tr>
         `).join('');
+
+        tbody.querySelectorAll('.row-select-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('click', (event) => event.stopPropagation());
+            checkbox.addEventListener('change', (event) => {
+                const objectId = Number(event.target.dataset.objectId);
+                if (!Number.isFinite(objectId)) return;
+                if (event.target.checked) {
+                    this.selectedObjectIds.add(objectId);
+                } else {
+                    this.selectedObjectIds.delete(objectId);
+                }
+                this.updateBulkRelationButton();
+                this.updateSelectAllState();
+            });
+        });
         
         // Initialize table sorting after rendering
         const table = tbody.closest('table');
@@ -308,6 +364,8 @@ class ObjectListComponent {
         if (typeof window.applySelectedRowHighlight === 'function') {
             window.applySelectedRowHighlight();
         }
+        this.updateBulkRelationButton();
+        this.updateSelectAllState();
     }
     
     getVisibleColumns() {
@@ -747,5 +805,61 @@ class ObjectListComponent {
     
     async refresh() {
         await this.loadObjects();
+    }
+
+    toggleSelectAllFiltered(checked) {
+        (this.filteredObjects || []).forEach(obj => {
+            const objectId = Number(obj.id);
+            if (!Number.isFinite(objectId)) return;
+            if (checked) {
+                this.selectedObjectIds.add(objectId);
+            } else {
+                this.selectedObjectIds.delete(objectId);
+            }
+        });
+
+        this.renderFilteredObjects();
+    }
+
+    updateSelectAllState() {
+        const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
+        if (!selectAllCheckbox) return;
+
+        const visibleIds = (this.filteredObjects || [])
+            .map(obj => Number(obj.id))
+            .filter(id => Number.isFinite(id));
+
+        if (!visibleIds.length) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+            return;
+        }
+
+        const selectedVisibleCount = visibleIds.filter(id => this.selectedObjectIds.has(id)).length;
+        selectAllCheckbox.checked = selectedVisibleCount > 0 && selectedVisibleCount === visibleIds.length;
+        selectAllCheckbox.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+    }
+
+    updateBulkRelationButton() {
+        const bulkRelateBtn = document.getElementById(`bulk-relate-btn-${this.containerId}`);
+        if (!bulkRelateBtn) return;
+
+        const selectedCount = this.selectedObjectIds.size;
+        bulkRelateBtn.disabled = selectedCount === 0;
+        bulkRelateBtn.textContent = `Koppla markerade (${selectedCount})`;
+    }
+
+    openBulkRelationModal() {
+        const selectedIds = Array.from(this.selectedObjectIds);
+        if (!selectedIds.length) {
+            showToast('Markera minst ett objekt först', 'error');
+            return;
+        }
+        if (typeof showAddRelationModal !== 'function') {
+            showToast('Relationsdialogen kunde inte öppnas', 'error');
+            return;
+        }
+
+        showAddRelationModal(selectedIds);
     }
 }

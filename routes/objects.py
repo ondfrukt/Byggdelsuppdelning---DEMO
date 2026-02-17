@@ -15,7 +15,7 @@ UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 
 def get_display_name(obj, object_type_name, view_config):
     """
-    Get display name for an object based on view configuration.
+    Get display name for an object in tree view.
     
     Args:
         obj: Object instance
@@ -30,29 +30,24 @@ def get_display_name(obj, object_type_name, view_config):
         - If field is configured but value is empty: Returns "ID: {auto_id}" 
           (prefix helps distinguish from configured fields with actual values)
     """
-    # Get configuration for this object type
+    # Primary rule: always prefer canonical name fields for tree view.
+    name_value = (
+        get_data_value_case_insensitive(obj.data, 'namn')
+        or get_data_value_case_insensitive(obj.data, 'name')
+    )
+    if name_value:
+        return str(name_value)
+
+    # Backward compatibility: honor legacy tree-view config if present.
     config = view_config.get(object_type_name)
-    
-    # If no config or no field specified, use default
-    if not config or not config.get('tree_view_name_field'):
-        return obj.auto_id
-    
-    field_name = config['tree_view_name_field']
-    
-    # If configured to use ID, return auto_id
-    if field_name == 'ID':
-        return obj.auto_id
-    
-    # Try to get value from object data
-    value = obj.data.get(field_name)
-    
-    # If value exists, return it, otherwise fallback to ID with prefix
-    # The "ID:" prefix indicates a fallback scenario to distinguish from 
-    # cases where the field is intentionally set to an ID-like value
-    if value:
-        return str(value)
-    else:
-        return f"ID: {obj.auto_id}"
+    field_name = (config or {}).get('tree_view_name_field')
+    if field_name and field_name != 'ID':
+        configured_value = get_data_value_case_insensitive(obj.data, field_name)
+        if configured_value:
+            return str(configured_value)
+
+    # Final fallback.
+    return obj.auto_id
 
 
 def get_data_value_case_insensitive(data, field_name):
@@ -528,6 +523,7 @@ def get_tree():
                         'name': display_name,
                         'type': type_name,
                         'direction': direction,
+                        'data': linked_object_data,
                         'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
                         'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
                         'files': collect_tree_files_for_object(linked_object)
@@ -548,6 +544,7 @@ def get_tree():
                 'auto_id': byggdel.auto_id,
                 'name': byggdel_display_name,
                 'type': 'Byggdel',
+                'data': byggdel.data or {},
                 'children': children
             })
         

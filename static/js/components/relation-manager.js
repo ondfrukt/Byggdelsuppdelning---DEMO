@@ -7,7 +7,9 @@ const RELATION_BASKET_LIMIT = 200;
 
 const relationModalState = {
     sourceId: null,
+    sourceIds: [],
     sourceObject: null,
+    sourceObjects: [],
     preSelectedType: null,
     selectedType: '',
     search: '',
@@ -174,6 +176,17 @@ function renderRelationModalSourceContext() {
     const sourceElement = document.getElementById('relation-modal-source');
     if (!sourceElement) return;
 
+    const sourceIds = Array.isArray(relationModalState.sourceIds) ? relationModalState.sourceIds : [];
+    if (sourceIds.length > 1) {
+        const labels = relationModalState.sourceObjects
+            .map(sourceObject => `${sourceObject.auto_id || sourceObject.id} • ${getObjectDisplayName(sourceObject)}`)
+            .slice(0, 3);
+        const summary = labels.length ? labels.join(', ') : sourceIds.map(id => `ID ${id}`).slice(0, 3).join(', ');
+        const extraCount = Math.max(sourceIds.length - 3, 0);
+        sourceElement.textContent = `Källobjekt (${sourceIds.length}): ${summary}${extraCount > 0 ? ` +${extraCount} till` : ''}`;
+        return;
+    }
+
     if (!relationModalState.sourceObject) {
         sourceElement.textContent = relationModalState.sourceId
             ? `Objekt-ID: ${relationModalState.sourceId}`
@@ -235,8 +248,9 @@ async function loadRelationCandidates() {
     });
 
     const loadedItems = Array.isArray(result) ? result : (result.items || []);
+    const sourceIdSet = new Set((relationModalState.sourceIds || []).map(id => Number(id)));
     relationModalState.items = loadedItems.filter(item => {
-        if (item.id === relationModalState.sourceId) return false;
+        if (sourceIdSet.has(Number(item.id))) return false;
         return !isFileObjectType(item?.object_type?.name);
     });
 }
@@ -536,13 +550,20 @@ async function refreshCandidatesAndRender() {
     }
 }
 
-async function showAddRelationModal(objectId) {
+async function showAddRelationModal(objectIdOrIds) {
     const modal = document.getElementById('relation-modal');
     const overlay = document.getElementById('modal-overlay');
     if (!modal || !overlay) return;
 
-    relationModalState.sourceId = objectId;
+    const normalizedSourceIds = Array.isArray(objectIdOrIds) ? objectIdOrIds : [objectIdOrIds];
+    relationModalState.sourceIds = Array.from(new Set(
+        normalizedSourceIds
+            .map(id => Number(id))
+            .filter(id => Number.isFinite(id) && id > 0)
+    ));
+    relationModalState.sourceId = relationModalState.sourceIds[0] || null;
     relationModalState.sourceObject = null;
+    relationModalState.sourceObjects = [];
     relationModalState.selectedType = '';
     relationModalState.search = '';
     relationModalState.page = 1;
@@ -552,10 +573,25 @@ async function showAddRelationModal(objectId) {
     relationModalState.sortDirection = 'asc';
 
     try {
-        try {
-            relationModalState.sourceObject = await ObjectsAPI.getById(objectId);
-        } catch (sourceError) {
-            console.warn('Failed to load source object for relation modal context:', sourceError);
+        if (!relationModalState.sourceIds.length) {
+            showToast('Minst ett källobjekt krävs för att skapa relationer', 'error');
+            return;
+        }
+
+        relationModalState.sourceObjects = (await Promise.all(
+            relationModalState.sourceIds.map(async (sourceId) => {
+                try {
+                    return await ObjectsAPI.getById(sourceId);
+                } catch (sourceError) {
+                    console.warn('Failed to load source object for relation modal context:', sourceId, sourceError);
+                    return null;
+                }
+            })
+        )).filter(Boolean);
+        relationModalState.sourceObject = relationModalState.sourceObjects[0] || null;
+        if (relationModalState.sourceIds.length === 1 && !relationModalState.sourceObject) {
+            showToast('Kunde inte läsa källobjekt för relationer', 'error');
+            return;
         }
         renderRelationModalSourceContext();
 
@@ -566,7 +602,7 @@ async function showAddRelationModal(objectId) {
             typeFilter.innerHTML = '<option value="">Alla objekttyper</option>' + relationModalState.objectTypes.map(type => `<option value="${escapeHtml(type.name)}">${escapeHtml(type.name)}</option>`).join('');
         }
 
-        modal.dataset.objectId = String(objectId);
+        modal.dataset.objectId = String(relationModalState.sourceId || '');
         overlay.style.display = 'block';
         modal.style.display = 'block';
         bindRelationModalEvents();
@@ -588,6 +624,9 @@ function closeRelationModal() {
     overlay.style.display = 'none';
     modal.style.display = 'none';
     relationModalState.sourceObject = null;
+    relationModalState.sourceObjects = [];
+    relationModalState.sourceIds = [];
+    relationModalState.sourceId = null;
     document.getElementById('relation-form')?.reset();
     renderRelationModalSourceContext();
     setRelationModalFeedback('');
@@ -596,12 +635,13 @@ function closeRelationModal() {
 async function saveRelation(event) {
     event.preventDefault();
 
-    const modal = document.getElementById('relation-modal');
-    const objectId = parseInt(modal?.dataset.objectId || '0', 10);
+    const sourceIds = (relationModalState.sourceIds || [])
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id) && id > 0);
     const note = document.getElementById('relation-metadata-note')?.value?.trim();
     const description = document.getElementById('relation-description')?.value?.trim();
 
-    if (!objectId) {
+    if (!sourceIds.length) {
         setRelationModalFeedback('Källobjekt krävs.');
         return;
     }
@@ -620,14 +660,32 @@ async function saveRelation(event) {
     }));
 
     try {
-        const result = await ObjectsAPI.addRelationsBatch({ sourceId: objectId, relations: relationsPayload });
-        const createdCount = result?.summary?.created || 0;
-        const failedCount = result?.summary?.failed || 0;
+        let createdCount = 0;
+        let failedCount = 0;
+        let requestFailures = 0;
 
-        if (failedCount > 0) {
-            setRelationModalFeedback(`Skapade ${createdCount} relation(er), ${failedCount} misslyckades.`, 'error');
+        for (const sourceId of sourceIds) {
+            try {
+                const result = await ObjectsAPI.addRelationsBatch({ sourceId, relations: relationsPayload });
+                createdCount += result?.summary?.created || 0;
+                failedCount += result?.summary?.failed || 0;
+            } catch (error) {
+                requestFailures += 1;
+                failedCount += relationsPayload.length;
+                console.error(`Failed to create relations for source object ${sourceId}:`, error);
+            }
+        }
+
+        const totalRequested = sourceIds.length * relationsPayload.length;
+        const totalFailed = failedCount;
+
+        if (totalFailed > 0) {
+            const failureSuffix = requestFailures > 0
+                ? ` (${requestFailures} källobjekt kunde inte nå API:t)`
+                : '';
+            setRelationModalFeedback(`Skapade ${createdCount} av ${totalRequested} relation(er), ${totalFailed} misslyckades${failureSuffix}.`, 'error');
         } else {
-            showToast(`Skapade ${createdCount} relation(er).`, 'success');
+            showToast(`Skapade ${createdCount} relation(er) från ${sourceIds.length} källobjekt.`, 'success');
             closeRelationModal();
         }
 

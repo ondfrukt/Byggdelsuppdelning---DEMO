@@ -8,6 +8,8 @@ class ObjectTypeManager {
         this.container = document.getElementById(containerId);
         this.objectTypes = [];
         this.selectedType = null;
+        this.buildingPartCategories = [];
+        this.fieldModalTypeListenerAttached = false;
     }
     
     async render() {
@@ -23,8 +25,8 @@ class ObjectTypeManager {
                     <button class="admin-tab active" data-tab="object-types" onclick="adminManager.switchTab('object-types')">
                         Objekttyper
                     </button>
-                    <button class="admin-tab" data-tab="tree-view" onclick="adminManager.switchTab('tree-view')">
-                        Trädvy Inställningar
+                    <button class="admin-tab" data-tab="building-part-categories" onclick="adminManager.switchTab('building-part-categories')">
+                        Byggdelskategorier
                     </button>
                     <button class="admin-tab" data-tab="list-view" onclick="adminManager.switchTab('list-view')">
                         Listvy Inställningar
@@ -52,11 +54,11 @@ class ObjectTypeManager {
                         </div>
                     </div>
                     
-                    <div id="tree-view-tab" class="admin-tab-panel">
+                    <div id="building-part-categories-tab" class="admin-tab-panel">
                         <div class="admin-panel-header">
-                            <h3>Trädvy Visningsinställningar</h3>
+                            <h3>Byggdelskategorier</h3>
                         </div>
-                        <div id="tree-view-config-container">
+                        <div id="building-part-categories-container">
                             <p>Laddar...</p>
                         </div>
                     </div>
@@ -73,8 +75,9 @@ class ObjectTypeManager {
             </div>
         `;
         
+        this.setupFieldModalTypeBehavior();
         await this.loadObjectTypes();
-        await this.loadTreeViewConfig();
+        await this.loadBuildingPartCategories();
         await this.loadListViewConfig();
     }
     
@@ -172,14 +175,16 @@ class ObjectTypeManager {
     }
     
     renderFieldItem(field) {
+        const typeLabel = this.getFieldTypeLabel(field);
         return `
             <div class="field-item">
                 <div class="field-info">
                     <strong>${field.display_name || field.field_name}</strong>
                     ${field.is_required ? '<span class="required-badge">Obligatorisk</span>' : ''}
+                    ${field.is_table_visible === false ? '<span class="status-badge obsolete">Dold i tabeller</span>' : '<span class="status-badge godkand">Visas i tabeller</span>'}
                     <br>
                     <small>
-                        Typ: ${field.field_type} • 
+                        Typ: ${typeLabel} • 
                         Namn: ${field.field_name}
                         ${field.help_text ? ` • ${field.help_text}` : ''}
                     </small>
@@ -194,6 +199,142 @@ class ObjectTypeManager {
                 </div>
             </div>
         `;
+    }
+
+    getFieldTypeLabel(field) {
+        const options = this.normalizeFieldOptions(field.field_options);
+        if (field.field_type === 'select' && options?.source === 'building_part_categories') {
+            return 'byggdelskategori';
+        }
+        return field.field_type;
+    }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            return JSON.parse(rawOptions);
+        } catch (_err) {
+            return null;
+        }
+    }
+
+    setupFieldModalTypeBehavior() {
+        if (this.fieldModalTypeListenerAttached) return;
+        const fieldTypeSelect = document.getElementById('field-type');
+        if (!fieldTypeSelect) return;
+
+        fieldTypeSelect.addEventListener('change', () => this.updateFieldOptionsState());
+        this.fieldModalTypeListenerAttached = true;
+    }
+
+    updateFieldOptionsState() {
+        const fieldTypeSelect = document.getElementById('field-type');
+        const optionsInput = document.getElementById('field-options');
+        if (!fieldTypeSelect || !optionsInput) return;
+
+        const isBuildingPartCategory = fieldTypeSelect.value === 'building_part_category';
+        optionsInput.disabled = isBuildingPartCategory;
+        optionsInput.placeholder = isBuildingPartCategory
+            ? 'Hämtas automatiskt från admin-listan Byggdelskategorier'
+            : 'Alt1, Alt2, Alt3 eller JSON array';
+    }
+
+    async loadBuildingPartCategories() {
+        try {
+            this.buildingPartCategories = await BuildingPartCategoriesAPI.getAll(true);
+            this.renderBuildingPartCategories();
+        } catch (error) {
+            console.error('Failed to load building part categories:', error);
+            const container = document.getElementById('building-part-categories-container');
+            if (container) {
+                container.innerHTML = '<p class="error">Kunde inte ladda byggdelskategorier</p>';
+            }
+        }
+    }
+
+    renderBuildingPartCategories() {
+        const container = document.getElementById('building-part-categories-container');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="category-admin">
+                <div class="category-toolbar">
+                    <input id="new-building-part-category-name" type="text" class="form-control" placeholder="Ny byggdelskategori...">
+                    <button class="btn btn-primary" onclick="adminManager.createBuildingPartCategory()">Lägg till</button>
+                </div>
+                ${this.buildingPartCategories.length === 0
+                    ? '<p class="empty-state">Inga byggdelskategorier ännu</p>'
+                    : `<div class="category-list">
+                        ${this.buildingPartCategories.map(category => `
+                            <div class="category-item ${category.is_active ? '' : 'inactive'}">
+                                <span>${escapeHtml(category.name)}</span>
+                                <div class="category-actions">
+                                    <button class="btn btn-sm btn-secondary" onclick="adminManager.editBuildingPartCategory(${category.id})">Redigera</button>
+                                    <button class="btn btn-sm btn-danger" onclick="adminManager.deleteBuildingPartCategory(${category.id})">Ta bort</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>`}
+            </div>
+        `;
+    }
+
+    async createBuildingPartCategory() {
+        const input = document.getElementById('new-building-part-category-name');
+        const name = (input?.value || '').trim();
+        if (!name) {
+            showToast('Ange ett namn för byggdelskategorin', 'error');
+            return;
+        }
+
+        try {
+            await BuildingPartCategoriesAPI.create({ name });
+            if (input) input.value = '';
+            showToast('Byggdelskategori skapad', 'success');
+            await this.loadBuildingPartCategories();
+        } catch (error) {
+            console.error('Failed to create building part category:', error);
+            showToast(error.message || 'Kunde inte skapa byggdelskategori', 'error');
+        }
+    }
+
+    async editBuildingPartCategory(categoryId) {
+        const category = this.buildingPartCategories.find(item => item.id === categoryId);
+        if (!category) return;
+
+        const newName = prompt('Nytt namn på byggdelskategori:', category.name);
+        if (newName === null) return;
+        const trimmedName = newName.trim();
+        if (!trimmedName) {
+            showToast('Namn kan inte vara tomt', 'error');
+            return;
+        }
+
+        try {
+            await BuildingPartCategoriesAPI.update(categoryId, { name: trimmedName });
+            showToast('Byggdelskategori uppdaterad', 'success');
+            await this.loadBuildingPartCategories();
+        } catch (error) {
+            console.error('Failed to update building part category:', error);
+            showToast(error.message || 'Kunde inte uppdatera byggdelskategori', 'error');
+        }
+    }
+
+    async deleteBuildingPartCategory(categoryId) {
+        if (!confirm('Är du säker på att du vill ta bort denna byggdelskategori?')) {
+            return;
+        }
+
+        try {
+            await BuildingPartCategoriesAPI.delete(categoryId);
+            showToast('Byggdelskategori borttagen', 'success');
+            await this.loadBuildingPartCategories();
+        } catch (error) {
+            console.error('Failed to delete building part category:', error);
+            showToast(error.message || 'Kunde inte ta bort byggdelskategori', 'error');
+        }
     }
     
     showCreateTypeModal() {
@@ -258,6 +399,8 @@ class ObjectTypeManager {
         
         document.getElementById('field-modal-title').textContent = 'Lägg till Fält';
         document.getElementById('field-form').reset();
+        document.getElementById('field-table-visible').checked = true;
+        this.updateFieldOptionsState();
         modal.dataset.mode = 'create';
         modal.dataset.typeId = this.selectedType.id;
         
@@ -279,10 +422,18 @@ class ObjectTypeManager {
         document.getElementById('field-modal-title').textContent = 'Redigera Fält';
         document.getElementById('field-name').value = field.field_name;
         document.getElementById('field-display-name').value = field.display_name || '';
-        document.getElementById('field-type').value = field.field_type;
+        const parsedOptions = this.normalizeFieldOptions(field.field_options);
+        const fieldTypeValue = (field.field_type === 'select' && parsedOptions?.source === 'building_part_categories')
+            ? 'building_part_category'
+            : field.field_type;
+        document.getElementById('field-type').value = fieldTypeValue;
         document.getElementById('field-required').checked = field.is_required;
+        document.getElementById('field-table-visible').checked = field.is_table_visible !== false;
         document.getElementById('field-help-text').value = field.help_text || '';
-        document.getElementById('field-options').value = field.field_options || '';
+        document.getElementById('field-options').value = typeof field.field_options === 'string'
+            ? field.field_options
+            : (field.field_options ? JSON.stringify(field.field_options) : '');
+        this.updateFieldOptionsState();
         
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = this.selectedType.id;
@@ -321,118 +472,10 @@ class ObjectTypeManager {
         
         if (tabName === 'object-types') {
             document.getElementById('object-types-tab').classList.add('active');
-        } else if (tabName === 'tree-view') {
-            document.getElementById('tree-view-tab').classList.add('active');
+        } else if (tabName === 'building-part-categories') {
+            document.getElementById('building-part-categories-tab').classList.add('active');
         } else if (tabName === 'list-view') {
             document.getElementById('list-view-tab').classList.add('active');
-        }
-    }
-    
-    async loadTreeViewConfig() {
-        try {
-            const response = await fetch('/api/view-config/tree-display');
-            if (!response.ok) throw new Error('Failed to load tree view config');
-            
-            const config = await response.json();
-            this.treeViewConfig = config;
-            this.renderTreeViewConfig();
-        } catch (error) {
-            console.error('Failed to load tree view config:', error);
-            const container = document.getElementById('tree-view-config-container');
-            if (container) {
-                container.innerHTML = '<p class="error">Kunde inte ladda trädvy-inställningar</p>';
-            }
-        }
-    }
-    
-    renderTreeViewConfig() {
-        const container = document.getElementById('tree-view-config-container');
-        if (!container || !this.treeViewConfig) return;
-        
-        const configEntries = Object.entries(this.treeViewConfig);
-        
-        container.innerHTML = `
-            <div class="tree-view-config">
-                <p class="config-description">
-                    Välj vilket fält som ska visas som "Namn" för varje objektstyp i trädvyn.
-                </p>
-                <form id="tree-view-config-form">
-                    ${configEntries.map(([typeName, typeConfig]) => `
-                        <div class="config-row">
-                            <label class="config-label">${typeName}</label>
-                            <select 
-                                class="form-control config-select" 
-                                data-object-type="${typeName}"
-                                data-object-type-id="${typeConfig.object_type_id}">
-                                <option value="ID" ${!typeConfig.tree_view_name_field || typeConfig.tree_view_name_field === 'ID' ? 'selected' : ''}>
-                                    ID (standard)
-                                </option>
-                                ${typeConfig.available_fields.map(field => `
-                                    <option value="${field.field_name}" ${typeConfig.tree_view_name_field === field.field_name ? 'selected' : ''}>
-                                        ${field.display_name}
-                                    </option>
-                                `).join('')}
-                            </select>
-                        </div>
-                    `).join('')}
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Spara Inställningar</button>
-                    </div>
-                </form>
-            </div>
-        `;
-        
-        // Add form submit handler
-        document.getElementById('tree-view-config-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await this.saveTreeViewConfig();
-        });
-    }
-    
-    async saveTreeViewConfig() {
-        try {
-            const selects = document.querySelectorAll('.config-select');
-            const config = {};
-            
-            selects.forEach(select => {
-                const typeName = select.dataset.objectType;
-                const typeId = parseInt(select.dataset.objectTypeId);
-                const fieldName = select.value;
-                
-                // Validate typeId is a valid number
-                if (isNaN(typeId) || typeId <= 0) {
-                    console.error(`Invalid object type ID for ${typeName}: ${typeId}`);
-                    return;
-                }
-                
-                config[typeName] = {
-                    object_type_id: typeId,
-                    tree_view_name_field: fieldName === 'ID' ? null : fieldName
-                };
-            });
-            
-            const response = await fetch('/api/view-config/tree-display', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(config)
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to save config');
-            }
-            
-            showToast('Trädvy-inställningar sparade', 'success');
-            
-            // Refresh tree view if it's active
-            if (window.treeViewInstance) {
-                await window.treeViewInstance.render();
-            }
-        } catch (error) {
-            console.error('Failed to save tree view config:', error);
-            showToast(error.message || 'Kunde inte spara inställningar', 'error');
         }
     }
 }
@@ -486,13 +529,18 @@ async function saveField(event) {
     const typeId = modal.dataset.typeId;
     const fieldId = modal.dataset.fieldId;
     
+    const selectedFieldType = document.getElementById('field-type').value;
+    const rawFieldOptions = document.getElementById('field-options').value;
     const data = {
         field_name: document.getElementById('field-name').value,
         display_name: document.getElementById('field-display-name').value,
-        field_type: document.getElementById('field-type').value,
+        field_type: selectedFieldType === 'building_part_category' ? 'select' : selectedFieldType,
         is_required: document.getElementById('field-required').checked,
+        is_table_visible: document.getElementById('field-table-visible').checked,
         help_text: document.getElementById('field-help-text').value,
-        field_options: document.getElementById('field-options').value
+        field_options: selectedFieldType === 'building_part_category'
+            ? { source: 'building_part_categories' }
+            : rawFieldOptions
     };
     
     try {

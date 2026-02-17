@@ -9,6 +9,7 @@ from routes.search import bp as search_bp
 from routes.stats import stats_bp
 from routes.view_config import bp as view_config_bp
 from routes.relation_entities import bp as relation_entities_bp
+from routes.building_part_categories import bp as building_part_categories_bp
 
 def register_blueprints(app):
     """Register all blueprints with the Flask app"""
@@ -20,3 +21,4 @@ def register_blueprints(app):
     app.register_blueprint(stats_bp, url_prefix='/api')
     app.register_blueprint(view_config_bp)
     app.register_blueprint(relation_entities_bp)
+    app.register_blueprint(building_part_categories_bp)

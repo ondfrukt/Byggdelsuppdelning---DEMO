@@ -228,7 +228,7 @@ body {
     box-shadow: var(--shadow-md);
     overflow-x: auto;
     overflow-y: auto;
-    max-height: calc(100vh - 300px);
+    max-height: calc(100vh - 210px);
     position: relative;
     isolation: isolate;
 }
@@ -285,6 +285,24 @@ body {
     text-align: center;
     padding-left: 0;
     padding-right: 0;
+}
+
+.data-table .col-select {
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.row-select-checkbox,
+#objects-container .col-select input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.filters .bulk-relate-btn {
+    white-space: nowrap;
 }
 
 /* Kolumner som får ta utrymme (flexibla) */

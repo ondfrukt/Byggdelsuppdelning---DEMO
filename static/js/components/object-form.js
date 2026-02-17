@@ -8,15 +8,37 @@ class ObjectFormComponent {
         this.objectType = objectType;
         this.existingObject = existingObject;
         this.fields = [];
+        this.buildingPartCategories = [];
     }
     
     async loadFields() {
         try {
             const typeData = await ObjectTypesAPI.getById(this.objectType.id);
             this.fields = typeData.fields || [];
+            await this.loadDynamicSelectOptions();
         } catch (error) {
             console.error('Failed to load fields:', error);
             throw error;
+        }
+    }
+
+    async loadDynamicSelectOptions() {
+        const needsBuildingPartCategories = this.fields.some(field => {
+            if (field.field_type !== 'select') return false;
+            const options = this.normalizeFieldOptions(field.field_options || field.options);
+            return options?.source === 'building_part_categories';
+        });
+
+        if (!needsBuildingPartCategories) {
+            this.buildingPartCategories = [];
+            return;
+        }
+
+        try {
+            this.buildingPartCategories = await BuildingPartCategoriesAPI.getAll();
+        } catch (error) {
+            console.error('Failed to load building part categories for object form:', error);
+            this.buildingPartCategories = [];
         }
     }
     
@@ -135,7 +157,7 @@ class ObjectFormComponent {
                 break;
                 
             case 'select':
-                const options = this.parseOptions(field.field_options || field.options);
+                const options = this.getSelectOptions(field);
                 const optionsHtml = options.map(opt => 
                     `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>
                         ${escapeHtml(opt)}
@@ -223,6 +245,10 @@ class ObjectFormComponent {
         
         // If it's an object (but not an array), try to extract values
         if (typeof optionsString === 'object') {
+            // Dynamic option source is handled separately in getSelectOptions.
+            if (optionsString.source) {
+                return Array.isArray(optionsString.values) ? optionsString.values : [];
+            }
             // If it has a values property that's an array, use that
             if (Array.isArray(optionsString.values)) {
                 return optionsString.values;
@@ -250,6 +276,25 @@ class ObjectFormComponent {
         }
         
         return [];
+    }
+
+    normalizeFieldOptions(options) {
+        if (!options) return null;
+        if (typeof options === 'object') return options;
+        if (typeof options !== 'string') return null;
+        try {
+            return JSON.parse(options);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    getSelectOptions(field) {
+        const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
+        if (normalizedOptions?.source === 'building_part_categories') {
+            return (this.buildingPartCategories || []).map(category => category.name).filter(Boolean);
+        }
+        return this.parseOptions(field.field_options || field.options);
     }
     
     getFormData() {

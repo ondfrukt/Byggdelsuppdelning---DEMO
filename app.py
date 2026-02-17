@@ -60,8 +60,33 @@ def create_app():
             logger.info(f"Direct-link migration created {migrated_count} relation entities")
         except Exception as e:
             logger.warning(f"Direct-link migration may have already run or has no data: {str(e)}")
+
+        try:
+            from migrations.add_building_part_categories import run_migration as run_building_part_category_migration
+            run_building_part_category_migration(db)
+        except Exception as e:
+            logger.warning(f"Building part categories migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_table_visibility_to_object_fields import run_migration as run_table_visibility_migration
+            run_table_visibility_migration(db)
+        except Exception as e:
+            logger.warning(f"Table visibility migration may have already run: {str(e)}")
+
+        try:
+            from migrations.ensure_required_name_field_on_object_types import run_migration as run_required_name_field_migration
+            run_required_name_field_migration(db)
+        except Exception as e:
+            logger.warning(f"Required namn field migration may have already run: {str(e)}")
         
         seed_data(app)
+
+        # Re-run after seed to guarantee canonical 'namn' field on freshly seeded databases.
+        try:
+            from migrations.ensure_required_name_field_on_object_types import run_migration as run_required_name_field_migration
+            run_required_name_field_migration(db)
+        except Exception as e:
+            logger.warning(f"Required namn field post-seed migration may have already run: {str(e)}")
     
     # Register blueprints
     register_blueprints(app)

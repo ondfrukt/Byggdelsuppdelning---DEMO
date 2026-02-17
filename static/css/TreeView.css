@@ -11,6 +11,13 @@
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
+.tree-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 8px 4px;
+    background-color: var(--bg-primary);
+}
+
 .tree-table {
     width: 100%;
     border-collapse: collapse;
@@ -83,31 +90,52 @@
 
 .tree-node.has-children {
     cursor: pointer;
+    background-color: #fff4e6;
 }
 
 .tree-node.has-children:hover {
-    background-color: var(--bg-secondary);
+    background-color: #e0f2fe;
 }
 
 .tree-node-selected {
-    background-color: #dbeafe !important;
-    box-shadow: inset 3px 0 0 var(--primary-color);
+    background-color: transparent !important;
+    box-shadow: none !important;
 }
 
 .tree-node-selected:hover,
 .tree-node.has-children.tree-node-selected:hover {
-    background-color: #bfdbfe !important;
+    background-color: #e0f2fe !important;
 }
 
 .tree-node-group {
     font-weight: 500;
     color: var(--text-secondary);
-    background-color: var(--bg-secondary);
+    background-color: #ffe9cc;
     font-size: 13px;
 }
 
 .tree-node-group:hover {
-    background-color: var(--bg-tertiary);
+    background-color: #e0f2fe;
+}
+
+.tree-node.has-children:not(.tree-node-group) {
+    background-color: #fff4e6;
+}
+
+.tree-node[data-tree-level="1"].has-children:not(.tree-node-group) {
+    background-color: #fff8ef;
+}
+
+.tree-node.has-children:not(.tree-node-group) td:first-child .tree-label {
+    font-weight: 600;
+}
+
+.tree-node.has-children:not(.tree-node-group):hover {
+    background-color: #e0f2fe;
+}
+
+.tree-table tbody tr:hover {
+    background-color: #e0f2fe;
 }
 
 /* Compact toggle icons (12-14px) */
@@ -297,15 +325,15 @@
 
 /* Ensure proper contrast for accessibility (WCAG AA) */
 .tree-node:focus-within {
-    outline: 2px solid var(--primary-color);
-    outline-offset: -2px;
+    outline: none;
 }
 
 /* Keyboard navigation support */
 .tree-toggle:focus,
-.tree-id-link:focus {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
+.tree-toggle:focus-visible,
+.tree-id-link:focus,
+.tree-id-link:focus-visible {
+    outline: none;
 }
 
 /* Responsive adjustments while maintaining compact design */

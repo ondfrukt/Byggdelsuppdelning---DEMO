@@ -230,12 +230,19 @@
                         <option value="datetime">Datum & Tid</option>
                         <option value="boolean">Ja/Nej</option>
                         <option value="select">Val (dropdown)</option>
+                        <option value="building_part_category">Byggdelskategori (admin-lista)</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>
                         <input type="checkbox" id="field-required">
                         Obligatoriskt fält
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="field-table-visible" checked>
+                        Visbar i tabeller (objektvy/trädvy)
                     </label>
                 </div>
                 <div class="form-group">
@@ -247,7 +254,7 @@
                     <label for="field-options">Alternativ (för dropdown)</label>
                     <input type="text" id="field-options" class="form-control" 
                            placeholder="Alt1, Alt2, Alt3 eller JSON array">
-                    <small class="form-help">Komma-separerad lista eller JSON array</small>
+                    <small class="form-help">Komma-separerad lista eller JSON array. Ej relevant för byggdelskategori-fält.</small>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">

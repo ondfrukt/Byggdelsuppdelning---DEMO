@@ -248,3 +248,31 @@ const SearchAPI = {
         return fetchAPI(`/search${queryString ? '?' + queryString : ''}`);
     },
 };
+
+// Building Part Categories API
+const BuildingPartCategoriesAPI = {
+    getAll: (includeInactive = false) => {
+        const params = includeInactive ? '?include_inactive=true' : '';
+        return fetchAPI(`/building-part-categories${params}`);
+    },
+
+    create: (data) => {
+        return fetchAPI('/building-part-categories', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    update: (id, data) => {
+        return fetchAPI(`/building-part-categories/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    delete: (id) => {
+        return fetchAPI(`/building-part-categories/${id}`, {
+            method: 'DELETE',
+        });
+    },
+};

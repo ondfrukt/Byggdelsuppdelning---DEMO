@@ -235,20 +235,52 @@ class FileUploadComponent {
 
         // Drag and drop
         if (uploadArea) {
-            uploadArea.addEventListener('dragover', (e) => {
+            const uploadRoot = this.container.querySelector('.file-upload') || uploadArea;
+            let dragDepth = 0;
+            const isFileDrag = (event) => {
+                const types = Array.from(event?.dataTransfer?.types || []);
+                return types.includes('Files');
+            };
+
+            const setDragoverState = (isActive) => {
+                if (isActive) {
+                    uploadArea.classList.add('dragover');
+                } else {
+                    uploadArea.classList.remove('dragover');
+                }
+            };
+
+            uploadRoot.addEventListener('dragenter', (e) => {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
-                uploadArea.classList.add('dragover');
+                dragDepth += 1;
+                setDragoverState(true);
             });
-            
-            uploadArea.addEventListener('dragleave', () => {
-                uploadArea.classList.remove('dragover');
-            });
-            
-            uploadArea.addEventListener('drop', (e) => {
+
+            uploadRoot.addEventListener('dragover', (e) => {
+                if (!isFileDrag(e)) return;
                 e.preventDefault();
-                uploadArea.classList.remove('dragover');
-                
-                const files = Array.from(e.dataTransfer.files);
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                setDragoverState(true);
+            });
+
+            uploadRoot.addEventListener('dragleave', (e) => {
+                if (!isFileDrag(e)) return;
+                e.preventDefault();
+                dragDepth = Math.max(0, dragDepth - 1);
+                if (dragDepth === 0) {
+                    setDragoverState(false);
+                }
+            });
+
+            uploadRoot.addEventListener('drop', (e) => {
+                if (!isFileDrag(e)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                dragDepth = 0;
+                setDragoverState(false);
+
+                const files = Array.from(e.dataTransfer?.files || []);
                 this.prepareUpload(files);
             });
         }

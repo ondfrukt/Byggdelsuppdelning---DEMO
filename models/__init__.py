@@ -11,6 +11,7 @@ from models.object_data import ObjectData
 from models.relation import ObjectRelation
 from models.document import Document
 from models.view_configuration import ViewConfiguration
+from models.building_part_category import BuildingPartCategory
 
 __all__ = [
     'db',
@@ -20,5 +21,6 @@ __all__ = [
     'ObjectData',
     'ObjectRelation',
     'Document',
-    'ViewConfiguration'
+    'ViewConfiguration',
+    'BuildingPartCategory'
 ]
