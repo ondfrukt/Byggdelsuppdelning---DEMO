@@ -125,6 +125,181 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
+function isPdfUrl(url) {
+    if (!url) return false;
+    const cleanUrl = String(url).split('?')[0].split('#')[0].toLowerCase();
+    return cleanUrl.endsWith('.pdf');
+}
+
+function normalizePdfOpenUrl(url, isPdf = null) {
+    if (!url) return '';
+
+    const resolvedPdf = typeof isPdf === 'boolean' ? isPdf : isPdfUrl(url);
+    if (!resolvedPdf) return String(url);
+
+    try {
+        const parsed = new URL(String(url), window.location.origin);
+        parsed.searchParams.set('inline', '1');
+        if (parsed.origin === window.location.origin) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+        }
+        return parsed.toString();
+    } catch (_error) {
+        const separator = String(url).includes('?') ? '&' : '?';
+        return `${url}${separator}inline=1`;
+    }
+}
+
+function createPdfPreviewTooltip() {
+    let tooltip = document.getElementById('pdf-preview-tooltip');
+    if (tooltip) return tooltip;
+
+    tooltip = document.createElement('div');
+    tooltip.id = 'pdf-preview-tooltip';
+    tooltip.className = 'pdf-preview-tooltip';
+    tooltip.innerHTML = `
+        <div class="pdf-preview-tooltip-title">PDF-förhandsvisning</div>
+        <iframe class="pdf-preview-frame" title="PDF-förhandsvisning" loading="lazy"></iframe>
+    `;
+    document.body.appendChild(tooltip);
+    return tooltip;
+}
+
+function initializePdfHoverPreview() {
+    const tooltip = createPdfPreviewTooltip();
+    const previewFrame = tooltip.querySelector('.pdf-preview-frame');
+    const titleNode = tooltip.querySelector('.pdf-preview-tooltip-title');
+    const previewMetaCache = new Map();
+    let activeLink = null;
+    let hoverToken = 0;
+
+    const hidePreview = () => {
+        tooltip.classList.remove('visible');
+        activeLink = null;
+        if (previewFrame) {
+            previewFrame.src = 'about:blank';
+        }
+    };
+
+    const applyTooltipSize = (ratio) => {
+        const safeRatio = Number.isFinite(ratio) && ratio > 0 ? ratio : 0.75;
+        const maxWidth = Math.min(Math.floor(window.innerWidth * 0.62), 720);
+        const maxHeight = Math.min(Math.floor(window.innerHeight * 0.78), 760);
+        const minWidth = 220;
+        const minHeight = 260;
+
+        let width = safeRatio >= 1 ? 520 : 360;
+        width = Math.max(minWidth, Math.min(width, maxWidth));
+        let height = Math.round(width / safeRatio) + 34;
+
+        if (height > maxHeight) {
+            height = maxHeight;
+            width = Math.round((height - 34) * safeRatio);
+        }
+
+        width = Math.max(minWidth, Math.min(width, maxWidth));
+        height = Math.max(minHeight, Math.min(height, maxHeight));
+
+        tooltip.style.width = `${width}px`;
+        tooltip.style.height = `${height}px`;
+    };
+
+    const extractDocumentId = (link, href) => {
+        const explicit = link.getAttribute('data-document-id');
+        if (explicit && /^\d+$/.test(explicit)) {
+            return explicit;
+        }
+        const match = String(href || '').match(/\/documents\/(\d+)\/download/i);
+        return match ? match[1] : '';
+    };
+
+    const loadPreviewMeta = async (link, href) => {
+        const ratioAttr = link.getAttribute('data-pdf-page-ratio');
+        if (ratioAttr) {
+            return parseFloat(ratioAttr);
+        }
+
+        const docId = extractDocumentId(link, href);
+        if (!docId) return null;
+
+        if (previewMetaCache.has(docId)) {
+            return previewMetaCache.get(docId);
+        }
+
+        try {
+            const response = await fetch(`/api/objects/documents/${docId}/preview-meta`);
+            if (!response.ok) return null;
+            const meta = await response.json();
+            const ratio = parseFloat(meta.page_ratio);
+            if (!Number.isFinite(ratio) || ratio <= 0) return null;
+            previewMetaCache.set(docId, ratio);
+            link.setAttribute('data-pdf-page-ratio', String(ratio));
+            return ratio;
+        } catch (_error) {
+            return null;
+        }
+    };
+
+    const movePreview = (event) => {
+        if (!activeLink) return;
+        const margin = 18;
+        const width = tooltip.offsetWidth || 340;
+        const height = tooltip.offsetHeight || 430;
+        let left = event.clientX + margin;
+        let top = event.clientY + margin;
+
+        if (left + width > window.innerWidth) {
+            left = Math.max(8, event.clientX - width - margin);
+        }
+        if (top + height > window.innerHeight) {
+            top = Math.max(8, window.innerHeight - height - 8);
+        }
+
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+    };
+
+    document.addEventListener('mouseover', (event) => {
+        const link = event.target.closest('.js-pdf-preview-link');
+        if (!link) return;
+
+        const href = link.getAttribute('data-preview-url') || link.getAttribute('href');
+        if (!href) return;
+
+        const currentToken = ++hoverToken;
+        activeLink = link;
+        const linkText = (link.textContent || '').trim() || 'PDF-dokument';
+        if (titleNode) {
+            titleNode.textContent = linkText;
+        }
+        applyTooltipSize(parseFloat(link.getAttribute('data-pdf-page-ratio')) || 0.75);
+        if (previewFrame) {
+            const previewUrl = `${normalizePdfOpenUrl(href, true)}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`;
+            previewFrame.src = previewUrl;
+        }
+        tooltip.classList.add('visible');
+
+        loadPreviewMeta(link, href).then((ratio) => {
+            if (!ratio || currentToken !== hoverToken || activeLink !== link) return;
+            applyTooltipSize(ratio);
+        });
+    });
+
+    document.addEventListener('mousemove', movePreview);
+
+    document.addEventListener('mouseout', (event) => {
+        if (!activeLink) return;
+        const toElement = event.relatedTarget;
+        if (toElement && (toElement === activeLink || activeLink.contains(toElement))) {
+            return;
+        }
+        hidePreview();
+    });
+
+    window.addEventListener('scroll', hidePreview, true);
+    window.addEventListener('blur', hidePreview);
+}
+
 // Confirmation dialog
 function confirmAction(message) {
     return confirm(message);
@@ -235,3 +410,5 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+initializePdfHoverPreview();

@@ -35,6 +35,27 @@
     letter-spacing: normal;
 }
 
+.tree-search-row th {
+    padding: 4px 6px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.tree-column-search-input {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-primary);
+}
+
+.tree-column-search-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
 /* Compact row design */
 .tree-table tbody tr {
     border-bottom: 1px solid var(--border-color);
@@ -62,8 +83,13 @@
 }
 
 .tree-node-selected {
-    background-color: var(--bg-tertiary) !important;
-    font-weight: 500;
+    background-color: #dbeafe !important;
+    box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.tree-node-selected:hover,
+.tree-node.has-children.tree-node-selected:hover {
+    background-color: #bfdbfe !important;
 }
 
 .tree-node-group {
@@ -187,8 +213,27 @@
 
 .tree-table th:nth-child(6),
 .tree-table td:nth-child(6) {
+    width: 5px;
+    min-width: 5px;
+    max-width: 5px;
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.tree-table th:nth-child(7),
+.tree-table td:nth-child(7) {
     width: 28%;
     min-width: 180px;
+}
+
+.tree-table .col-paperclip {
+    width: 5px !important;
+    min-width: 5px !important;
+    max-width: 5px !important;
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 .tree-file-link {
@@ -200,6 +245,13 @@
 
 .tree-file-link:hover {
     text-decoration: underline;
+}
+
+.tree-search-hit {
+    background-color: #fde68a;
+    color: inherit;
+    padding: 0 1px;
+    border-radius: 2px;
 }
 
 /* Sortable header styles */
@@ -260,8 +312,8 @@
     .tree-table td:nth-child(4),
     .tree-table th:nth-child(5),
     .tree-table td:nth-child(5),
-    .tree-table th:nth-child(6),
-    .tree-table td:nth-child(6) {
+    .tree-table th:nth-child(7),
+    .tree-table td:nth-child(7) {
         min-width: 120px;
     }
 }

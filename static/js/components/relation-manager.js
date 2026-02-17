@@ -66,17 +66,28 @@ class RelationManagerComponent {
         return relation.direction === 'incoming' ? (relation.source_object || {}) : (relation.target_object || {});
     }
 
+    isFileObjectType(typeName) {
+        const normalized = (typeName || '').toLowerCase().trim();
+        return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+    }
+
     renderRelations() {
         const listContainer = document.getElementById(`relations-list-${this.objectId}`);
         if (!listContainer) return;
 
-        if (!this.relations || this.relations.length === 0) {
+        const visibleRelations = (this.relations || []).filter(rel => {
+            const linkedObject = this.getLinkedObject(rel);
+            const linkedType = linkedObject?.object_type?.name || '';
+            return !this.isFileObjectType(linkedType);
+        });
+
+        if (visibleRelations.length === 0) {
             listContainer.innerHTML = '<p class="empty-state">Inga relationer ännu</p>';
             return;
         }
 
         const grouped = {};
-        this.relations.forEach(rel => {
+        visibleRelations.forEach(rel => {
             const key = `${rel.relation_type || 'Övriga'}|${rel.direction || 'outgoing'}`;
             if (!grouped[key]) grouped[key] = [];
             grouped[key].push(rel);
@@ -164,6 +175,11 @@ function getObjectDisplayName(obj) {
     return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.auto_id || 'Okänt objekt';
 }
 
+function isFileObjectType(typeName) {
+    const normalized = (typeName || '').toLowerCase().trim();
+    return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+}
+
 function renderRelationModalSourceContext() {
     const sourceElement = document.getElementById('relation-modal-source');
     if (!sourceElement) return;
@@ -229,7 +245,10 @@ async function loadRelationCandidates() {
     });
 
     const loadedItems = Array.isArray(result) ? result : (result.items || []);
-    relationModalState.items = loadedItems.filter(item => item.id !== relationModalState.sourceId);
+    relationModalState.items = loadedItems.filter(item => {
+        if (item.id === relationModalState.sourceId) return false;
+        return !isFileObjectType(item?.object_type?.name);
+    });
 }
 
 function getRelationTableColumns() {
@@ -551,7 +570,7 @@ async function showAddRelationModal(objectId, preSelectedType = null) {
         }
         renderRelationModalSourceContext();
 
-        relationModalState.objectTypes = await ObjectTypesAPI.getAll(true);
+        relationModalState.objectTypes = (await ObjectTypesAPI.getAll(true)).filter(type => !isFileObjectType(type.name));
 
         const typeFilter = document.getElementById('relation-object-type-filter');
         if (typeFilter) {

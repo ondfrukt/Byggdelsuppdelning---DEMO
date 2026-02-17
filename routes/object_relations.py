@@ -9,7 +9,7 @@ bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
 
 def is_file_object(obj):
     type_name = obj.object_type.name if obj and obj.object_type else ''
-    return type_name.strip().lower() in {'filobjekt', 'ritningsobjekt'}
+    return type_name.strip().lower() == 'filobjekt'
 
 
 @bp.route('/<int:id>/relations', methods=['GET'])

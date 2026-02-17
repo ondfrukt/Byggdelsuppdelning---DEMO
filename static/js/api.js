@@ -223,7 +223,7 @@ const ObjectsAPI = {
     },
     
     downloadDocument: (_objectId, documentId) => {
-        window.open(`${API_BASE_URL}/objects/documents/${documentId}/download`, '_blank');
+        window.open(`${API_BASE_URL}/objects/documents/${documentId}/download?download=1`, '_blank');
     },
     
     deleteDocument: (_objectId, documentId) => {

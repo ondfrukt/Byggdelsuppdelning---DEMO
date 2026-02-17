@@ -1,5 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
 from werkzeug.exceptions import HTTPException
+
+try:
+    from pypdf import PdfReader
+except Exception:  # pragma: no cover - optional dependency handling
+    PdfReader = None
 from werkzeug.utils import secure_filename
 from models import db, Object, Document
 from utils.validators import sanitize_filename, validate_file_upload
@@ -29,7 +34,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def is_file_object_type(type_name):
     """Check if an object type should be treated as a file object."""
     normalized = (type_name or '').strip().lower()
-    return normalized in {'filobjekt', 'ritningsobjekt'}
+    return normalized == 'filobjekt'
 
 
 def ensure_file_object_or_422(obj):
@@ -198,6 +203,13 @@ def download_document(doc_id):
     """Download a document"""
     try:
         document = Document.query.get_or_404(doc_id)
+        filename = (document.original_filename or document.filename or '').lower()
+        mime_type = (document.mime_type or '').lower()
+        is_pdf = filename.endswith('.pdf') or mime_type == 'application/pdf'
+
+        force_download = request.args.get('download', '').lower() in ('1', 'true', 'yes')
+        inline_requested = request.args.get('inline', '').lower() in ('1', 'true', 'yes')
+        open_inline = is_pdf and (inline_requested or not force_download)
 
         storage_path = resolve_document_storage_path(document)
 
@@ -207,7 +219,7 @@ def download_document(doc_id):
 
         return send_file(
             storage_path,
-            as_attachment=True,
+            as_attachment=not open_inline,
             download_name=document.original_filename,
             mimetype=document.mime_type
         )
@@ -216,6 +228,61 @@ def download_document(doc_id):
     except Exception as e:
         logger.error(f"Error downloading document: {str(e)}")
         return jsonify({'error': 'Failed to download document'}), 500
+
+
+@bp.route('/documents/<int:doc_id>/preview-meta', methods=['GET'])
+def document_preview_meta(doc_id):
+    """Return first-page dimensions for PDF preview sizing."""
+    try:
+        document = Document.query.get_or_404(doc_id)
+        filename = (document.original_filename or document.filename or '').lower()
+        mime_type = (document.mime_type or '').lower()
+        is_pdf = filename.endswith('.pdf') or mime_type == 'application/pdf'
+        if not is_pdf:
+            return jsonify({'error': 'Preview metadata is only available for PDF files'}), 400
+
+        storage_path = resolve_document_storage_path(document)
+        if not os.path.exists(storage_path):
+            logger.warning(
+                "Document file missing for preview-meta doc_id=%s, expected=%s, candidates=%s",
+                doc_id,
+                storage_path,
+                get_document_storage_candidates(document),
+            )
+            return jsonify({'error': 'File not found'}), 404
+
+        if PdfReader is None:
+            return jsonify({'error': 'PDF metadata parser is unavailable on server'}), 503
+
+        reader = PdfReader(storage_path, strict=False)
+        if not reader.pages:
+            return jsonify({'error': 'PDF contains no pages'}), 422
+
+        first_page = reader.pages[0]
+        media_box = first_page.mediabox
+        width = float(media_box.width)
+        height = float(media_box.height)
+        ratio = (width / height) if height else 1.0
+
+        if ratio > 1.05:
+            orientation = 'landscape'
+        elif ratio < 0.95:
+            orientation = 'portrait'
+        else:
+            orientation = 'square'
+
+        return jsonify({
+            'document_id': document.id,
+            'page_width': width,
+            'page_height': height,
+            'page_ratio': ratio,
+            'orientation': orientation
+        }), 200
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting preview metadata: {str(e)}")
+        return jsonify({'error': 'Failed to get preview metadata'}), 500
 
 
 @bp.route('/documents/<int:doc_id>', methods=['DELETE'])

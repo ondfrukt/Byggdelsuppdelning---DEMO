@@ -9,6 +9,8 @@ import os
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 
 
 def get_display_name(obj, object_type_name, view_config):
@@ -82,6 +84,33 @@ def is_pdf_document(document):
     return filename.endswith('.pdf') or mime_type == 'application/pdf'
 
 
+def get_document_storage_candidates(document):
+    """Return possible file system paths for a stored document file."""
+    candidates = []
+
+    if document.file_path:
+        if os.path.isabs(document.file_path):
+            candidates.append(document.file_path)
+        else:
+            candidates.append(os.path.join(PROJECT_ROOT, document.file_path))
+            candidates.append(os.path.join(UPLOAD_FOLDER, document.file_path))
+            basename = os.path.basename(document.file_path)
+            if basename:
+                candidates.append(os.path.join(UPLOAD_FOLDER, basename))
+
+    if document.filename:
+        candidates.append(os.path.join(UPLOAD_FOLDER, document.filename))
+
+    unique = []
+    seen = set()
+    for path in candidates:
+        normalized = os.path.normpath(path)
+        if normalized not in seen:
+            seen.add(normalized)
+            unique.append(normalized)
+    return unique
+
+
 def get_document_link_description(document, owner_object=None):
     """Resolve a readable description for a document link in the tree."""
     owner_data = owner_object.data if owner_object else {}
@@ -103,12 +132,12 @@ def get_document_link_description(document, owner_object=None):
 
 
 def collect_tree_files_for_object(obj):
-    """Collect direct and indirectly linked PDF files for an object in tree view."""
+    """Collect direct and indirectly linked files for an object in tree view."""
     files = []
     seen_ids = set()
 
     def add_document(document, owner=None, source='direct'):
-        if not document or document.id in seen_ids or not is_pdf_document(document):
+        if not document or document.id in seen_ids:
             return
 
         seen_ids.add(document.id)
@@ -136,6 +165,15 @@ def collect_tree_files_for_object(obj):
             add_document(document, owner=linked_object, source='indirect')
 
     return files
+
+
+def enrich_object_with_file_metadata(payload, obj):
+    """Attach file metadata used by list and table views."""
+    files = collect_tree_files_for_object(obj)
+    payload['files'] = files
+    payload['file_count'] = len(files)
+    payload['has_files'] = len(files) > 0
+    return payload
 
 
 @bp.route('', methods=['GET'])
@@ -171,7 +209,7 @@ def list_objects():
 
         def to_minimal_payload(obj):
             data = obj.to_dict(include_data=True).get('data', {})
-            return {
+            payload = {
                 'id': obj.id,
                 'auto_id': obj.auto_id,
                 'object_type': {
@@ -184,6 +222,7 @@ def list_objects():
                     if key.lower() in ['namn', 'name', 'beskrivning', 'description']
                 }
             }
+            return enrich_object_with_file_metadata(payload, obj)
 
         if page and per_page:
             total = len(objects)
@@ -193,7 +232,10 @@ def list_objects():
             end_index = start_index + per_page
             page_objects = objects[start_index:end_index]
 
-            items = [to_minimal_payload(obj) for obj in page_objects] if minimal else [obj.to_dict(include_data=True) for obj in page_objects]
+            items = [to_minimal_payload(obj) for obj in page_objects] if minimal else [
+                enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj)
+                for obj in page_objects
+            ]
             return jsonify({
                 'items': items,
                 'page': page,
@@ -205,7 +247,10 @@ def list_objects():
         if minimal:
             return jsonify([to_minimal_payload(obj) for obj in objects]), 200
 
-        return jsonify([obj.to_dict(include_data=True) for obj in objects]), 200
+        return jsonify([
+            enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj)
+            for obj in objects
+        ]), 200
     except Exception as e:
         logger.error(f"Error listing objects: {str(e)}")
         return jsonify({'error': 'Failed to list objects'}), 500
@@ -414,11 +459,18 @@ def delete_object(id):
     try:
         obj = Object.query.get_or_404(id)
         auto_id = obj.auto_id
+
+        removed_paths = []
+        for document in list(obj.documents):
+            for candidate in get_document_storage_candidates(document):
+                if os.path.exists(candidate):
+                    os.remove(candidate)
+                    removed_paths.append(candidate)
         
         db.session.delete(obj)
         db.session.commit()
         
-        logger.info(f"Deleted object: {auto_id}")
+        logger.info(f"Deleted object: {auto_id}; removed_files={removed_paths}")
         return jsonify({'message': 'Object deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()

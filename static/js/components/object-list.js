@@ -185,9 +185,9 @@ class ObjectListComponent {
         
         // Render headers with sortable attributes and column classes
         thead.innerHTML = columns.map(col => {
-            const width = this.getColumnWidth(col.field_name);
-            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
             const colClass = this.getColumnClass(col);
+            const width = this.getColumnWidth(col, colClass);
+            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
             return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column ${colClass}">
                 ${col.display_name}
             </th>`;
@@ -196,10 +196,10 @@ class ObjectListComponent {
         // Render search row with column classes
         searchRow.innerHTML = columns.map(col => {
             const colClass = this.getColumnClass(col);
-            const width = this.getColumnWidth(col.field_name);
+            const width = this.getColumnWidth(col, colClass);
             const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            // Skip search input for actions column
-            if (col.field_name === 'actions') {
+            // Skip search input for utility columns
+            if (col.field_name === 'actions' || col.field_name === 'files_indicator') {
                 return `<th ${widthStyle} class="${colClass}"></th>`;
             }
             return `<th ${widthStyle} class="${colClass}">
@@ -254,8 +254,15 @@ class ObjectListComponent {
         }
         
         // Render rows with data-value attributes for sorting and column classes
+        const selectedObjectId = String(window.currentSelectedObjectId ?? '');
         tbody.innerHTML = filteredObjects.map(obj => `
-            <tr onclick="viewObjectDetail(${obj.id})" style="cursor: pointer;">
+            <tr
+                data-object-id="${obj.id}"
+                class="${String(obj.id) === selectedObjectId ? 'selected-object-row' : ''}"
+                aria-selected="${String(obj.id) === selectedObjectId ? 'true' : 'false'}"
+                onclick="viewObjectDetail(${obj.id})"
+                style="cursor: pointer;"
+            >
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
                     const displayValue = this.formatColumnValue(obj, col.field_name, value);
@@ -281,6 +288,10 @@ class ObjectListComponent {
         if (typeof TableSort !== 'undefined' && table.id) {
             this.tableSortInstance = new TableSort(table.id);
         }
+
+        if (typeof window.applySelectedRowHighlight === 'function') {
+            window.applySelectedRowHighlight();
+        }
     }
     
     getVisibleColumns() {
@@ -291,6 +302,7 @@ class ObjectListComponent {
                 { field_name: 'object_type', display_name: 'Typ' },
                 { field_name: 'display_name', display_name: 'Namn' },
                 { field_name: 'created_at', display_name: 'Skapad' },
+                { field_name: 'files_indicator', display_name: '📎' },
                 { field_name: 'actions', display_name: 'Åtgärder' }
             ];
         }
@@ -323,7 +335,8 @@ class ObjectListComponent {
             }
         }
         
-        // Always add actions column at the end
+        // Always add files indicator and actions column at the end
+        columns.push({ field_name: 'files_indicator', display_name: '📎' });
         columns.push({ field_name: 'actions', display_name: 'Åtgärder' });
         
         return columns;
@@ -344,8 +357,13 @@ class ObjectListComponent {
             'status': 'col-status',
             'version': 'col-status',
             'actions': 'col-actions',
+            'files_indicator': 'col-paperclip',
             'object_type': 'col-type',
             'display_name': 'col-name',
+            'filer': 'col-name',
+            'files': 'col-name',
+            'dokument': 'col-name',
+            'documents': 'col-name',
             'namn': 'col-name',
             'name': 'col-name',
             'beskrivning': 'col-description',
@@ -358,6 +376,11 @@ class ObjectListComponent {
         if (classMap[lowerFieldName]) {
             return classMap[lowerFieldName];
         }
+
+        // Treat all id-like fields as compact ID columns
+        if (lowerFieldName.includes('id')) {
+            return 'col-id';
+        }
         
         // Annars baserat på fälttyp
         if (fieldType === 'textarea') return 'col-description';
@@ -369,13 +392,29 @@ class ObjectListComponent {
         return 'col-default';
     }
     
-    getColumnWidth(fieldName) {
+    getColumnWidth(column, colClass = null) {
         if (!this.viewConfig || !this.viewConfig.column_widths) return null;
-        return this.viewConfig.column_widths[fieldName] || null;
+
+        // Keep standard columns CSS-driven for easier maintenance in style.css
+        const cssControlledClasses = new Set([
+            'col-id',
+            'col-type',
+            'col-date',
+            'col-status',
+            'col-actions',
+            'col-number',
+            'col-name',
+            'col-description'
+        ]);
+        const resolvedClass = colClass || this.getColumnClass(column);
+        if (cssControlledClasses.has(resolvedClass)) return null;
+
+        return this.viewConfig.column_widths[column.field_name] || null;
     }
     
     getSortType(col) {
         if (col.field_name === 'created_at') return 'date';
+        if (col.field_name === 'files_indicator') return 'number';
         if (col.field_type === 'number') return 'number';
         return 'text';
     }
@@ -386,6 +425,10 @@ class ObjectListComponent {
         if (fieldName === 'display_name') return this.getObjectDisplayName(obj);
         if (fieldName === 'created_at') return obj.created_at;
         if (fieldName === 'actions') return '';
+        if (fieldName === 'files_indicator') {
+            const count = this.getObjectFileCount(obj);
+            return count > 0 ? count : 0;
+        }
         
         // Get from object data
         return obj.data?.[fieldName] || '';
@@ -399,6 +442,13 @@ class ObjectListComponent {
             </span>`;
         }
         if (fieldName === 'created_at') return formatDate(value);
+        if (fieldName === 'files_indicator') {
+            const count = this.getObjectFileCount(obj);
+            if (count > 0) {
+                return `<span title="${count} fil(er) kopplade" aria-label="${count} filer kopplade">📎</span>`;
+            }
+            return '';
+        }
         if (fieldName === 'actions') {
             return `
                 <div onclick="event.stopPropagation()" style="display: flex; gap: 4px; justify-content: center;">
@@ -411,8 +461,195 @@ class ObjectListComponent {
                 </div>
             `;
         }
-        
-        return value || '';
+
+        if (this.isLikelyFileField(fieldName)) {
+            const fileLinks = this.renderFileLinks(value);
+            if (fileLinks) {
+                return fileLinks;
+            }
+        }
+
+        if (Array.isArray(value)) {
+            return escapeHtml(value.join(', '));
+        }
+
+        if (value && typeof value === 'object') {
+            return escapeHtml(JSON.stringify(value));
+        }
+
+        return escapeHtml(value || '');
+    }
+
+    isLikelyFileField(fieldName) {
+        const normalized = String(fieldName || '').toLowerCase();
+        return (
+            normalized.includes('fil') ||
+            normalized.includes('file') ||
+            normalized.includes('dokument') ||
+            normalized.includes('document') ||
+            normalized.includes('pdf')
+        );
+    }
+
+    renderFileLinks(rawValue) {
+        const entries = this.extractFileEntries(rawValue);
+        if (!entries.length) return '';
+
+        return entries.map((entry) => {
+            const isPdf = this.isPdfEntry(entry);
+            const displayName = escapeHtml(entry.label || 'Dokument');
+            const safeUrl = escapeHtml(entry.url);
+            const previewClass = isPdf ? ' js-pdf-preview-link' : '';
+            const previewAttr = isPdf ? ` data-preview-url="${safeUrl}"` : '';
+            const docIdAttr = entry.documentId ? ` data-document-id="${entry.documentId}"` : '';
+            return `<a href="${safeUrl}" class="object-file-link${previewClass}"${previewAttr}${docIdAttr} target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${displayName}</a>`;
+        }).join('<br>');
+    }
+
+    extractFileEntries(rawValue) {
+        const values = this.normalizeValueToArray(rawValue);
+        const entries = [];
+        const seenUrls = new Set();
+
+        values.forEach((value) => {
+            if (typeof value === 'number') {
+                const baseUrl = `/api/objects/documents/${value}/download`;
+                const url = typeof normalizePdfOpenUrl === 'function'
+                    ? normalizePdfOpenUrl(baseUrl, true)
+                    : `${baseUrl}?inline=1`;
+                if (!seenUrls.has(url)) {
+                    seenUrls.add(url);
+                    entries.push({ url, label: `Dokument ${value}`, mimeType: 'application/pdf', filename: '', documentId: value });
+                }
+                return;
+            }
+
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (!trimmed) return;
+
+                if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('/')) {
+                    const isPdf = isPdfUrl(trimmed);
+                    const url = typeof normalizePdfOpenUrl === 'function'
+                        ? normalizePdfOpenUrl(trimmed, isPdf)
+                        : trimmed;
+                    if (!seenUrls.has(url)) {
+                        seenUrls.add(url);
+                        const matchedDocId = this.extractDocumentIdFromUrl(url);
+                        entries.push({ url, label: trimmed, filename: trimmed, mimeType: isPdf ? 'application/pdf' : '', documentId: matchedDocId });
+                    }
+                }
+                return;
+            }
+
+            if (!value || typeof value !== 'object') return;
+
+            if (Array.isArray(value.documents)) {
+                this.extractFileEntries(value.documents).forEach((entry) => {
+                    if (!seenUrls.has(entry.url)) {
+                        seenUrls.add(entry.url);
+                        entries.push(entry);
+                    }
+                });
+                return;
+            }
+
+            if (Array.isArray(value.files)) {
+                this.extractFileEntries(value.files).forEach((entry) => {
+                    if (!seenUrls.has(entry.url)) {
+                        seenUrls.add(entry.url);
+                        entries.push(entry);
+                    }
+                });
+                return;
+            }
+
+            const docId = value.id || value.document_id || value.documentId;
+            const rawUrl = value.url || value.href || value.file_url || value.download_url || value.downloadUrl;
+            const label = value.description || value.title || value.original_filename || value.filename || value.name || 'Dokument';
+            const mimeType = value.mime_type || value.mimeType || '';
+            const filename = value.original_filename || value.filename || value.name || '';
+
+            let url = '';
+            if (rawUrl) {
+                const isPdf = this.isPdfEntry({ mimeType, filename, url: rawUrl });
+                url = typeof normalizePdfOpenUrl === 'function'
+                    ? normalizePdfOpenUrl(rawUrl, isPdf)
+                    : rawUrl;
+            } else if (docId) {
+                const baseUrl = `/api/objects/documents/${docId}/download`;
+                const isPdf = this.isPdfEntry({ mimeType, filename, url: baseUrl });
+                url = typeof normalizePdfOpenUrl === 'function'
+                    ? normalizePdfOpenUrl(baseUrl, isPdf)
+                    : baseUrl;
+            }
+
+            if (url && !seenUrls.has(url)) {
+                seenUrls.add(url);
+                entries.push({ url, label, mimeType, filename, documentId: docId || this.extractDocumentIdFromUrl(url) });
+            }
+        });
+
+        return entries;
+    }
+
+    normalizeValueToArray(rawValue) {
+        if (rawValue === null || rawValue === undefined || rawValue === '') {
+            return [];
+        }
+
+        if (Array.isArray(rawValue)) {
+            return rawValue;
+        }
+
+        if (typeof rawValue === 'string') {
+            const trimmed = rawValue.trim();
+            if (!trimmed) return [];
+
+            if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                } catch (_error) {
+                    return [rawValue];
+                }
+            }
+
+            return [rawValue];
+        }
+
+        return [rawValue];
+    }
+
+    isPdfEntry(entry) {
+        const mimeType = String(entry?.mimeType || '').toLowerCase();
+        const filename = String(entry?.filename || '').toLowerCase();
+        const url = String(entry?.url || '').toLowerCase();
+
+        return (
+            mimeType === 'application/pdf' ||
+            filename.endsWith('.pdf') ||
+            isPdfUrl(url)
+        );
+    }
+
+    extractDocumentIdFromUrl(url) {
+        const match = String(url || '').match(/\/documents\/(\d+)\/download/i);
+        return match ? parseInt(match[1], 10) : null;
+    }
+
+    getObjectFileCount(obj) {
+        const explicitCount = Number(obj?.file_count);
+        if (Number.isFinite(explicitCount) && explicitCount > 0) {
+            return explicitCount;
+        }
+        if (Array.isArray(obj?.files)) {
+            return obj.files.length;
+        }
+        if (obj?.has_files === true) {
+            return 1;
+        }
+        return 0;
     }
     
     getObjectDisplayName(obj) {

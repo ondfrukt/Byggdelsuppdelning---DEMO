@@ -17,11 +17,18 @@ class FileUploadComponent {
         this.compactMode = options.compactMode === true;
         this.currentObject = null;
         this.isCurrentObjectFileObject = false;
+        this.existingDocumentColumnSearches = {
+            id: '',
+            name: '',
+            type: '',
+            files: '',
+            metadata: ''
+        };
     }
 
     isFileObjectType(typeName) {
         const normalized = (typeName || '').toLowerCase().trim();
-        return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+        return normalized === 'filobjekt';
     }
 
     async loadCurrentObject() {
@@ -35,9 +42,14 @@ class FileUploadComponent {
         await this.loadCurrentObject();
 
         const rootClass = this.compactMode ? 'file-upload file-upload-compact' : 'file-upload';
-        const linkedTitle = this.compactMode ? '' : (this.isCurrentObjectFileObject ? '<h4>Länkade objekt</h4>' : '<h4>Filer via kopplade filobjekt</h4>');
+        const linkedTitle = this.compactMode ? '' : (this.isCurrentObjectFileObject ? '<h4>Länkade objekt</h4>' : '<h4>Kopplade filer</h4>');
         const filesTitle = this.compactMode ? '' : '<h4>Filer på filobjekt</h4>';
-        const actionButtons = '';
+        const actionButtons = this.isCurrentObjectFileObject ? '' : `
+                <div class="file-link-toolbar">
+                    <button class="btn btn-sm btn-secondary file-link-toolbar-btn" id="link-existing-file-object-btn-${this.objectId}" title="Koppla befintligt filobjekt" aria-label="Koppla befintligt filobjekt">🔗</button>
+                    <button class="btn btn-sm btn-primary file-link-toolbar-btn" id="create-file-object-btn-${this.objectId}" title="Skapa nytt filobjekt" aria-label="Skapa nytt filobjekt">➕</button>
+                </div>
+        `;
 
         const fileSection = this.isCurrentObjectFileObject ? `
                 <div class="upload-area" id="upload-area-${this.objectId}">
@@ -61,10 +73,73 @@ class FileUploadComponent {
                     <div id="documents-list-${this.objectId}"></div>
                 </div>` : '';
 
-        const modals = this.isCurrentObjectFileObject ? '' : '';
+        const modals = this.isCurrentObjectFileObject ? '' : `
+                <div id="existing-document-modal-${this.objectId}" class="modal document-object-modal" role="dialog" aria-modal="true" aria-labelledby="existing-document-title-${this.objectId}">
+                    <div class="modal-content document-object-modal-content">
+                        <div class="modal-header">
+                            <h3 id="existing-document-title-${this.objectId}">Koppla befintligt filobjekt</h3>
+                            <button class="close-btn" type="button" data-close-modal="existing-document-modal-${this.objectId}">&times;</button>
+                        </div>
+                        <div style="padding: var(--spacing-lg);">
+                            <div class="relation-filters">
+                                <input type="text" id="existing-document-search-${this.objectId}" class="search-input" placeholder="Sök filobjekt...">
+                            </div>
+                            <div class="table-container relation-table-container">
+                                <table class="data-table sortable-table" id="existing-document-table-${this.objectId}">
+                                    <thead>
+                                        <tr>
+                                            <th class="col-actions" style="width: 36px;"><input type="checkbox" id="existing-document-select-all-${this.objectId}" aria-label="Markera alla"></th>
+                                            <th class="col-id" data-sortable data-sort-type="text">ID</th>
+                                            <th class="col-name" data-sortable data-sort-type="text">Namn</th>
+                                            <th class="col-type" data-sortable data-sort-type="text">Typ</th>
+                                            <th class="col-number" data-sortable data-sort-type="number">Filer</th>
+                                            <th class="col-description" data-sortable data-sort-type="text">Metadata</th>
+                                        </tr>
+                                        <tr class="column-search-row">
+                                            <th class="col-actions"></th>
+                                            <th class="col-id"><input type="text" class="column-search-input existing-document-column-filter" data-filter-field="id" placeholder="ID"></th>
+                                            <th class="col-name"><input type="text" class="column-search-input existing-document-column-filter" data-filter-field="name" placeholder="Namn"></th>
+                                            <th class="col-type"><input type="text" class="column-search-input existing-document-column-filter" data-filter-field="type" placeholder="Typ"></th>
+                                            <th class="col-number"><input type="text" class="column-search-input existing-document-column-filter" data-filter-field="files" placeholder="Filer"></th>
+                                            <th class="col-description"><input type="text" class="column-search-input existing-document-column-filter" data-filter-field="metadata" placeholder="Metadata"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="existing-document-list-${this.objectId}"></tbody>
+                                </table>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary" type="button" data-close-modal="existing-document-modal-${this.objectId}">Avbryt</button>
+                                <button class="btn btn-primary" type="button" id="confirm-link-existing-btn-${this.objectId}">Koppla valda</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-        const indirectFilesHint = this.isCurrentObjectFileObject ? '' : `
-                <p class="text-muted">Visar endast filer som är kopplade via filobjekt.</p>`;
+                <div id="document-object-modal-${this.objectId}" class="modal document-object-modal" role="dialog" aria-modal="true" aria-labelledby="create-document-title-${this.objectId}">
+                    <div class="modal-content document-object-modal-content">
+                        <div class="modal-header">
+                            <h3 id="create-document-title-${this.objectId}">Skapa nytt filobjekt</h3>
+                            <button class="close-btn" type="button" data-close-modal="document-object-modal-${this.objectId}">&times;</button>
+                        </div>
+                        <div style="padding: var(--spacing-lg);">
+                            <div class="form-group">
+                                <label for="document-object-name-${this.objectId}">Namn på filobjekt *</label>
+                                <input id="document-object-name-${this.objectId}" type="text" class="form-control" placeholder="Ange namn">
+                            </div>
+                            <div class="form-group">
+                                <label for="create-document-file-input-${this.objectId}">Filer *</label>
+                                <input id="create-document-file-input-${this.objectId}" type="file" class="form-control" multiple>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-secondary" type="button" data-close-modal="document-object-modal-${this.objectId}">Avbryt</button>
+                                <button class="btn btn-primary" type="button" id="confirm-create-document-btn-${this.objectId}">Skapa och koppla</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        `;
+
+        const indirectFilesHint = '';
 
 
         this.container.innerHTML = `
@@ -94,6 +169,70 @@ class FileUploadComponent {
     attachEventListeners() {
         const uploadArea = document.getElementById(`upload-area-${this.objectId}`);
         const fileInput = document.getElementById(`file-input-${this.objectId}`);
+        const linkExistingBtn = document.getElementById(`link-existing-file-object-btn-${this.objectId}`);
+        const createFileObjectBtn = document.getElementById(`create-file-object-btn-${this.objectId}`);
+        const confirmLinkExistingBtn = document.getElementById(`confirm-link-existing-btn-${this.objectId}`);
+        const confirmCreateDocumentBtn = document.getElementById(`confirm-create-document-btn-${this.objectId}`);
+        const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
+        const existingSearchInput = document.getElementById(`existing-document-search-${this.objectId}`);
+        const selectAllCheckbox = document.getElementById(`existing-document-select-all-${this.objectId}`);
+        const columnFilters = this.container.querySelectorAll('.existing-document-column-filter');
+
+        if (linkExistingBtn) {
+            linkExistingBtn.addEventListener('click', () => this.openLinkExistingDocumentsModal());
+        }
+
+        if (createFileObjectBtn) {
+            createFileObjectBtn.addEventListener('click', () => this.openCreateDocumentObjectModal());
+        }
+
+        if (confirmLinkExistingBtn) {
+            confirmLinkExistingBtn.addEventListener('click', () => this.linkSelectedExistingDocumentObjects());
+        }
+
+        if (confirmCreateDocumentBtn) {
+            confirmCreateDocumentBtn.addEventListener('click', () => this.createAndLinkDocumentObject());
+        }
+
+        if (createDocumentFileInput) {
+            createDocumentFileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files || []);
+                this.selectedFiles = files;
+            });
+        }
+
+        if (existingSearchInput) {
+            existingSearchInput.addEventListener('input', (event) => {
+                this.renderAvailableDocumentObjects((event.target.value || '').trim());
+            });
+        }
+
+        columnFilters.forEach(input => {
+            input.addEventListener('input', () => {
+                const filterField = input.getAttribute('data-filter-field');
+                if (!filterField) return;
+                this.existingDocumentColumnSearches[filterField] = (input.value || '').trim().toLowerCase();
+                this.renderAvailableDocumentObjects((existingSearchInput?.value || '').trim());
+            });
+        });
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', () => {
+                const list = document.getElementById(`existing-document-list-${this.objectId}`);
+                if (!list) return;
+                list.querySelectorAll('input[type="checkbox"][data-file-object-checkbox="true"]').forEach(input => {
+                    input.checked = selectAllCheckbox.checked;
+                });
+            });
+        }
+
+        this.container.querySelectorAll('[data-close-modal]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const modalId = btn.getAttribute('data-close-modal');
+                if (modalId) this.closeModal(modalId);
+            });
+        });
+
         // Drag and drop
         if (uploadArea) {
             uploadArea.addEventListener('dragover', (e) => {
@@ -209,8 +348,7 @@ class FileUploadComponent {
     }
 
     findDocumentObjectType(objectTypes) {
-        const nameMatchers = ['filobjekt', 'ritningsobjekt', 'dokumentobjekt', 'dokument', 'ritning'];
-        return objectTypes.find(type => nameMatchers.some(matcher => (type.name || '').toLowerCase().includes(matcher))) || null;
+        return objectTypes.find(type => (type.name || '').toLowerCase().trim() === 'filobjekt') || null;
     }
 
     async loadLinkedBusinessObjects() {
@@ -250,19 +388,11 @@ class FileUploadComponent {
 
     async loadFilesViaLinkedDocumentObjects() {
         try {
-            const relations = await ObjectsAPI.getRelations(this.objectId);
-            this.linkedFileObjects = (relations || [])
-                .filter(relation => {
-                    const linkedObject = relation.direction === 'incoming' ? relation.source_object : relation.target_object;
-                    const typeName = (linkedObject?.object_type?.name || '').toLowerCase();
-                    return this.isFileObjectType(typeName) || typeName.includes('dokument');
-                })
-                .map(relation => ({
-                    relationId: relation.id,
-                    linkedObject: relation.direction === 'incoming' ? relation.source_object : relation.target_object,
-                    direction: relation.direction,
-                    relationType: relation.relation_type
-                }));
+            const linked = await ObjectsAPI.getLinkedFileObjects(this.objectId);
+            this.linkedFileObjects = (linked || []).map(item => ({
+                relationId: item.relation_id,
+                linkedObject: item.file_object || {}
+            }));
 
             const documentsByObject = await Promise.all(
                 this.linkedFileObjects.map(async item => {
@@ -271,6 +401,7 @@ class FileUploadComponent {
                         const documents = await ObjectsAPI.getDocuments(linkedObject.id);
                         return (documents || []).map(doc => ({
                             ...doc,
+                            relationId: item.relationId,
                             linkedObjectId: linkedObject.id,
                             linkedObjectAutoId: linkedObject.auto_id,
                             linkedObjectName: linkedObject.data?.Namn || linkedObject.data?.namn || linkedObject.data?.name || linkedObject.auto_id || 'Filobjekt'
@@ -298,26 +429,44 @@ class FileUploadComponent {
             return;
         }
 
-        container.innerHTML = this.indirectDocuments.map(doc => `
-            <div class="document-item ${this.compactMode ? 'compact' : ''}">
+        container.innerHTML = this.indirectDocuments.map(doc => {
+            const relationId = parseInt(doc.relationId || 0, 10);
+            const unlinkButton = relationId > 0
+                ? `<button class="btn btn-sm btn-danger file-mini-action"
+                            onclick="unlinkDocumentObject(${this.objectId}, ${relationId})"
+                            title="Ta bort koppling till filobjekt">
+                        ✕
+                    </button>`
+                : '';
+
+            return `
+            <div class="document-item document-item-detailed ${this.compactMode ? 'compact' : ''}">
                 <div class="document-icon">${this.getFileIcon(doc.filename)}</div>
                 <div class="document-info">
                     <strong>${escapeHtml(doc.original_filename || doc.filename)}</strong>
                     <small>
                         ${escapeHtml(doc.document_type || 'Okänd filtyp')} •
                         ${this.formatFileSize(doc.file_size)} •
+                        ${formatDate(doc.uploaded_at)} •
                         Från ${escapeHtml(doc.linkedObjectName)} (${escapeHtml(doc.linkedObjectAutoId || 'N/A')})
                     </small>
                 </div>
                 <div class="document-actions">
-                    <button class="btn btn-sm btn-secondary"
+                    <button class="btn btn-sm btn-secondary file-mini-action"
                             onclick="downloadDocument(${doc.linkedObjectId}, ${doc.id})"
                             title="Ladda ner fil">
-                        ${this.compactMode ? '↓' : 'Ladda ner'}
+                        ↓
                     </button>
+                    <button class="btn btn-sm btn-secondary file-mini-action"
+                            onclick="viewObjectDetail(${doc.linkedObjectId})"
+                            title="Öppna filobjekt">
+                        ↗
+                    </button>
+                    ${unlinkButton}
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     }
 
     renderLinkedDocumentObjects() {
@@ -354,55 +503,135 @@ class FileUploadComponent {
             return;
         }
         this.resetUploadForm();
+        this.selectedFiles = [];
+        const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
+        if (createDocumentFileInput) createDocumentFileInput.value = '';
         this.openModal(`document-object-modal-${this.objectId}`);
     }
 
     async openLinkExistingDocumentsModal() {
         await this.loadAvailableDocumentObjects();
+        this.existingDocumentColumnSearches = { id: '', name: '', type: '', files: '', metadata: '' };
         this.renderAvailableDocumentObjects();
         this.openModal(`existing-document-modal-${this.objectId}`);
+        const searchInput = document.getElementById(`existing-document-search-${this.objectId}`);
+        if (searchInput) searchInput.value = '';
+        const selectAll = document.getElementById(`existing-document-select-all-${this.objectId}`);
+        if (selectAll) selectAll.checked = false;
+        const columnFilters = this.container?.querySelectorAll('.existing-document-column-filter') || [];
+        columnFilters.forEach(input => {
+            input.value = '';
+        });
+        const tableId = `existing-document-table-${this.objectId}`;
+        const tableElement = document.getElementById(tableId);
+        if (tableElement && typeof TableSort !== 'undefined' && tableElement.dataset.sortInitialized !== 'true') {
+            new TableSort(tableId);
+            tableElement.dataset.sortInitialized = 'true';
+        }
     }
 
     async loadAvailableDocumentObjects() {
         const allObjects = await ObjectsAPI.getAllPaginated({ minimal: true });
-        const linkedIds = new Set(this.linkedDocumentObjects.map(item => item.linkedObject?.id));
-        this.availableDocumentObjects = (Array.isArray(allObjects) ? allObjects : allObjects.items || []).filter(obj => {
+        const linkedIds = new Set(this.linkedFileObjects.map(item => item.linkedObject?.id));
+        const fileObjects = (Array.isArray(allObjects) ? allObjects : allObjects.items || []).filter(obj => {
             const typeName = (obj.object_type?.name || '').toLowerCase();
-            const isDocumentType = this.isFileObjectType(typeName) || typeName.includes('dokument');
-            return isDocumentType && obj.id !== this.objectId && !linkedIds.has(obj.id);
+            return this.isFileObjectType(typeName) && obj.id !== this.objectId && !linkedIds.has(obj.id);
         });
+
+        this.availableDocumentObjects = await Promise.all(fileObjects.map(async (obj) => {
+            try {
+                const docs = await ObjectsAPI.getDocuments(obj.id);
+                return { ...obj, documents_count: Array.isArray(docs) ? docs.length : 0 };
+            } catch (_error) {
+                return { ...obj, documents_count: 0 };
+            }
+        }));
     }
 
-    renderAvailableDocumentObjects() {
+    buildMetadataSummary(data) {
+        if (!data || typeof data !== 'object') return '-';
+        const entries = Object.entries(data)
+            .filter(([, value]) => value !== null && value !== undefined && String(value).trim() !== '')
+            .slice(0, 3)
+            .map(([key, value]) => `${key}: ${String(value)}`);
+        return entries.length ? entries.join(' | ') : '-';
+    }
+
+    getMetadataSearchText(data) {
+        if (!data || typeof data !== 'object') return '';
+        try {
+            return JSON.stringify(data).toLowerCase();
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    renderAvailableDocumentObjects(searchTerm = '') {
         const list = document.getElementById(`existing-document-list-${this.objectId}`);
         if (!list) return;
 
-        if (!this.availableDocumentObjects.length) {
-            list.innerHTML = '<p class="empty-state">Inga tillgängliga filobjekt att koppla</p>';
+        const normalizedSearch = (searchTerm || '').toLowerCase();
+        const filteredObjects = this.availableDocumentObjects.filter(obj => {
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id || '';
+            const metadata = this.buildMetadataSummary(obj.data);
+            const metadataFullSearch = this.getMetadataSearchText(obj.data);
+            const passesGlobal = !normalizedSearch || (
+                String(displayName).toLowerCase().includes(normalizedSearch) ||
+                String(obj.auto_id || '').toLowerCase().includes(normalizedSearch) ||
+                String(obj.object_type?.name || '').toLowerCase().includes(normalizedSearch) ||
+                String(metadata).toLowerCase().includes(normalizedSearch) ||
+                metadataFullSearch.includes(normalizedSearch)
+            );
+
+            const passesId = !this.existingDocumentColumnSearches.id ||
+                String(obj.auto_id || '').toLowerCase().includes(this.existingDocumentColumnSearches.id);
+            const passesName = !this.existingDocumentColumnSearches.name ||
+                String(displayName).toLowerCase().includes(this.existingDocumentColumnSearches.name);
+            const passesType = !this.existingDocumentColumnSearches.type ||
+                String(obj.object_type?.name || '').toLowerCase().includes(this.existingDocumentColumnSearches.type);
+            const passesFiles = !this.existingDocumentColumnSearches.files ||
+                String(parseInt(obj.documents_count || 0, 10)).includes(this.existingDocumentColumnSearches.files);
+            const passesMetadata = !this.existingDocumentColumnSearches.metadata ||
+                metadataFullSearch.includes(this.existingDocumentColumnSearches.metadata) ||
+                String(metadata).toLowerCase().includes(this.existingDocumentColumnSearches.metadata);
+
+            return passesGlobal && passesId && passesName && passesType && passesFiles && passesMetadata;
+        });
+
+        if (!filteredObjects.length) {
+            list.innerHTML = '<tr><td colspan="6" class="loading">Inga tillgängliga filobjekt att koppla</td></tr>';
             return;
         }
 
-        list.innerHTML = this.availableDocumentObjects.map(obj => {
+        list.innerHTML = filteredObjects.map(obj => {
             const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id;
+            const metadata = this.buildMetadataSummary(obj.data);
             return `
-                <label class="existing-document-option">
-                    <input type="checkbox" value="${obj.id}">
-                    <span>
-                        <strong>${escapeHtml(displayName || 'Namnlöst objekt')}</strong><br>
-                        <small>${escapeHtml(obj.auto_id || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
-                    </span>
-                </label>
+                <tr>
+                    <td class="col-actions"><input type="checkbox" value="${obj.id}" data-file-object-checkbox="true"></td>
+                    <td class="col-id" data-value="${escapeHtml(obj.auto_id || 'N/A')}"><strong>${escapeHtml(obj.auto_id || 'N/A')}</strong></td>
+                    <td class="col-name" data-value="${escapeHtml(displayName || '')}">${escapeHtml(displayName || 'Namnlöst objekt')}</td>
+                    <td class="col-type" data-value="${escapeHtml(obj.object_type?.name || '')}">${escapeHtml(obj.object_type?.name || 'Okänd typ')}</td>
+                    <td class="col-number" data-value="${parseInt(obj.documents_count || 0, 10)}">${parseInt(obj.documents_count || 0, 10)}</td>
+                    <td class="col-description" data-value="${escapeHtml(metadata)}"><small>${escapeHtml(metadata)}</small></td>
+                </tr>
             `;
         }).join('');
     }
 
     async createAndLinkDocumentObject() {
         const nameInput = document.getElementById(`document-object-name-${this.objectId}`);
+        const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
         const objectName = (nameInput?.value || '').trim();
 
         if (!objectName) {
             showToast('Ange ett namn på filobjektet', 'error');
             return;
+        }
+
+        if (createDocumentFileInput && (!this.selectedFiles || this.selectedFiles.length === 0)) {
+            const files = Array.from(createDocumentFileInput.files || []);
+            this.selectedFiles = files;
         }
 
         if (!this.selectedFiles || this.selectedFiles.length === 0) {
@@ -435,6 +664,7 @@ class FileUploadComponent {
             showToast('Filobjekt skapat och kopplat', 'success');
             this.closeModal(`document-object-modal-${this.objectId}`);
             if (nameInput) nameInput.value = '';
+            if (createDocumentFileInput) createDocumentFileInput.value = '';
             this.resetUploadForm();
             await this.loadLinkedDocumentObjects();
         } catch (error) {

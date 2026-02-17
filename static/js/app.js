@@ -7,6 +7,8 @@ let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
 let currentDetailPanelInstance = null;
+let currentFileObjectsViewComponent = null;
+window.currentSelectedObjectId = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
@@ -49,6 +51,9 @@ async function switchView(viewName) {
         case 'objects':
             await loadObjectsView();
             break;
+        case 'file-objects':
+            await loadFileObjectsView();
+            break;
         case 'admin':
             await loadAdminView();
             break;
@@ -84,6 +89,14 @@ async function loadObjectsView() {
     await currentObjectListComponent.render();
 }
 
+async function loadFileObjectsView() {
+    const container = document.getElementById('file-objects-container');
+    if (!container) return;
+
+    currentFileObjectsViewComponent = new FileObjectsViewComponent('file-objects-container');
+    await currentFileObjectsViewComponent.render();
+}
+
 // Toggle tree view
 let treeViewActive = false;
 let treeViewInstance = null;
@@ -110,6 +123,29 @@ function updateDetailPanelHeader(object) {
     }
 }
 
+function applySelectedRowHighlight() {
+    const selectedId = String(window.currentSelectedObjectId ?? '');
+    document.querySelectorAll('.data-table tbody tr[data-object-id]').forEach(row => {
+        const isSelected = row.dataset.objectId === selectedId;
+        row.classList.toggle('selected-object-row', isSelected);
+        row.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+    });
+}
+
+function setSelectedDetailObject(objectId) {
+    const normalizedId = objectId !== null && objectId !== undefined ? Number(objectId) : null;
+    currentObjectId = normalizedId;
+    window.currentSelectedObjectId = normalizedId;
+    applySelectedRowHighlight();
+
+    if (window.treeViewInstance?.setSelectedObjectId) {
+        window.treeViewInstance.setSelectedObjectId(normalizedId);
+    }
+}
+
+window.applySelectedRowHighlight = applySelectedRowHighlight;
+window.setSelectedDetailObject = setSelectedDetailObject;
+
 
 async function toggleTreeView() {
     treeViewActive = !treeViewActive;
@@ -132,6 +168,8 @@ async function toggleTreeView() {
             
             // Set up click handler
             treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
+                setSelectedDetailObject(objectId);
+
                 // Load object data once
                 const object = await ObjectsAPI.getById(objectId);
                 
@@ -181,8 +219,6 @@ async function loadAdminView() {
 
 // View object detail in side panel
 async function viewObjectDetail(objectId) {
-    currentObjectId = objectId;
-    
     // Open detail panel instead of navigating to detail view
     await openDetailPanel(objectId);
 }
@@ -195,6 +231,8 @@ async function openDetailPanel(objectId) {
     if (!panel || !panelBody) return;
     
     try {
+        setSelectedDetailObject(objectId);
+
         // Visa panel direkt och låt CSS hantera animationen
         panel.classList.add('active');
         
@@ -234,6 +272,8 @@ function closeDetailPanel() {
     if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
     if (panelCategory) panelCategory.textContent = 'Kategori: -';
     if (panelBody) panelBody.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
+
+    setSelectedDetailObject(null);
     
     // Clean up the instance
     if (currentDetailPanelInstance) {
@@ -426,4 +466,9 @@ async function deleteObject(objectId) {
 // Go back to previous view
 function goBack() {
     switchView('objects');
+}
+
+async function openFileObjectFromList(objectId) {
+    await switchView('objects');
+    await openDetailPanel(objectId);
 }

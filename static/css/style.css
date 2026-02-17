@@ -32,13 +32,22 @@
     --spacing-sm: 0.5rem;
     --spacing-md: 1rem;
     --spacing-lg: 1.5rem;
-    --spacing-xl: 2rem;
+    --spacing-xl: 0.5rem;
     --spacing-2xl: 3rem;
     
     --detail-panel-header-height: 64px;
-    --table-header-height: 48px;
+    --table-header-height: 27px;
     --main-header-height: 60px;
     --main-padding: 60px;
+
+    /* Object list column widths (single place to tweak) */
+    --data-col-id-width: 1%;
+    --data-col-type-width: 130px;
+    --data-col-tight-width: 1%;
+    --data-col-name-min: 150px;
+    --data-col-name-max: 300px;
+    --data-col-description-min: 200px;
+    --data-col-description-max: 400px;
 }
 
 /* Reset and Base Styles */
@@ -54,6 +63,7 @@ body {
     line-height: 1.5;
     color: var(--text-primary);
     background-color: var(--bg-secondary);
+    overflow-x: hidden;
 }
 
 /* Header */
@@ -117,12 +127,21 @@ body {
     max-width: none;
     padding-left: var(--spacing-lg);
     padding-right: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Main Content */
 .main-content {
     padding: var(--spacing-xl) 0;
-    min-height: calc(100vh - 80px);
+    min-height: calc(100dvh - var(--main-header-height) - (var(--spacing-xl) * 2));
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Views */
@@ -175,7 +194,6 @@ body {
 .filters {
     display: flex;
     gap: var(--spacing-md);
-    margin-bottom: var(--spacing-lg);
     position: sticky;
     top: 0;
     background-color: var(--bg-secondary);
@@ -200,6 +218,8 @@ body {
 
 /* Table */
 .table-container {
+    width: 100%;
+    max-width: 100%;
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
@@ -226,12 +246,16 @@ body {
 
 
 .data-table .col-id {
-    width: 100px;   /* eller vilken bredd du vill ha */
+    width: var(--data-col-id-width);
+    min-width: 0;
+    max-width: none;
     white-space: nowrap;
 }
 
 .data-table .col-type {
-    width: 130px;
+    width: var(--data-col-type-width);
+    min-width: var(--data-col-type-width);
+    max-width: var(--data-col-type-width);
     white-space: nowrap;
 }
 
@@ -239,28 +263,38 @@ body {
 .data-table .col-date,
 .data-table .col-status,
 .data-table .col-actions {
-    width: 1%;
+    width: var(--data-col-tight-width);
     white-space: nowrap;
 }
 
 
 .data-table .col-number {
-    width: 1%;
+    width: var(--data-col-tight-width);
     white-space: nowrap;
     text-align: right;
+}
+
+.data-table .col-paperclip {
+    width: 5px;
+    min-width: 5px;
+    max-width: 5px;
+    white-space: nowrap;
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
 }
 
 /* Kolumner som får ta utrymme (flexibla) */
 .data-table .col-name {
     width: auto;
-    min-width: 150px;
-    max-width: 300px;
+    min-width: var(--data-col-name-min);
+    max-width: var(--data-col-name-max);
 }
 
 .data-table .col-description {
     width: auto;
-    min-width: 200px;
-    max-width: 400px;
+    min-width: var(--data-col-description-min);
+    max-width: var(--data-col-description-max);
     white-space: normal;
 }
 
@@ -281,22 +315,32 @@ body {
 }
 
 .data-table th {
-
-
     font-weight: 600;
     color: var(--text-secondary);
     font-size: 12px;
     text-transform: uppercase;
-
-    position: sticky;
-    top: 0;
-    background-color: var(--bg-tertiary);
-    z-index: 30;
     transition: background-color 0.2s;
 }
 
 .data-table th:hover {
     background-color: #e2e8f0;
+}
+
+.data-table thead tr:first-child th {
+    position: sticky;
+    top: 0;
+    height: var(--table-header-height);
+    background-color: var(--bg-tertiary);
+    z-index: 32;
+}
+
+.data-table thead tr.column-search-row th {
+    position: sticky;
+    top: var(--table-header-height);
+    background-color: var(--bg-secondary);
+    z-index: 31;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    vertical-align: middle;
 }
 
 .data-table td {
@@ -311,6 +355,15 @@ body {
 
 .data-table tbody tr:hover {
     background-color: #e0f2fe;
+}
+
+.data-table tbody tr.selected-object-row {
+    background-color: #dbeafe;
+    box-shadow: inset 3px 0 0 var(--primary-color);
+}
+
+.data-table tbody tr.selected-object-row:hover {
+    background-color: #bfdbfe;
 }
 
 .data-table .loading {
@@ -568,7 +621,6 @@ body {
     padding: var(--spacing-xs) var(--spacing-md);
     border-radius: var(--radius-sm);
     color: white;
-    font-size: 0.875rem;
     font-weight: 600;
 }
 
@@ -593,7 +645,7 @@ body {
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    max-width: 600px;
+    max-width: 1200px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
@@ -1124,7 +1176,7 @@ body {
 }
 
 .document-object-modal-content {
-    max-width: 720px;
+    max-width: 1200px;
 }
 
 .existing-document-list {
@@ -1150,6 +1202,25 @@ body {
 
 .file-upload {
     padding: var(--spacing-lg);
+}
+
+.file-link-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.file-link-toolbar-btn {
+    min-width: 30px;
+    min-height: 28px;
+    padding: 2px 8px;
+    line-height: 1;
+}
+
+.file-link-toolbar-hint {
+    margin: 0 0 6px 0;
+    font-size: 11px;
 }
 
 .upload-area {
@@ -1221,6 +1292,18 @@ body {
     background-color: var(--bg-secondary);
     border-radius: var(--radius-md);
     margin-bottom: var(--spacing-md);
+}
+
+.document-item-detailed {
+    border: 1px solid var(--border-color);
+}
+
+.file-mini-action {
+    min-width: 28px;
+    min-height: 24px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    line-height: 1;
 }
 
 .document-icon {
@@ -1307,6 +1390,14 @@ body {
     padding: 2px 6px;
     line-height: 1.1;
     font-size: 0.75rem;
+}
+
+.file-objects-toolbar {
+    margin-bottom: var(--spacing-sm);
+}
+
+.file-objects-table-container {
+    max-height: calc(100vh - 240px);
 }
 
 .empty-state {
@@ -1726,12 +1817,6 @@ body {
     color: var(--primary-color);
 }
 
-/* Desktop-optimized design - removed mobile responsiveness */
-/* Minimum width for desktop use */
-body {
-    min-width: 1200px;
-}
-
 /* Column Configuration Panel */
 .column-config-panel {
     background-color: var(--bg-primary);
@@ -1774,10 +1859,11 @@ body {
 
 .column-search-input {
     width: 100%;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: 2px 4px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    font-size: 0.875rem;
+    font-size: 12px;
+    box-sizing: border-box;
 }
 
 .column-search-input:focus {
@@ -1858,11 +1944,15 @@ body {
     display: flex;
     gap: 0;
     width: 100%;
+    flex: 1;
+    min-height: 0;
+    align-items: stretch;
 }
 
 .object-list-wrapper {
     flex: 1;
     min-width: 0;
+    min-height: 0;
     margin-right: 10px;
 }
 
@@ -1893,7 +1983,7 @@ body {
     width: 0;
     min-width: 0;
     max-width: 0;
-    height: calc(100vh - var(--main-header-height) - var(--main-padding));
+    height: 100%;
     background-color: var(--bg-primary);
     box-shadow: none;
     overflow: hidden;
@@ -2104,26 +2194,6 @@ body {
     font-size: 0.75rem;
 }
 
-/* Make sure column search row is sticky too */
-.data-table .column-search-row th {
-    position: sticky;
-    top: calc(4px + 8px + 12px + 8px + 4px); /* Calculate header height */
-    background-color: var(--bg-secondary);
-    z-index: 29;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    vertical-align: middle; /* Endast denna för vertikal centrering */
-}
-
-.column-search-input {
-    width: 100%;
-    padding: 2px 4px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm);
-    font-size: 12px;
-    box-sizing: border-box; /* Säkerställ att padding inkluderas i width */
-}
-
 /* Icon buttons for table actions */
 .icon-btn {
     background: none;
@@ -2142,6 +2212,59 @@ body {
 .icon-btn:hover {
     color: var(--text-primary);
     background-color: var(--bg-tertiary);
+}
+
+.object-file-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.object-file-link:hover {
+    text-decoration: underline;
+}
+
+.pdf-preview-tooltip {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 360px;
+    height: 500px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 10050;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(6px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+    overflow: hidden;
+}
+
+.pdf-preview-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.pdf-preview-tooltip-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pdf-preview-frame {
+    width: 100%;
+    height: calc(100% - 31px);
+    border: none;
+    background: #f8fafc;
 }
 
 .icon-btn.edit {
@@ -2175,7 +2298,7 @@ body {
 /* Responsive layout for smaller screens */
 @media (max-width: 1200px) {
     .detail-panel {
-        height: calc(100vh - var(--main-header-height) - var(--main-padding));
+        height: 100%;
     }
 
     .detail-panel.active {
