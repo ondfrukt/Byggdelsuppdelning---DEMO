@@ -98,13 +98,13 @@
 }
 
 .tree-node-selected {
-    background-color: transparent !important;
-    box-shadow: none !important;
+    background-color: #dbeafe !important;
+    box-shadow: inset 3px 0 0 var(--primary-color) !important;
 }
 
 .tree-node-selected:hover,
 .tree-node.has-children.tree-node-selected:hover {
-    background-color: #e0f2fe !important;
+    background-color: #bfdbfe !important;
 }
 
 .tree-node-group {
