@@ -245,6 +245,8 @@ function setSelectedDetailObject(objectId) {
     if (window.treeViewInstance?.setSelectedObjectId) {
         window.treeViewInstance.setSelectedObjectId(normalizedId);
     }
+
+    updateDetailHistoryButtons();
 }
 
 window.applySelectedRowHighlight = applySelectedRowHighlight;
@@ -296,18 +298,39 @@ function ensureDetailHistoryControls() {
         forwardBtn.addEventListener('click', () => navigateDetailHistory(1));
         actions.insertBefore(forwardBtn, backBtn.nextSibling);
     }
+
+    let editBtn = document.getElementById('detail-nav-edit');
+    if (!editBtn) {
+        editBtn = document.createElement('button');
+        editBtn.id = 'detail-nav-edit';
+        editBtn.className = 'detail-panel-nav-btn';
+        editBtn.type = 'button';
+        editBtn.title = 'Redigera objekt';
+        editBtn.setAttribute('aria-label', 'Redigera objekt');
+        editBtn.disabled = true;
+        editBtn.textContent = '✎';
+        editBtn.addEventListener('click', () => editCurrentDetailObject());
+        actions.insertBefore(editBtn, forwardBtn.nextSibling);
+    }
 }
 
 function updateDetailHistoryButtons() {
     ensureDetailHistoryControls();
     const backBtn = document.getElementById('detail-nav-back');
     const forwardBtn = document.getElementById('detail-nav-forward');
-    if (!backBtn || !forwardBtn) return;
+    const editBtn = document.getElementById('detail-nav-edit');
+    if (!backBtn || !forwardBtn || !editBtn) return;
 
     const hasBack = detailHistoryIndex > 0;
     const hasForward = detailHistoryIndex >= 0 && detailHistoryIndex < detailHistory.length - 1;
     backBtn.disabled = !hasBack;
     forwardBtn.disabled = !hasForward;
+    editBtn.disabled = !Number.isFinite(currentObjectId);
+}
+
+function editCurrentDetailObject() {
+    if (!Number.isFinite(currentObjectId)) return;
+    editObject(currentObjectId);
 }
 
 function persistDetailHistory() {

@@ -71,19 +71,21 @@ class TreeView {
                         <div id="tree-column-toggles"></div>
                     </div>
                 </div>
-                <table class="tree-table" id="tree-table">
-                    <thead>
-                        <tr>
-                            ${visibleColumns.map(column => this.renderHeaderCell(column)).join('')}
-                        </tr>
-                        <tr class="tree-search-row">
-                            ${visibleColumns.map(column => this.renderSearchCell(column)).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${treeHtml}
-                    </tbody>
-                </table>
+                <div class="table-container tree-table-container">
+                    <table class="tree-table" id="tree-table">
+                        <thead>
+                            <tr>
+                                ${visibleColumns.map(column => this.renderHeaderCell(column)).join('')}
+                            </tr>
+                            <tr class="tree-search-row">
+                                ${visibleColumns.map(column => this.renderSearchCell(column)).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${treeHtml}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
 

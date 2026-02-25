@@ -154,6 +154,17 @@ class RelationManagerComponent {
     async refresh() {
         await this.loadRelations();
     }
+
+    removeRelationById(relationId) {
+        const normalizedRelationId = Number(relationId);
+        if (!Number.isFinite(normalizedRelationId)) return;
+
+        const nextRelations = (this.relations || []).filter(rel => Number(rel.id) !== normalizedRelationId);
+        if (nextRelations.length === (this.relations || []).length) return;
+
+        this.relations = nextRelations;
+        this.renderRelations();
+    }
 }
 
 function setRelationModalFeedback(message = '', type = 'error') {
@@ -701,6 +712,10 @@ async function deleteRelation(objectId, relationId) {
 
     try {
         await ObjectsAPI.deleteRelation(objectId, relationId);
+        const relationManager = window.currentRelationManager;
+        if (relationManager && typeof relationManager.removeRelationById === 'function') {
+            relationManager.removeRelationById(relationId);
+        }
         showToast('Relation borttagen', 'success');
         await refreshAllViews();
     } catch (error) {

@@ -259,6 +259,7 @@ class ObjectDetailPanel {
         
         try {
             const relationManager = new RelationManagerComponent(containerId, this.objectData.id);
+            window.currentRelationManager = relationManager;
             await relationManager.render();
             container.dataset.loaded = 'true';
         } catch (error) {
