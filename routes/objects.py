@@ -4,6 +4,7 @@ from utils.auto_id_generator import generate_auto_id
 from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
+from copy import deepcopy
 import logging
 import os
 
@@ -70,6 +71,61 @@ def is_document_object_type(type_name):
     """Check whether an object type is a document/drawing object."""
     normalized = (type_name or '').lower()
     return 'filobjekt' in normalized or 'ritning' in normalized or 'dokument' in normalized
+
+
+def normalize_field_key(value):
+    """Normalize field/type names for lenient matching."""
+    return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
+
+
+def is_connection_object_type(type_name):
+    """Check whether object type represents connection objects."""
+    return 'anslutning' in normalize_field_key(type_name)
+
+
+def find_field_name_by_aliases(fields, aliases):
+    alias_keys = {normalize_field_key(alias) for alias in aliases}
+    for field in fields:
+        if normalize_field_key(field.field_name) in alias_keys:
+            return field.field_name
+    return None
+
+
+def apply_connection_name_rules(object_type, object_data):
+    """
+    Ensure connection objects always have generated name based on Del A + Del B.
+    Returns tuple: (ok, errors, mutated_object_data)
+    """
+    if not is_connection_object_type(object_type.name):
+        return True, [], object_data
+
+    if not isinstance(object_data, dict):
+        return False, ['Data payload must be an object'], object_data
+
+    del_a_field_name = find_field_name_by_aliases(object_type.fields, ['del_a', 'dela', 'del a'])
+    del_b_field_name = find_field_name_by_aliases(object_type.fields, ['del_b', 'delb', 'del b'])
+    name_field_name = find_field_name_by_aliases(object_type.fields, ['namn', 'name'])
+
+    errors = []
+    if not del_a_field_name:
+        errors.append("Missing field definition for 'Del A' on object type")
+    if not del_b_field_name:
+        errors.append("Missing field definition for 'Del B' on object type")
+    if not name_field_name:
+        errors.append("Missing field definition for 'namn' on object type")
+    if errors:
+        return False, errors, object_data
+
+    part_a = str(object_data.get(del_a_field_name) or '').strip()
+    part_b = str(object_data.get(del_b_field_name) or '').strip()
+    if not part_a or not part_b:
+        return False, ["Fields 'Del A' and 'Del B' are required"], object_data
+
+    ordered_parts = sorted([part_a, part_b], key=lambda value: value.lower())
+    generated_name = f"{ordered_parts[0]} - {ordered_parts[1]}"
+    object_data[name_field_name] = generated_name
+
+    return True, [], object_data
 
 
 def is_pdf_document(document):
@@ -259,13 +315,23 @@ def get_object(id):
         
         # Try to serialize the object with detailed error handling
         try:
-            result = obj.to_dict(include_data=True, include_relations=True, include_documents=True)
+            result = obj.to_dict(
+                include_data=True,
+                include_relations=True,
+                include_documents=True,
+                include_object_type_fields=True
+            )
             return jsonify(result), 200
         except Exception as serialize_error:
             logger.error(f"Error serializing object {id}: {str(serialize_error)}", exc_info=True)
             # Try without relations and documents as fallback
             try:
-                result = obj.to_dict(include_data=True, include_relations=False, include_documents=False)
+                result = obj.to_dict(
+                    include_data=True,
+                    include_relations=False,
+                    include_documents=False,
+                    include_object_type_fields=True
+                )
                 logger.warning(f"Returned object {id} with data only (excluded relations and documents) due to serialization error")
                 return jsonify(result), 200
             except Exception as fallback_error:
@@ -293,6 +359,11 @@ def create_object():
         
         # Get object data
         object_data = data.get('data', {})
+
+        # Connection objects: always generate name from Del A + Del B (alphabetical order).
+        is_connection_valid, connection_errors, object_data = apply_connection_name_rules(object_type, object_data)
+        if not is_connection_valid:
+            return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
         
         # Validate object data against fields
         is_valid, errors = validate_object_data(object_type.fields, object_data)
@@ -382,6 +453,11 @@ def update_object(id):
         
         # Get object data
         object_data = data.get('data', {})
+
+        # Connection objects: always generate name from Del A + Del B (alphabetical order).
+        is_connection_valid, connection_errors, object_data = apply_connection_name_rules(obj.object_type, object_data)
+        if not is_connection_valid:
+            return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
         
         # Validate object data against fields
         is_valid, errors = validate_object_data(obj.object_type.fields, object_data)
@@ -446,6 +522,151 @@ def update_object(id):
         db.session.rollback()
         logger.error(f"Error updating object: {str(e)}")
         return jsonify({'error': 'Failed to update object', 'details': str(e)}), 500
+
+
+@bp.route('/<int:id>/duplicate', methods=['POST'])
+def duplicate_object(id):
+    """Duplicate an object with copied data and relations but with a new ID."""
+    try:
+        source = Object.query.get_or_404(id)
+        object_type = source.object_type
+        payload = request.get_json(silent=True) or {}
+
+        provided_data = payload.get('data')
+        object_data = provided_data if isinstance(provided_data, dict) else source.data
+
+        # Connection objects: always generate name from Del A + Del B (alphabetical order).
+        is_connection_valid, connection_errors, object_data = apply_connection_name_rules(object_type, object_data)
+        if not is_connection_valid:
+            return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
+
+        is_valid, errors = validate_object_data(object_type.fields, object_data)
+        if not is_valid:
+            return jsonify({'error': 'Validation failed', 'details': errors}), 400
+
+        requested_status = payload.get('status')
+        status = requested_status if isinstance(requested_status, str) and requested_status.strip() else source.status
+
+        relation_ids_payload = payload.get('relation_ids')
+        relation_id_filter = None
+        if relation_ids_payload is not None:
+            if not isinstance(relation_ids_payload, list):
+                return jsonify({'error': 'relation_ids must be a list of integers'}), 400
+            relation_id_filter = {
+                int(relation_id) for relation_id in relation_ids_payload
+                if str(relation_id).isdigit()
+            }
+
+        additional_target_ids_payload = payload.get('additional_target_ids')
+        additional_target_ids = []
+        if additional_target_ids_payload is not None:
+            if not isinstance(additional_target_ids_payload, list):
+                return jsonify({'error': 'additional_target_ids must be a list of integers'}), 400
+            additional_target_ids = [
+                int(target_id) for target_id in additional_target_ids_payload
+                if str(target_id).isdigit()
+            ]
+
+        # Generate fresh identifiers for the duplicated object.
+        auto_id = generate_auto_id(object_type.name)
+        type_prefix = object_type.id_prefix or object_type.name[:3].upper()
+        obj_count = Object.query.filter_by(object_type_id=object_type.id).count()
+        main_id = f"{type_prefix}-{obj_count + 1:03d}"
+        version = '001'
+        id_full = f"{main_id}.{version}"
+
+        duplicate = Object(
+            object_type_id=object_type.id,
+            auto_id=auto_id,
+            created_by=source.created_by,
+            status=status,
+            version=version,
+            main_id=main_id,
+            id_full=id_full
+        )
+
+        db.session.add(duplicate)
+        db.session.flush()
+
+        # Copy dynamic field values as-is.
+        for field in object_type.fields:
+            value = object_data.get(field.field_name)
+            if value is None or value == '':
+                continue
+
+            copied_data = ObjectData(
+                object_id=duplicate.id,
+                field_id=field.id
+            )
+
+            if field.field_type == 'number':
+                copied_data.value_number = Decimal(str(value))
+            elif field.field_type == 'date':
+                if isinstance(value, str):
+                    copied_data.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
+                elif isinstance(value, date):
+                    copied_data.value_date = value
+            elif field.field_type == 'boolean':
+                copied_data.value_boolean = bool(value)
+            else:
+                copied_data.value_text = str(value)
+
+            db.session.add(copied_data)
+
+        # Copy every relation where the source object participates,
+        # replacing source object ID with duplicated object ID.
+        relations = ObjectRelation.query.filter(
+            (ObjectRelation.source_object_id == source.id) |
+            (ObjectRelation.target_object_id == source.id)
+        ).all()
+        created_relation_keys = set()
+
+        for relation in relations:
+            if relation_id_filter is not None and relation.id not in relation_id_filter:
+                continue
+
+            new_source_id = duplicate.id if relation.source_object_id == source.id else relation.source_object_id
+            new_target_id = duplicate.id if relation.target_object_id == source.id else relation.target_object_id
+
+            copied_relation = ObjectRelation(
+                source_object_id=new_source_id,
+                target_object_id=new_target_id,
+                relation_type=relation.relation_type,
+                description=relation.description,
+                relation_metadata=deepcopy(relation.relation_metadata)
+            )
+            db.session.add(copied_relation)
+            created_relation_keys.add((new_source_id, new_target_id, relation.relation_type))
+
+        for target_id in additional_target_ids:
+            if target_id == duplicate.id:
+                continue
+
+            target_object = Object.query.get(target_id)
+            if not target_object:
+                continue
+
+            relation_type = 'relaterad'
+            relation_key = (duplicate.id, target_id, relation_type)
+            if relation_key in created_relation_keys:
+                continue
+
+            new_relation = ObjectRelation(
+                source_object_id=duplicate.id,
+                target_object_id=target_id,
+                relation_type=relation_type
+            )
+            db.session.add(new_relation)
+            created_relation_keys.add(relation_key)
+
+        db.session.commit()
+
+        logger.info(f"Duplicated object {source.auto_id} -> {duplicate.auto_id}")
+        return jsonify(duplicate.to_dict(include_data=True, include_relations=True)), 201
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error duplicating object {id}: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to duplicate object', 'details': str(e)}), 500
 
 
 @bp.route('/<int:id>', methods=['DELETE'])

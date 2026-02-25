@@ -12,6 +12,7 @@ window.currentSelectedObjectId = null;
 let detailHistory = [];
 let detailHistoryIndex = -1;
 const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
+window.currentDuplicateContext = null;
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
@@ -312,6 +313,20 @@ function ensureDetailHistoryControls() {
         editBtn.addEventListener('click', () => editCurrentDetailObject());
         actions.insertBefore(editBtn, forwardBtn.nextSibling);
     }
+
+    let duplicateBtn = document.getElementById('detail-nav-duplicate');
+    if (!duplicateBtn) {
+        duplicateBtn = document.createElement('button');
+        duplicateBtn.id = 'detail-nav-duplicate';
+        duplicateBtn.className = 'detail-panel-nav-btn';
+        duplicateBtn.type = 'button';
+        duplicateBtn.title = 'Duplicera objekt';
+        duplicateBtn.setAttribute('aria-label', 'Duplicera objekt');
+        duplicateBtn.disabled = true;
+        duplicateBtn.textContent = '⧉';
+        duplicateBtn.addEventListener('click', () => duplicateCurrentDetailObject());
+        actions.insertBefore(duplicateBtn, editBtn.nextSibling);
+    }
 }
 
 function updateDetailHistoryButtons() {
@@ -319,18 +334,407 @@ function updateDetailHistoryButtons() {
     const backBtn = document.getElementById('detail-nav-back');
     const forwardBtn = document.getElementById('detail-nav-forward');
     const editBtn = document.getElementById('detail-nav-edit');
-    if (!backBtn || !forwardBtn || !editBtn) return;
+    const duplicateBtn = document.getElementById('detail-nav-duplicate');
+    if (!backBtn || !forwardBtn || !editBtn || !duplicateBtn) return;
 
     const hasBack = detailHistoryIndex > 0;
     const hasForward = detailHistoryIndex >= 0 && detailHistoryIndex < detailHistory.length - 1;
+    const hasCurrent = Number.isFinite(currentObjectId);
     backBtn.disabled = !hasBack;
     forwardBtn.disabled = !hasForward;
-    editBtn.disabled = !Number.isFinite(currentObjectId);
+    editBtn.disabled = !hasCurrent;
+    duplicateBtn.disabled = !hasCurrent;
 }
 
 function editCurrentDetailObject() {
     if (!Number.isFinite(currentObjectId)) return;
     editObject(currentObjectId);
+}
+
+async function duplicateCurrentDetailObject() {
+    if (!Number.isFinite(currentObjectId)) return;
+
+    try {
+        await showDuplicateObjectModal(currentObjectId);
+    } catch (error) {
+        console.error('Failed to duplicate object:', error);
+        showToast(error.message || 'Kunde inte duplicera objekt', 'error');
+    }
+}
+
+function getObjectDisplayNameForDuplicate(obj) {
+    if (!obj) return 'Okänt objekt';
+    return (
+        obj.data?.Namn ||
+        obj.data?.namn ||
+        obj.data?.Name ||
+        obj.data?.name ||
+        obj.auto_id ||
+        'Okänt objekt'
+    );
+}
+
+function getLinkedObjectFromRelationForDuplicate(sourceObjectId, relation) {
+    const isOutgoing = Number(relation.source_object_id) === Number(sourceObjectId);
+    return isOutgoing ? relation.target_object : relation.source_object;
+}
+
+function getDuplicateRelationRowDescription(row) {
+    if (row.description) return row.description;
+    if (row.relationDescription) return row.relationDescription;
+    return '-';
+}
+
+function getDuplicateSortIndicator(field) {
+    const context = window.currentDuplicateContext;
+    if (!context || context.sortField !== field) return '↕';
+    return context.sortDirection === 'asc' ? '↑' : '↓';
+}
+
+function getDuplicateRowFieldValue(row, field) {
+    if (field === 'auto_id') return String(row.autoId || '');
+    if (field === 'type') return String(row.type || '');
+    if (field === 'name') return String(row.name || '');
+    if (field === 'description') return String(getDuplicateRelationRowDescription(row) || '');
+    return '';
+}
+
+function buildDuplicateRelationRows() {
+    const context = window.currentDuplicateContext;
+    if (!context) return [];
+
+    const rows = [];
+
+    context.relations.forEach(relation => {
+        if (!context.selectedRelationIds.has(relation.id)) return;
+        const linkedObject = context.linkedObjectByRelationId.get(relation.id) || {};
+        rows.push({
+            key: `existing-${relation.id}`,
+            kind: 'existing',
+            id: relation.id,
+            autoId: linkedObject.auto_id || linkedObject.id || '?',
+            type: linkedObject.object_type?.name || '-',
+            name: getObjectDisplayNameForDuplicate(linkedObject),
+            description: linkedObject.data?.beskrivning || linkedObject.data?.description || '',
+            relationDescription: relation.description || ''
+        });
+    });
+
+    Array.from(context.additionalObjects.values()).forEach(obj => {
+        rows.push({
+            key: `added-${obj.id}`,
+            kind: 'added',
+            id: obj.id,
+            autoId: obj.auto_id || obj.id || '?',
+            type: obj.object_type?.name || '-',
+            name: getObjectDisplayNameForDuplicate(obj),
+            description: obj.data?.beskrivning || obj.data?.description || '',
+            relationDescription: 'Ny relation vid duplicering'
+        });
+    });
+
+    return rows;
+}
+
+function applyDuplicateRowFiltersAndSort(rows) {
+    const context = window.currentDuplicateContext;
+    if (!context) return rows;
+
+    const globalSearch = (context.search || '').trim().toLowerCase();
+    let filtered = rows.filter(row => {
+        if (!globalSearch) return true;
+        const haystack = [
+            row.autoId,
+            row.type,
+            row.name,
+            getDuplicateRelationRowDescription(row)
+        ].map(value => String(value || '').toLowerCase());
+        return haystack.some(value => value.includes(globalSearch));
+    });
+
+    Object.entries(context.columnSearches || {}).forEach(([field, searchTerm]) => {
+        const normalizedTerm = String(searchTerm || '').trim().toLowerCase();
+        if (!normalizedTerm) return;
+        filtered = filtered.filter(row => getDuplicateRowFieldValue(row, field).toLowerCase().includes(normalizedTerm));
+    });
+
+    const sortField = context.sortField || 'name';
+    const sortDirection = context.sortDirection === 'desc' ? 'desc' : 'asc';
+    filtered = [...filtered].sort((a, b) => {
+        const aValue = getDuplicateRowFieldValue(a, sortField);
+        const bValue = getDuplicateRowFieldValue(b, sortField);
+        const comparison = aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' });
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+}
+
+function renderDuplicateSelectionSection() {
+    const rows = applyDuplicateRowFiltersAndSort(buildDuplicateRelationRows());
+    const rowsHtml = rows.map(row => {
+        const typeColor = getObjectTypeColor(row.type);
+        return `
+        <tr>
+            <td class="col-id">${escapeHtml(String(row.autoId))}</td>
+            <td class="col-type">
+                <span class="object-type-badge" style="background-color: ${typeColor}">
+                    ${escapeHtml(String(row.type))}
+                </span>
+            </td>
+            <td class="col-name">${escapeHtml(String(row.name))}</td>
+            <td class="col-description">${escapeHtml(String(getDuplicateRelationRowDescription(row)))}</td>
+            <td class="col-actions">
+                <button
+                    type="button"
+                    class="btn-icon btn-danger duplicate-remove-row-btn"
+                    data-kind="${row.kind}"
+                    data-id="${row.id}"
+                    title="Ta bort objekt"
+                    aria-label="Ta bort ${escapeHtml(String(row.name))}"
+                >🗑️</button>
+            </td>
+        </tr>
+    `;
+    }).join('');
+
+    return `
+        <div class="form-section duplicate-options-section">
+            <div class="duplicate-options-header">
+                <h4>Relationer och kopplade filer som följer med</h4>
+                <button type="button" id="duplicate-add-objects-btn" class="btn btn-primary btn-sm">Lägg till objekt</button>
+            </div>
+            <div class="filters duplicate-table-filters">
+                <input
+                    type="text"
+                    id="duplicate-selection-search"
+                    class="search-input"
+                    placeholder="Sök..."
+                    value="${escapeHtml(String(window.currentDuplicateContext?.search || ''))}"
+                >
+            </div>
+            <div class="table-container duplicate-relations-table-container">
+                <table class="data-table duplicate-relations-table">
+                    <thead>
+                        <tr>
+                            <th class="col-id" data-sortable="true" data-field="auto_id" style="cursor:pointer;">ID <span class="sort-indicator">${getDuplicateSortIndicator('auto_id')}</span></th>
+                            <th class="col-type" data-sortable="true" data-field="type" style="cursor:pointer;">Typ <span class="sort-indicator">${getDuplicateSortIndicator('type')}</span></th>
+                            <th class="col-name" data-sortable="true" data-field="name" style="cursor:pointer;">Namn <span class="sort-indicator">${getDuplicateSortIndicator('name')}</span></th>
+                            <th class="col-description" data-sortable="true" data-field="description" style="cursor:pointer;">Beskrivning <span class="sort-indicator">${getDuplicateSortIndicator('description')}</span></th>
+                            <th class="col-actions"></th>
+                        </tr>
+                        <tr class="column-search-row">
+                            <th class="col-id"><input type="text" class="column-search-input duplicate-column-search-input" data-field="auto_id" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.auto_id || ''))}"></th>
+                            <th class="col-type"><input type="text" class="column-search-input duplicate-column-search-input" data-field="type" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.type || ''))}"></th>
+                            <th class="col-name"><input type="text" class="column-search-input duplicate-column-search-input" data-field="name" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.name || ''))}"></th>
+                            <th class="col-description"><input type="text" class="column-search-input duplicate-column-search-input" data-field="description" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.description || ''))}"></th>
+                            <th class="col-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.length ? rowsHtml : '<tr><td colspan="5" class="empty-state">Inga objekt valda.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function getSelectedDuplicateRelationPayload() {
+    const context = window.currentDuplicateContext;
+    if (!context) {
+        return { relationIds: [], additionalTargetIds: [] };
+    }
+
+    return {
+        relationIds: Array.from(context.selectedRelationIds.values()),
+        additionalTargetIds: Array.from(context.additionalObjects.keys())
+    };
+}
+
+function bindDuplicateSelectionEvents() {
+    const context = window.currentDuplicateContext;
+    if (!context) return;
+
+    const addButton = document.getElementById('duplicate-add-objects-btn');
+    if (addButton) {
+        addButton.addEventListener('click', async () => {
+            if (!context || !Number.isFinite(context.sourceObjectId)) return;
+
+            try {
+                await showAddRelationModal(context.sourceObjectId, {
+                    mode: 'select',
+                    title: 'Lägg till objekt',
+                    description: 'Sök och välj ett eller flera objekt i korgen.',
+                    confirmLabel: 'Lägg till',
+                    hideSettings: true,
+                    onSubmit: async ({ selectedItems }) => {
+                        (selectedItems || []).forEach(item => {
+                            const itemId = Number(item.id);
+                            if (!Number.isFinite(itemId)) return;
+                            if (context.selectedLinkedObjectIds.has(itemId)) return;
+                            context.additionalObjects.set(itemId, item);
+                            context.selectedLinkedObjectIds.add(itemId);
+                        });
+                        renderDuplicateSelectionUI();
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to open add-object picker for duplicate:', error);
+                showToast(error.message || 'Kunde inte öppna lägg till-panelen', 'error');
+            }
+        });
+    }
+
+    const globalSearchInput = document.getElementById('duplicate-selection-search');
+    if (globalSearchInput) {
+        globalSearchInput.addEventListener('input', (event) => {
+            context.search = event.target.value;
+            renderDuplicateSelectionUI();
+        });
+    }
+
+    document.querySelectorAll('.duplicate-column-search-input').forEach(input => {
+        input.addEventListener('input', (event) => {
+            const field = event.target.dataset.field;
+            context.columnSearches[field] = event.target.value;
+            renderDuplicateSelectionUI();
+        });
+    });
+
+    document.querySelectorAll('.duplicate-relations-table th[data-sortable="true"]').forEach(header => {
+        header.addEventListener('click', () => {
+            const field = header.dataset.field;
+            if (!field) return;
+            if (context.sortField === field) {
+                context.sortDirection = context.sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                context.sortField = field;
+                context.sortDirection = 'asc';
+            }
+            renderDuplicateSelectionUI();
+        });
+    });
+
+    document.querySelectorAll('.duplicate-remove-row-btn').forEach(button => {
+        button.addEventListener('click', () => {
+            if (!context) return;
+
+            const rowKind = button.dataset.kind;
+            const rowId = Number(button.dataset.id);
+            if (!Number.isFinite(rowId)) return;
+
+            if (rowKind === 'existing') {
+                context.selectedRelationIds.delete(rowId);
+                const linkedObjectId = context.linkedObjectIdByRelationId.get(rowId);
+                if (Number.isFinite(linkedObjectId)) {
+                    const hasOtherRelation = Array.from(context.selectedRelationIds.values()).some(relationId => {
+                        return context.linkedObjectIdByRelationId.get(relationId) === linkedObjectId;
+                    });
+                    if (!hasOtherRelation && !context.additionalObjects.has(linkedObjectId)) {
+                        context.selectedLinkedObjectIds.delete(linkedObjectId);
+                    }
+                }
+            } else if (rowKind === 'added') {
+                context.additionalObjects.delete(rowId);
+                context.selectedLinkedObjectIds.delete(rowId);
+            }
+
+            renderDuplicateSelectionUI();
+        });
+    });
+}
+
+function renderDuplicateSelectionUI() {
+    const container = document.getElementById('duplicate-options-container');
+    if (!container) return;
+    container.innerHTML = renderDuplicateSelectionSection();
+    bindDuplicateSelectionEvents();
+}
+
+function splitMetadataFromFormData(formData) {
+    const metadata = {
+        status: formData?.status || 'In work'
+    };
+
+    const objectData = {};
+    Object.entries(formData || {}).forEach(([key, value]) => {
+        if (key === 'status' || key === 'version' || key === 'main_id') return;
+        objectData[key] = value;
+    });
+
+    return { metadata, objectData };
+}
+
+async function showDuplicateObjectModal(objectId) {
+    const modal = document.getElementById('object-modal');
+    const overlay = document.getElementById('modal-overlay');
+    const typeSelect = document.getElementById('object-type-select');
+    const formContainer = document.getElementById('object-form-container');
+
+    if (!modal || !overlay || !typeSelect || !formContainer) return;
+
+    window.currentObjectForm = null;
+    window.currentDuplicateContext = null;
+    formContainer.innerHTML = '';
+
+    const sourceObject = await ObjectsAPI.getById(objectId);
+    const typeData = await ObjectTypesAPI.getById(sourceObject.object_type.id);
+
+    const relations = await ObjectsAPI.getRelations(objectId);
+
+    typeSelect.innerHTML = `<option value="${typeData.id}" selected>${typeData.name}</option>`;
+    typeSelect.disabled = true;
+
+    const formComponent = new ObjectFormComponent(typeData, sourceObject);
+    await formComponent.render('object-form-container');
+    window.currentObjectForm = formComponent;
+
+    const duplicateOptions = document.createElement('div');
+    duplicateOptions.id = 'duplicate-options-container';
+    formContainer.appendChild(duplicateOptions);
+    const normalizedRelations = (relations || [])
+        .map(rel => ({ ...rel, id: Number(rel.id) }))
+        .filter(rel => Number.isFinite(rel.id));
+
+    const selectedRelationIds = new Set(normalizedRelations.map(rel => rel.id));
+    const linkedObjectByRelationId = new Map();
+    const linkedObjectIdByRelationId = new Map();
+    const selectedLinkedObjectIds = new Set();
+    normalizedRelations.forEach(rel => {
+        const linkedObject = getLinkedObjectFromRelationForDuplicate(objectId, rel);
+        linkedObjectByRelationId.set(rel.id, linkedObject);
+        const linkedObjectId = Number(linkedObject?.id);
+        if (Number.isFinite(linkedObjectId)) {
+            linkedObjectIdByRelationId.set(rel.id, linkedObjectId);
+            selectedLinkedObjectIds.add(linkedObjectId);
+        }
+    });
+
+    window.currentDuplicateContext = {
+        sourceObjectId: Number(objectId),
+        relations: normalizedRelations,
+        selectedRelationIds,
+        linkedObjectByRelationId,
+        linkedObjectIdByRelationId,
+        selectedLinkedObjectIds,
+        additionalObjects: new Map(),
+        search: '',
+        columnSearches: {
+            auto_id: '',
+            type: '',
+            name: '',
+            description: ''
+        },
+        sortField: 'name',
+        sortDirection: 'asc'
+    };
+    renderDuplicateSelectionUI();
+
+    modal.dataset.mode = 'duplicate';
+    modal.dataset.objectId = String(objectId);
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
 }
 
 function persistDetailHistory() {
@@ -552,8 +956,12 @@ function formatFieldValue(value, fieldType) {
         case 'decimal':
         case 'number':
             return Number(value).toLocaleString('sv-SE');
+        case 'richtext': {
+            const sanitized = sanitizeRichTextHtml(String(value));
+            return sanitized || '-';
+        }
         default:
-            return String(value);
+            return escapeHtml(String(value));
     }
 }
 
@@ -566,6 +974,7 @@ async function showCreateObjectModal() {
     
     // Clear previous form data
     window.currentObjectForm = null;
+    window.currentDuplicateContext = null;
     const formContainer = document.getElementById('object-form-container');
     if (formContainer) {
         formContainer.innerHTML = '';
@@ -613,6 +1022,7 @@ async function showCreateFileObjectModal() {
 
     // Clear previous form data
     window.currentObjectForm = null;
+    window.currentDuplicateContext = null;
     const formContainer = document.getElementById('object-form-container');
     if (formContainer) {
         formContainer.innerHTML = '';
@@ -676,6 +1086,7 @@ async function editObject(objectId) {
         const formComponent = new ObjectFormComponent(typeData, object);
         await formComponent.render('object-form-container');
         window.currentObjectForm = formComponent;
+        window.currentDuplicateContext = null;
         
         modal.dataset.mode = 'edit';
         modal.dataset.objectId = objectId;
@@ -690,6 +1101,10 @@ async function editObject(objectId) {
 // Save object (create or update)
 async function saveObject(event) {
     event.preventDefault();
+
+    if (window.tinymce && typeof window.tinymce.triggerSave === 'function') {
+        window.tinymce.triggerSave();
+    }
     
     const modal = document.getElementById('object-modal');
     const mode = modal.dataset.mode;
@@ -717,10 +1132,12 @@ async function saveObject(event) {
     
     const typeId = parseInt(document.getElementById('object-type-select').value);
     const formData = window.currentObjectForm.getFormData();
+    const { metadata, objectData } = splitMetadataFromFormData(formData);
     
     const data = {
         object_type_id: typeId,
-        data: formData
+        status: metadata.status,
+        data: objectData
     };
     
     try {
@@ -740,19 +1157,64 @@ async function saveObject(event) {
                 await ObjectsAPI.uploadDocument(createdObject.id, file);
             }
             showToast('Filobjekt skapat med filer', 'success');
+        } else if (mode === 'duplicate') {
+            const { relationIds, additionalTargetIds } = getSelectedDuplicateRelationPayload();
+            const sourceObjectId = Number(objectId);
+            if (!Number.isFinite(sourceObjectId)) {
+                throw new Error('Kunde inte läsa källobjekt för duplicering');
+            }
+
+            const duplicatedObject = await ObjectsAPI.duplicate(sourceObjectId, {
+                status: metadata.status,
+                data: objectData,
+                relation_ids: relationIds,
+                additional_target_ids: additionalTargetIds
+            });
+
+            showToast('Objekt duplicerat', 'success');
+            closeModal();
+
+            if (currentObjectListComponent?.refresh) {
+                await currentObjectListComponent.refresh();
+            }
+            if (treeViewActive && treeViewInstance?.render) {
+                await treeViewInstance.render();
+            }
+
+            if (duplicatedObject?.id) {
+                await openDetailPanel(duplicatedObject.id);
+            }
+            return;
         } else {
             await ObjectsAPI.update(objectId, data);
             showToast('Objekt uppdaterat', 'success');
         }
-        
+
+        const savedObjectId = Number(objectId);
         closeModal();
-        
+
         // Refresh current view
         if (currentObjectListComponent) {
             await currentObjectListComponent.refresh();
         }
+        if (treeViewActive && treeViewInstance?.render) {
+            await treeViewInstance.render();
+        }
         if (currentObjectDetailComponent) {
             await currentObjectDetailComponent.refresh();
+        }
+
+        // Ensure full detail panel refresh after editing the currently open object.
+        const detailPanel = document.getElementById('detail-panel');
+        const selectedObjectId = Number(window.currentSelectedObjectId);
+        const shouldRefreshDetailPanel =
+            mode === 'edit' &&
+            Number.isFinite(savedObjectId) &&
+            detailPanel?.classList.contains('active') &&
+            selectedObjectId === savedObjectId;
+
+        if (shouldRefreshDetailPanel) {
+            await openDetailPanel(savedObjectId, { fromHistory: true });
         }
     } catch (error) {
         console.error('Failed to save object:', error);

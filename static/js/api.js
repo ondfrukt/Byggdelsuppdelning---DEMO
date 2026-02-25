@@ -152,6 +152,13 @@ const ObjectsAPI = {
             body: JSON.stringify(data),
         });
     },
+
+    duplicate: (id, payload = {}) => {
+        return fetchAPI(`/objects/${id}/duplicate`, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    },
     
     delete: (id) => {
         return fetchAPI(`/objects/${id}`, {
@@ -247,6 +254,38 @@ const SearchAPI = {
         const queryString = params.toString();
         return fetchAPI(`/search${queryString ? '?' + queryString : ''}`);
     },
+};
+
+
+// Managed Lists API
+const ManagedListsAPI = {
+    getAll: (includeInactive = false, includeItems = false) => {
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        if (includeItems) params.append('include_items', 'true');
+        const query = params.toString();
+        return fetchAPI(`/managed-lists${query ? '?' + query : ''}`);
+    },
+
+    getById: (id, includeItems = true, includeInactiveItems = false) => {
+        const params = new URLSearchParams();
+        if (includeItems) params.append('include_items', 'true');
+        if (includeInactiveItems) params.append('include_inactive_items', 'true');
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/${id}${query ? '?' + query : ''}`);
+    },
+
+    create: (data) => fetchAPI('/managed-lists', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => fetchAPI(`/managed-lists/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => fetchAPI(`/managed-lists/${id}`, { method: 'DELETE' }),
+
+    getItems: (listId, includeInactive = false) => {
+        const params = includeInactive ? '?include_inactive=true' : '';
+        return fetchAPI(`/managed-lists/${listId}/items${params}`);
+    },
+    addItem: (listId, data) => fetchAPI(`/managed-lists/${listId}/items`, { method: 'POST', body: JSON.stringify(data) }),
+    updateItem: (listId, itemId, data) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteItem: (listId, itemId) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'DELETE' })
 };
 
 // Building Part Categories API

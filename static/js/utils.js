@@ -125,6 +125,168 @@ function escapeHtml(text) {
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
+function stripHtmlTags(html) {
+    if (html === null || html === undefined) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = String(html);
+    return (temp.textContent || temp.innerText || '').trim();
+}
+
+function sanitizeRichTextHtml(html) {
+    if (!html) return '';
+
+    const allowedTags = new Set([
+        'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u',
+        'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'blockquote', 'a', 'img', 'table', 'thead', 'tbody', 'tfoot',
+        'tr', 'td', 'th', 'caption', 'colgroup', 'col', 'hr',
+        'sup', 'sub', 'pre', 'code'
+    ]);
+    const allowedAttrs = {
+        a: new Set(['href', 'target', 'rel']),
+        span: new Set(['style']),
+        p: new Set(['style']),
+        div: new Set(['style']),
+        img: new Set(['src', 'alt', 'title', 'style']),
+        table: new Set(['style']),
+        thead: new Set(['style']),
+        tbody: new Set(['style']),
+        tfoot: new Set(['style']),
+        tr: new Set(['style']),
+        td: new Set(['style', 'colspan', 'rowspan']),
+        th: new Set(['style', 'colspan', 'rowspan']),
+        caption: new Set(['style']),
+        colgroup: new Set(['style']),
+        col: new Set(['style'])
+    };
+    const allowedStyleProps = new Set([
+        'font-weight',
+        'font-style',
+        'font-size',
+        'font-family',
+        'line-height',
+        'letter-spacing',
+        'word-spacing',
+        'text-decoration',
+        'text-decoration-color',
+        'text-decoration-style',
+        'text-decoration-line',
+        'color',
+        'background-color',
+        'text-align',
+        'text-indent',
+        'margin-left',
+        'margin-right',
+        'margin-top',
+        'margin-bottom',
+        'margin',
+        'padding',
+        'padding-left',
+        'padding-right',
+        'padding-top',
+        'padding-bottom',
+        'border',
+        'border-color',
+        'border-width',
+        'border-style',
+        'border-collapse',
+        'vertical-align',
+        'list-style-type',
+        'white-space',
+        'max-width',
+        'width',
+        'height'
+    ]);
+
+    const template = document.createElement('template');
+    template.innerHTML = String(html);
+
+    const sanitizeStyle = (styleValue, tagName = '') => {
+        const chunks = String(styleValue || '')
+            .split(';')
+            .map(item => item.trim())
+            .filter(Boolean);
+        const safe = [];
+        chunks.forEach(chunk => {
+            const [rawProp, rawValue] = chunk.split(':');
+            if (!rawProp || !rawValue) return;
+            const prop = rawProp.trim().toLowerCase();
+            const value = rawValue.trim().toLowerCase();
+            if (!allowedStyleProps.has(prop)) return;
+
+            // Word-paste tends to inject paragraph spacing/line-height that makes content look double-spaced.
+            // Keep text emphasis/color styles, but normalize block-level spacing styles.
+            const isBlockTag = tagName === 'p' || tagName === 'div';
+            if (isBlockTag && ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'line-height'].includes(prop)) {
+                return;
+            }
+
+            if (!/^[a-z0-9\s\-\(\),.%#"'\/+!]+$/.test(value)) return;
+            safe.push(`${prop}: ${value}`);
+        });
+        return safe.join('; ');
+    };
+
+    const walk = (node) => {
+        const children = Array.from(node.childNodes);
+        children.forEach(child => {
+            if (child.nodeType === Node.ELEMENT_NODE) {
+                const tag = child.tagName.toLowerCase();
+                if (!allowedTags.has(tag)) {
+                    const fragment = document.createDocumentFragment();
+                    while (child.firstChild) {
+                        fragment.appendChild(child.firstChild);
+                    }
+                    child.replaceWith(fragment);
+                    walk(node);
+                    return;
+                }
+
+                const allowedForTag = allowedAttrs[tag] || new Set();
+                Array.from(child.attributes).forEach(attr => {
+                    const attrName = attr.name.toLowerCase();
+                    if (!allowedForTag.has(attrName)) {
+                        child.removeAttribute(attr.name);
+                        return;
+                    }
+                    if (tag === 'a' && attrName === 'href') {
+                        const href = String(attr.value || '').trim();
+                        if (!/^(https?:|mailto:|\/|#)/i.test(href)) {
+                            child.removeAttribute('href');
+                        }
+                    }
+                    if (tag === 'img' && attrName === 'src') {
+                        const src = String(attr.value || '').trim();
+                        if (!/^(https?:|\/|data:image\/(?:png|jpeg|jpg|gif|webp);base64,)/i.test(src)) {
+                            child.removeAttribute('src');
+                        }
+                    }
+                    if (attrName === 'style') {
+                        const sanitized = sanitizeStyle(attr.value, tag);
+                        if (sanitized) {
+                            child.setAttribute('style', sanitized);
+                        } else {
+                            child.removeAttribute('style');
+                        }
+                    }
+                });
+
+                if (tag === 'a') {
+                    child.setAttribute('target', '_blank');
+                    child.setAttribute('rel', 'noopener noreferrer');
+                }
+
+                walk(child);
+            } else if (child.nodeType === Node.COMMENT_NODE) {
+                child.remove();
+            }
+        });
+    };
+
+    walk(template.content);
+    return template.innerHTML.trim();
+}
+
 function isPdfUrl(url) {
     if (!url) return false;
     const cleanUrl = String(url).split('?')[0].split('#')[0].toLowerCase();
@@ -356,6 +518,7 @@ function closeModal() {
     
     // Clear current form reference
     window.currentObjectForm = null;
+    window.currentDuplicateContext = null;
 }
 
 // Show/hide views

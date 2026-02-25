@@ -29,11 +29,6 @@
                 <div id="object-detail-container"></div>
             </div>
 
-            <!-- Admin View -->
-            <div id="admin-view" class="view">
-                <div id="admin-container"></div>
-            </div>
-
             <!-- File Objects View -->
             <div id="file-objects-view" class="view">
                 <div id="file-objects-container"></div>
@@ -66,12 +61,18 @@
                             <button id="detail-nav-back" class="detail-panel-nav-btn" type="button" onclick="navigateDetailHistory(-1)" title="Föregående objekt" aria-label="Föregående objekt" disabled>←</button>
                             <button id="detail-nav-forward" class="detail-panel-nav-btn" type="button" onclick="navigateDetailHistory(1)" title="Nästa objekt" aria-label="Nästa objekt" disabled>→</button>
                             <button id="detail-nav-edit" class="detail-panel-nav-btn" type="button" onclick="editCurrentDetailObject()" title="Redigera objekt" aria-label="Redigera objekt" disabled>✎</button>
+                            <button id="detail-nav-duplicate" class="detail-panel-nav-btn" type="button" onclick="duplicateCurrentDetailObject()" title="Duplicera objekt" aria-label="Duplicera objekt" disabled>⧉</button>
                             <button class="detail-panel-close" onclick="closeDetailPanel()">&times;</button>
                         </div>
                     </div>
                     <div id="detail-panel-body" class="detail-panel-content"></div>
                 </div>
             </div>
+        </div>
+
+        <!-- Admin View - full width, outside container -->
+        <div id="admin-view" class="view">
+            <div id="admin-container"></div>
         </div>
     </main>
 
@@ -100,6 +101,24 @@
                     <button type="submit" class="btn btn-primary">
                         Spara
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bulk Edit Modal -->
+    <div id="bulk-edit-modal" class="modal bulk-edit-modal">
+        <div class="modal-content bulk-edit-modal-content">
+            <div class="modal-header">
+                <h3 id="bulk-edit-modal-title">Redigera markerade objekt</h3>
+                <button class="close-btn" type="button" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="bulk-edit-form">
+                <div id="bulk-edit-summary" class="form-help"></div>
+                <div id="bulk-edit-fields-container"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Spara</button>
                 </div>
             </form>
         </div>
@@ -225,6 +244,7 @@
                     <select id="field-type" class="form-control" required>
                         <option value="text">Text</option>
                         <option value="textarea">Textområde</option>
+                        <option value="richtext">Formaterad text</option>
                         <option value="number">Nummer</option>
                         <option value="decimal">Decimal</option>
                         <option value="date">Datum</option>
@@ -232,6 +252,7 @@
                         <option value="boolean">Ja/Nej</option>
                         <option value="select">Val (dropdown)</option>
                         <option value="building_part_category">Byggdelskategori (admin-lista)</option>
+                        <option value="managed_list">Admin-lista (egen lista)</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -257,6 +278,13 @@
                            placeholder="Alt1, Alt2, Alt3 eller JSON array">
                     <small class="form-help">Komma-separerad lista eller JSON array. Ej relevant för byggdelskategori-fält.</small>
                 </div>
+                <div class="form-group" id="managed-list-select-group" style="display:none;">
+                    <label for="managed-list-select">Välj admin-lista *</label>
+                    <select id="managed-list-select" class="form-control">
+                        <option value="">Välj lista...</option>
+                    </select>
+                    <small class="form-help">Listvärden hämtas från vald lista i fliken Listor.</small>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
                         Avbryt
@@ -278,8 +306,10 @@
     <div id="toast-container" class="toast-container"></div>
 
     <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/tinymce@7/tinymce.min.js" referrerpolicy="origin"></script>
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/system-table.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list-display-name.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail.js') }}"></script>

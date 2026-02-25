@@ -18,6 +18,8 @@ def create_app():
     """Application factory pattern"""
     app = Flask(__name__)
     app.config.from_object(Config)
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.jinja_env.auto_reload = True
     
     # Enable CORS
     CORS(app)
@@ -68,6 +70,12 @@ def create_app():
             logger.warning(f"Building part categories migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_managed_lists import run_migration as run_managed_lists_migration
+            run_managed_lists_migration(db)
+        except Exception as e:
+            logger.warning(f"Managed lists migration may have already run: {str(e)}")
+
+        try:
             from migrations.add_table_visibility_to_object_fields import run_migration as run_table_visibility_migration
             run_table_visibility_migration(db)
         except Exception as e:
@@ -78,6 +86,12 @@ def create_app():
             run_required_name_field_migration(db)
         except Exception as e:
             logger.warning(f"Required namn field migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_connection_part_fields import run_migration as run_connection_part_fields_migration
+            run_connection_part_fields_migration(db)
+        except Exception as e:
+            logger.warning(f"Connection part fields migration may have already run: {str(e)}")
         
         seed_data(app)
 
@@ -87,6 +101,18 @@ def create_app():
             run_required_name_field_migration(db)
         except Exception as e:
             logger.warning(f"Required namn field post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_connection_part_fields import run_migration as run_connection_part_fields_migration
+            run_connection_part_fields_migration(db)
+        except Exception as e:
+            logger.warning(f"Connection part fields post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_managed_lists import run_migration as run_managed_lists_migration
+            run_managed_lists_migration(db)
+        except Exception as e:
+            logger.warning(f"Managed lists post-seed migration may have already run: {str(e)}")
     
     # Register blueprints
     register_blueprints(app)

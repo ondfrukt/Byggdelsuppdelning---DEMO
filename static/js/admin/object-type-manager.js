@@ -9,6 +9,8 @@ class ObjectTypeManager {
         this.objectTypes = [];
         this.selectedType = null;
         this.buildingPartCategories = [];
+        this.managedLists = [];
+        this.selectedManagedListId = null;
         this.fieldModalTypeListenerAttached = false;
     }
     
@@ -28,6 +30,9 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="building-part-categories" onclick="adminManager.switchTab('building-part-categories')">
                         Byggdelskategorier
                     </button>
+                    <button class="admin-tab" data-tab="managed-lists" onclick="adminManager.switchTab('managed-lists')">
+                        Listor
+                    </button>
                     <button class="admin-tab" data-tab="list-view" onclick="adminManager.switchTab('list-view')">
                         Listvy Inställningar
                     </button>
@@ -42,13 +47,13 @@ class ObjectTypeManager {
                             </button>
                         </div>
                         
-                        <div class="admin-content">
+                        <div class="admin-content object-types-admin-content">
                             <div class="types-list">
                                 <h4>Objekttyper</h4>
                                 <div id="types-list-container"></div>
                             </div>
                             
-                            <div class="type-details" id="type-details-container">
+                            <div class="type-details type-detail-drawer" id="type-details-container">
                                 <p class="empty-state">Välj en objekttyp för att visa detaljer</p>
                             </div>
                         </div>
@@ -59,6 +64,15 @@ class ObjectTypeManager {
                             <h3>Byggdelskategorier</h3>
                         </div>
                         <div id="building-part-categories-container">
+                            <p>Laddar...</p>
+                        </div>
+                    </div>
+
+                    <div id="managed-lists-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Listor</h3>
+                        </div>
+                        <div id="managed-lists-container">
                             <p>Laddar...</p>
                         </div>
                     </div>
@@ -78,6 +92,7 @@ class ObjectTypeManager {
         this.setupFieldModalTypeBehavior();
         await this.loadObjectTypes();
         await this.loadBuildingPartCategories();
+        await this.loadManagedLists();
         await this.loadListViewConfig();
     }
     
@@ -122,7 +137,13 @@ class ObjectTypeManager {
     
     renderTypeDetails() {
         const container = document.getElementById('type-details-container');
-        if (!container || !this.selectedType) return;
+        if (!container) return;
+        if (!this.selectedType) {
+            container.classList.remove('open');
+            container.innerHTML = '<p class="empty-state">Välj en objekttyp för att visa detaljer</p>';
+            return;
+        }
+        container.classList.add('open');
         
         const fields = this.selectedType.fields || [];
         
@@ -165,8 +186,20 @@ class ObjectTypeManager {
                     
                     ${fields.length === 0 ? 
                         '<p class="empty-state">Inga fält definierade</p>' :
-                        `<div class="fields-list">
-                            ${fields.map(field => this.renderFieldItem(field)).join('')}
+                        `<div class="table-container admin-fields-table-container">
+                            <table class="data-table admin-fields-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-name">Namn</th>
+                                        <th class="col-status">Obligatorisk</th>
+                                        <th class="col-actions"></th>
+                                        <th class="col-actions"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${fields.map(field => this.renderFieldRow(field)).join('')}
+                                </tbody>
+                            </table>
                         </div>`
                     }
                 </div>
@@ -174,30 +207,25 @@ class ObjectTypeManager {
         `;
     }
     
-    renderFieldItem(field) {
-        const typeLabel = this.getFieldTypeLabel(field);
+    renderFieldRow(field) {
+        const nameLabel = field.display_name || field.field_name;
+        const meta = `${this.getFieldTypeLabel(field)} • ${field.field_name}`;
         return `
-            <div class="field-item">
-                <div class="field-info">
-                    <strong>${field.display_name || field.field_name}</strong>
-                    ${field.is_required ? '<span class="required-badge">Obligatorisk</span>' : ''}
-                    ${field.is_table_visible === false ? '<span class="status-badge obsolete">Dold i tabeller</span>' : '<span class="status-badge godkand">Visas i tabeller</span>'}
-                    <br>
-                    <small>
-                        Typ: ${typeLabel} • 
-                        Namn: ${field.field_name}
-                        ${field.help_text ? ` • ${field.help_text}` : ''}
-                    </small>
-                </div>
-                <div class="field-actions">
-                    <button class="btn btn-sm btn-secondary" onclick="adminManager.editField(${field.id})">
-                        Redigera
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="adminManager.deleteField(${field.id})">
-                        Ta bort
-                    </button>
-                </div>
-            </div>
+            <tr>
+                <td class="col-name">
+                    <strong>${escapeHtml(nameLabel)}</strong>
+                    <div class="admin-field-meta">${escapeHtml(meta)}${field.help_text ? ` • ${escapeHtml(field.help_text)}` : ''}</div>
+                </td>
+                <td class="col-status">
+                    ${field.is_required ? '<span class="status-badge godkand">Ja</span>' : '<span class="status-badge obsolete">Nej</span>'}
+                </td>
+                <td class="col-actions">
+                    <button class="btn-icon" onclick="adminManager.editField(${field.id})" title="Redigera fält" aria-label="Redigera fält ${escapeHtml(nameLabel)}">✏️</button>
+                </td>
+                <td class="col-actions">
+                    <button class="btn-icon btn-danger" onclick="adminManager.deleteField(${field.id})" title="Ta bort fält" aria-label="Ta bort fält ${escapeHtml(nameLabel)}">🗑️</button>
+                </td>
+            </tr>
         `;
     }
 
@@ -205,6 +233,11 @@ class ObjectTypeManager {
         const options = this.normalizeFieldOptions(field.field_options);
         if (field.field_type === 'select' && options?.source === 'building_part_categories') {
             return 'byggdelskategori';
+        }
+        if (field.field_type === 'select' && options?.source === 'managed_list') {
+            const listId = Number(options?.list_id);
+            const list = this.managedLists.find(item => item.id === listId);
+            return list ? `lista: ${list.name}` : 'admin-lista';
         }
         return field.field_type;
     }
@@ -225,20 +258,50 @@ class ObjectTypeManager {
         const fieldTypeSelect = document.getElementById('field-type');
         if (!fieldTypeSelect) return;
 
+        this.ensureFieldTypeOptions(fieldTypeSelect);
         fieldTypeSelect.addEventListener('change', () => this.updateFieldOptionsState());
         this.fieldModalTypeListenerAttached = true;
+    }
+
+    ensureFieldTypeOptions(fieldTypeSelect = null) {
+        const select = fieldTypeSelect || document.getElementById('field-type');
+        if (!select) return;
+
+        const hasRichText = Array.from(select.options).some(option => option.value === 'richtext');
+        if (!hasRichText) {
+            const textareaOption = Array.from(select.options).find(option => option.value === 'textarea');
+            const richTextOption = new Option('Formaterad text', 'richtext');
+            if (textareaOption && textareaOption.nextSibling) {
+                select.insertBefore(richTextOption, textareaOption.nextSibling);
+            } else {
+                select.add(richTextOption);
+            }
+        }
     }
 
     updateFieldOptionsState() {
         const fieldTypeSelect = document.getElementById('field-type');
         const optionsInput = document.getElementById('field-options');
+        const managedListGroup = document.getElementById('managed-list-select-group');
+        const managedListSelect = document.getElementById('managed-list-select');
         if (!fieldTypeSelect || !optionsInput) return;
 
         const isBuildingPartCategory = fieldTypeSelect.value === 'building_part_category';
-        optionsInput.disabled = isBuildingPartCategory;
+        const isManagedList = fieldTypeSelect.value === 'managed_list';
+        const isStaticSelect = fieldTypeSelect.value === 'select';
+        optionsInput.disabled = isBuildingPartCategory || isManagedList || !isStaticSelect;
         optionsInput.placeholder = isBuildingPartCategory
             ? 'Hämtas automatiskt från admin-listan Byggdelskategorier'
-            : 'Alt1, Alt2, Alt3 eller JSON array';
+            : isStaticSelect
+                ? 'Alt1, Alt2, Alt3 eller JSON array'
+                : 'Ej relevant för vald fälttyp';
+        optionsInput.closest('.form-group').style.display = isManagedList ? 'none' : '';
+        if (managedListGroup) {
+            managedListGroup.style.display = isManagedList ? '' : 'none';
+        }
+        if (managedListSelect && isManagedList) {
+            this.renderManagedListOptions();
+        }
     }
 
     async loadBuildingPartCategories() {
@@ -336,6 +399,243 @@ class ObjectTypeManager {
             showToast(error.message || 'Kunde inte ta bort byggdelskategori', 'error');
         }
     }
+
+    async loadManagedLists() {
+        try {
+            this.managedLists = await ManagedListsAPI.getAll(true, true);
+            if (!this.selectedManagedListId && this.managedLists.length) {
+                this.selectedManagedListId = this.managedLists[0].id;
+            }
+            if (this.selectedManagedListId && !this.managedLists.some(list => list.id === this.selectedManagedListId)) {
+                this.selectedManagedListId = this.managedLists.length ? this.managedLists[0].id : null;
+            }
+            this.renderManagedLists();
+            this.renderManagedListOptions();
+            if (this.selectedType) {
+                this.renderTypeDetails();
+            }
+        } catch (error) {
+            console.error('Failed to load managed lists:', error);
+            const container = document.getElementById('managed-lists-container');
+            if (container) {
+                container.innerHTML = '<p class="error">Kunde inte ladda listor</p>';
+            }
+        }
+    }
+
+    renderManagedLists() {
+        const container = document.getElementById('managed-lists-container');
+        if (!container) return;
+
+        const selected = this.managedLists.find(list => list.id === this.selectedManagedListId) || null;
+
+        container.innerHTML = `
+            <div class="admin-content">
+                <div class="types-list">
+                    <h4>Listor</h4>
+                    <div class="category-toolbar">
+                        <input id="new-managed-list-name" type="text" class="form-control" placeholder="Ny lista...">
+                        <button class="btn btn-primary" onclick="adminManager.createManagedList()">Lägg till</button>
+                    </div>
+                    <div class="category-list">
+                        ${this.managedLists.length === 0
+                            ? '<p class="empty-state">Inga listor ännu</p>'
+                            : this.managedLists.map(list => `
+                                <div class="category-item ${list.id === this.selectedManagedListId ? 'selected' : ''}" onclick="adminManager.selectManagedList(${list.id})">
+                                    <span>${escapeHtml(list.name)}</span>
+                                    <div class="category-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); adminManager.editManagedList(${list.id})">Redigera</button>
+                                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); adminManager.deleteManagedList(${list.id})">Ta bort</button>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
+                    </div>
+                </div>
+                <div class="type-details">
+                    ${selected ? this.renderManagedListDetails(selected) : '<p class="empty-state">Välj en lista</p>'}
+                </div>
+            </div>
+        `;
+    }
+
+    renderManagedListDetails(list) {
+        const items = Array.isArray(list.items) ? list.items : [];
+        return `
+            <div class="type-detail-view">
+                <div class="detail-header">
+                    <h3>${escapeHtml(list.name)}</h3>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Beskrivning</span>
+                        <span class="detail-value">${escapeHtml(list.description || 'N/A')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="detail-value">${list.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                    </div>
+                </div>
+                <div class="fields-section">
+                    <div class="section-header">
+                        <h4>Rader</h4>
+                    </div>
+                    <div class="category-toolbar">
+                        <input id="new-managed-list-item-value" type="text" class="form-control" placeholder="Nytt listvärde...">
+                        <button class="btn btn-primary" onclick="adminManager.createManagedListItem()">Lägg till rad</button>
+                    </div>
+                    ${items.length === 0
+                        ? '<p class="empty-state">Inga rader ännu</p>'
+                        : `<div class="category-list">
+                            ${items.map(item => `
+                                <div class="category-item">
+                                    <span>${escapeHtml(item.value)}</span>
+                                    <div class="category-actions">
+                                        <button class="btn btn-sm btn-secondary" onclick="adminManager.editManagedListItem(${item.id})">Redigera</button>
+                                        <button class="btn btn-sm btn-danger" onclick="adminManager.deleteManagedListItem(${item.id})">Ta bort</button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>`}
+                </div>
+            </div>
+        `;
+    }
+
+    selectManagedList(listId) {
+        this.selectedManagedListId = listId;
+        this.renderManagedLists();
+    }
+
+    async createManagedList() {
+        const input = document.getElementById('new-managed-list-name');
+        const name = (input?.value || '').trim();
+        if (!name) {
+            showToast('Ange ett namn för listan', 'error');
+            return;
+        }
+
+        try {
+            const created = await ManagedListsAPI.create({ name });
+            this.selectedManagedListId = created.id;
+            if (input) input.value = '';
+            showToast('Lista skapad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list:', error);
+            showToast(error.message || 'Kunde inte skapa lista', 'error');
+        }
+    }
+
+    async editManagedList(listId) {
+        const list = this.managedLists.find(item => item.id === listId);
+        if (!list) return;
+
+        const newName = prompt('Nytt namn på lista:', list.name);
+        if (newName === null) return;
+        const trimmed = newName.trim();
+        if (!trimmed) {
+            showToast('Namn kan inte vara tomt', 'error');
+            return;
+        }
+
+        try {
+            await ManagedListsAPI.update(listId, { name: trimmed });
+            showToast('Lista uppdaterad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to update managed list:', error);
+            showToast(error.message || 'Kunde inte uppdatera lista', 'error');
+        }
+    }
+
+    async deleteManagedList(listId) {
+        if (!confirm('Är du säker på att du vill ta bort denna lista och alla dess rader?')) return;
+
+        try {
+            await ManagedListsAPI.delete(listId);
+            showToast('Lista borttagen', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to delete managed list:', error);
+            showToast(error.message || 'Kunde inte ta bort lista', 'error');
+        }
+    }
+
+    async createManagedListItem() {
+        if (!this.selectedManagedListId) {
+            showToast('Välj en lista först', 'error');
+            return;
+        }
+
+        const input = document.getElementById('new-managed-list-item-value');
+        const value = (input?.value || '').trim();
+        if (!value) {
+            showToast('Ange ett värde för raden', 'error');
+            return;
+        }
+
+        try {
+            await ManagedListsAPI.addItem(this.selectedManagedListId, { value });
+            if (input) input.value = '';
+            showToast('Rad tillagd', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list item:', error);
+            showToast(error.message || 'Kunde inte skapa rad', 'error');
+        }
+    }
+
+    async editManagedListItem(itemId) {
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        const item = list?.items?.find(row => row.id === itemId);
+        if (!item) return;
+
+        const newValue = prompt('Nytt värde:', item.value);
+        if (newValue === null) return;
+        const trimmed = newValue.trim();
+        if (!trimmed) {
+            showToast('Värde kan inte vara tomt', 'error');
+            return;
+        }
+
+        try {
+            await ManagedListsAPI.updateItem(this.selectedManagedListId, itemId, { value: trimmed });
+            showToast('Rad uppdaterad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to update managed list item:', error);
+            showToast(error.message || 'Kunde inte uppdatera rad', 'error');
+        }
+    }
+
+    async deleteManagedListItem(itemId) {
+        if (!this.selectedManagedListId) return;
+        if (!confirm('Är du säker på att du vill ta bort denna rad?')) return;
+
+        try {
+            await ManagedListsAPI.deleteItem(this.selectedManagedListId, itemId);
+            showToast('Rad borttagen', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to delete managed list item:', error);
+            showToast(error.message || 'Kunde inte ta bort rad', 'error');
+        }
+    }
+
+    renderManagedListOptions() {
+        const select = document.getElementById('managed-list-select');
+        if (!select) return;
+        const currentValue = select.value;
+        select.innerHTML = '<option value=\"\">Välj lista...</option>' +
+            this.managedLists
+                .filter(list => list.is_active !== false)
+                .map(list => `<option value=\"${list.id}\">${escapeHtml(list.name)}</option>`)
+                .join('');
+        if (currentValue) {
+            select.value = currentValue;
+        }
+    }
     
     showCreateTypeModal() {
         const modal = document.getElementById('type-modal');
@@ -399,6 +699,7 @@ class ObjectTypeManager {
         
         document.getElementById('field-modal-title').textContent = 'Lägg till Fält';
         document.getElementById('field-form').reset();
+        this.ensureFieldTypeOptions();
         document.getElementById('field-table-visible').checked = true;
         this.updateFieldOptionsState();
         modal.dataset.mode = 'create';
@@ -420,11 +721,14 @@ class ObjectTypeManager {
         if (!modal || !overlay) return;
         
         document.getElementById('field-modal-title').textContent = 'Redigera Fält';
+        this.ensureFieldTypeOptions();
         document.getElementById('field-name').value = field.field_name;
         document.getElementById('field-display-name').value = field.display_name || '';
         const parsedOptions = this.normalizeFieldOptions(field.field_options);
         const fieldTypeValue = (field.field_type === 'select' && parsedOptions?.source === 'building_part_categories')
             ? 'building_part_category'
+            : (field.field_type === 'select' && parsedOptions?.source === 'managed_list')
+                ? 'managed_list'
             : field.field_type;
         document.getElementById('field-type').value = fieldTypeValue;
         document.getElementById('field-required').checked = field.is_required;
@@ -433,6 +737,10 @@ class ObjectTypeManager {
         document.getElementById('field-options').value = typeof field.field_options === 'string'
             ? field.field_options
             : (field.field_options ? JSON.stringify(field.field_options) : '');
+        const managedListSelect = document.getElementById('managed-list-select');
+        if (managedListSelect) {
+            managedListSelect.value = parsedOptions?.source === 'managed_list' ? String(parsedOptions.list_id || '') : '';
+        }
         this.updateFieldOptionsState();
         
         modal.dataset.mode = 'edit';
@@ -474,6 +782,8 @@ class ObjectTypeManager {
             document.getElementById('object-types-tab').classList.add('active');
         } else if (tabName === 'building-part-categories') {
             document.getElementById('building-part-categories-tab').classList.add('active');
+        } else if (tabName === 'managed-lists') {
+            document.getElementById('managed-lists-tab').classList.add('active');
         } else if (tabName === 'list-view') {
             document.getElementById('list-view-tab').classList.add('active');
         }
@@ -531,15 +841,27 @@ async function saveField(event) {
     
     const selectedFieldType = document.getElementById('field-type').value;
     const rawFieldOptions = document.getElementById('field-options').value;
+    const managedListSelect = document.getElementById('managed-list-select');
+    const selectedManagedListId = Number(managedListSelect?.value || 0);
+
+    if (selectedFieldType === 'managed_list' && (!Number.isFinite(selectedManagedListId) || selectedManagedListId <= 0)) {
+        showToast('Välj en admin-lista för detta fält', 'error');
+        return;
+    }
+
     const data = {
         field_name: document.getElementById('field-name').value,
         display_name: document.getElementById('field-display-name').value,
-        field_type: selectedFieldType === 'building_part_category' ? 'select' : selectedFieldType,
+        field_type: (selectedFieldType === 'building_part_category' || selectedFieldType === 'managed_list')
+            ? 'select'
+            : selectedFieldType,
         is_required: document.getElementById('field-required').checked,
         is_table_visible: document.getElementById('field-table-visible').checked,
         help_text: document.getElementById('field-help-text').value,
         field_options: selectedFieldType === 'building_part_category'
             ? { source: 'building_part_categories' }
+            : selectedFieldType === 'managed_list'
+                ? { source: 'managed_list', list_id: selectedManagedListId }
             : rawFieldOptions
     };
     

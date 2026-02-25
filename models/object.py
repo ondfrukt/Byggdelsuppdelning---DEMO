@@ -52,11 +52,11 @@ class Object(db.Model):
                 continue
         return data
     
-    def to_dict(self, include_data=True, include_relations=False, include_documents=False):
+    def to_dict(self, include_data=True, include_relations=False, include_documents=False, include_object_type_fields=False):
         result = {
             'id': self.id,
             'auto_id': self.auto_id,
-            'object_type': self.object_type.to_dict() if self.object_type else None,
+            'object_type': self.object_type.to_dict(include_fields=include_object_type_fields) if self.object_type else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'created_by': self.created_by,

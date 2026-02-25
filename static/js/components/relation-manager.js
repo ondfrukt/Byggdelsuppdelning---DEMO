@@ -26,7 +26,13 @@ const relationModalState = {
     focusableElements: [],
     focusHandler: null,
     keyHandler: null,
-    previousFocus: null
+    previousFocus: null,
+    mode: 'create',
+    onSubmit: null,
+    confirmLabel: 'Koppla',
+    modalTitle: 'Lägg till relationer',
+    modalDescription: 'Sök, välj och koppla flera objekt i ett batch-anrop.',
+    hideSettings: false
 };
 
 class RelationManagerComponent {
@@ -57,11 +63,31 @@ class RelationManagerComponent {
     async loadRelations() {
         try {
             this.relations = await ObjectsAPI.getRelations(this.objectId);
-            this.renderRelations();
+            await this.renderRelations();
         } catch (error) {
             console.error('Failed to load relations:', error);
             showToast('Kunde inte ladda relationer', 'error');
         }
+    }
+
+    async ensureSystemTableLoaded() {
+        if (typeof SystemTable === 'function') return true;
+
+        const existingScript = document.querySelector('script[data-system-table-loader="true"]');
+        if (!existingScript) {
+            const script = document.createElement('script');
+            script.src = '/static/js/components/system-table.js';
+            script.async = true;
+            script.dataset.systemTableLoader = 'true';
+            document.head.appendChild(script);
+        }
+
+        for (let i = 0; i < 20; i += 1) {
+            if (typeof SystemTable === 'function') return true;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+
+        return typeof SystemTable === 'function';
     }
 
     getLinkedObject(relation) {
@@ -73,7 +99,7 @@ class RelationManagerComponent {
         return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
     }
 
-    renderRelations() {
+    async renderRelations() {
         const listContainer = document.getElementById(`relations-list-${this.objectId}`);
         if (!listContainer) return;
 
@@ -88,6 +114,95 @@ class RelationManagerComponent {
             return;
         }
 
+        const hasSystemTable = await this.ensureSystemTableLoaded();
+        if (!hasSystemTable) {
+            console.warn('SystemTable is not available, using legacy relation table rendering');
+            this.renderRelationsLegacy(listContainer, visibleRelations);
+            return;
+        }
+
+        const rows = visibleRelations.map(relation => {
+            const linkedObject = this.getLinkedObject(relation);
+            const relationOwnerObjectId = relation.direction === 'incoming'
+                ? parseInt(relation.target_object_id, 10)
+                : parseInt(relation.source_object_id, 10);
+
+            return {
+                relation_id: Number(relation.id),
+                owner_object_id: relationOwnerObjectId,
+                linked_object_id: Number(linkedObject?.id),
+                auto_id: linkedObject?.auto_id || 'N/A',
+                name: linkedObject?.data?.namn || linkedObject?.data?.Namn || linkedObject?.data?.name || linkedObject?.auto_id || 'Okänt objekt',
+                type: linkedObject?.object_type?.name || 'N/A',
+                description: relation.description || linkedObject?.data?.beskrivning || linkedObject?.data?.description || ''
+            };
+        });
+
+        const tableContainerId = `relation-system-table-container-${this.objectId}`;
+        listContainer.innerHTML = `<div id="${tableContainerId}"></div>`;
+        this.systemTable = new SystemTable({
+            containerId: tableContainerId,
+            tableId: `relation-system-table-${this.objectId}`,
+            globalSearch: false,
+            columns: [
+                {
+                    field: 'auto_id',
+                    label: 'ID',
+                    className: 'col-id',
+                    render: (row, table) => `<a href="#" class="relation-link" data-object-id="${row.linked_object_id}">${table.highlightText(row.auto_id, 'auto_id')}</a>`
+                },
+                {
+                    field: 'type',
+                    label: 'Typ',
+                    className: 'col-type',
+                    badge: 'type'
+                },
+                {
+                    field: 'name',
+                    label: 'Namn',
+                    className: 'col-name'
+                },
+                {
+                    field: 'actions',
+                    label: '',
+                    className: 'col-actions',
+                    sortable: false,
+                    searchable: false,
+                    render: (row, table) => `
+                        <button
+                            class="btn-icon btn-danger relation-delete-btn"
+                            data-owner-object-id="${row.owner_object_id}"
+                            data-relation-id="${row.relation_id}"
+                            aria-label="Ta bort relation med ${table.escape(row.name)}"
+                            title="Ta bort"
+                        >
+                            <span aria-hidden="true">🗑️</span><span class="sr-only">Ta bort</span>
+                        </button>
+                    `
+                }
+            ],
+            rows,
+            emptyText: 'Inga relationer ännu',
+            onRender: () => {
+                listContainer.querySelectorAll('.relation-link').forEach(link => {
+                    link.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const objectId = parseInt(link.dataset.objectId, 10);
+                        if (typeof viewObjectDetail === 'function') viewObjectDetail(objectId);
+                    });
+                });
+
+                listContainer.querySelectorAll('.relation-delete-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        deleteRelation(parseInt(btn.dataset.ownerObjectId, 10), parseInt(btn.dataset.relationId, 10));
+                    });
+                });
+            }
+        });
+        this.systemTable.render();
+    }
+
+    renderRelationsLegacy(listContainer, visibleRelations) {
         const sortedRelations = [...visibleRelations].sort((a, b) => {
             const aObj = this.getLinkedObject(a);
             const bObj = this.getLinkedObject(b);
@@ -561,7 +676,26 @@ async function refreshCandidatesAndRender() {
     }
 }
 
-async function showAddRelationModal(objectIdOrIds) {
+function applyRelationModalModeConfig() {
+    const titleEl = document.getElementById('relation-modal-title');
+    const descriptionEl = document.getElementById('relation-modal-description');
+    const confirmBtn = document.getElementById('relation-connect-btn');
+    const settingsForm = document.getElementById('relation-form');
+    const noteField = document.getElementById('relation-metadata-note')?.closest('.form-group');
+    const descriptionField = document.getElementById('relation-description')?.closest('.form-group');
+
+    if (titleEl) titleEl.textContent = relationModalState.modalTitle;
+    if (descriptionEl) descriptionEl.textContent = relationModalState.modalDescription;
+    if (confirmBtn) confirmBtn.textContent = relationModalState.confirmLabel;
+
+    if (settingsForm) {
+        settingsForm.classList.toggle('relation-picker-mode', relationModalState.hideSettings);
+    }
+    if (noteField) noteField.style.display = relationModalState.hideSettings ? 'none' : '';
+    if (descriptionField) descriptionField.style.display = relationModalState.hideSettings ? 'none' : '';
+}
+
+async function showAddRelationModal(objectIdOrIds, options = {}) {
     const modal = document.getElementById('relation-modal');
     const overlay = document.getElementById('modal-overlay');
     if (!modal || !overlay) return;
@@ -582,6 +716,12 @@ async function showAddRelationModal(objectIdOrIds) {
     relationModalState.columnSearches = {};
     relationModalState.sortField = null;
     relationModalState.sortDirection = 'asc';
+    relationModalState.mode = options.mode || 'create';
+    relationModalState.onSubmit = typeof options.onSubmit === 'function' ? options.onSubmit : null;
+    relationModalState.confirmLabel = options.confirmLabel || (relationModalState.mode === 'select' ? 'Lägg till' : 'Koppla');
+    relationModalState.modalTitle = options.title || 'Lägg till relationer';
+    relationModalState.modalDescription = options.description || 'Sök, välj och koppla flera objekt i ett batch-anrop.';
+    relationModalState.hideSettings = Boolean(options.hideSettings);
 
     try {
         if (!relationModalState.sourceIds.length) {
@@ -616,6 +756,7 @@ async function showAddRelationModal(objectIdOrIds) {
         modal.dataset.objectId = String(relationModalState.sourceId || '');
         overlay.style.display = 'block';
         modal.style.display = 'block';
+        applyRelationModalModeConfig();
         bindRelationModalEvents();
         setupRelationModalA11y(modal);
         await refreshCandidatesAndRender();
@@ -632,13 +773,24 @@ function closeRelationModal() {
     if (!modal || !overlay) return;
 
     cleanupRelationModalA11y(modal);
-    overlay.style.display = 'none';
     modal.style.display = 'none';
+
+    const objectModal = document.getElementById('object-modal');
+    const objectModalOpen = objectModal && objectModal.style.display === 'block';
+    overlay.style.display = objectModalOpen ? 'block' : 'none';
+
     relationModalState.sourceObject = null;
     relationModalState.sourceObjects = [];
     relationModalState.sourceIds = [];
     relationModalState.sourceId = null;
+    relationModalState.mode = 'create';
+    relationModalState.onSubmit = null;
+    relationModalState.confirmLabel = 'Koppla';
+    relationModalState.modalTitle = 'Lägg till relationer';
+    relationModalState.modalDescription = 'Sök, välj och koppla flera objekt i ett batch-anrop.';
+    relationModalState.hideSettings = false;
     document.getElementById('relation-form')?.reset();
+    applyRelationModalModeConfig();
     renderRelationModalSourceContext();
     setRelationModalFeedback('');
 }
@@ -649,9 +801,6 @@ async function saveRelation(event) {
     const sourceIds = (relationModalState.sourceIds || [])
         .map(id => Number(id))
         .filter(id => Number.isFinite(id) && id > 0);
-    const note = document.getElementById('relation-metadata-note')?.value?.trim();
-    const description = document.getElementById('relation-description')?.value?.trim();
-
     if (!sourceIds.length) {
         setRelationModalFeedback('Källobjekt krävs.');
         return;
@@ -661,6 +810,23 @@ async function saveRelation(event) {
         setRelationModalFeedback('Lägg till minst ett objekt i korgen innan du kopplar.');
         return;
     }
+
+    if (typeof relationModalState.onSubmit === 'function') {
+        try {
+            await relationModalState.onSubmit({
+                sourceIds,
+                selectedItems: [...relationModalState.basket]
+            });
+            closeRelationModal();
+        } catch (error) {
+            console.error('Custom relation modal submit failed:', error);
+            setRelationModalFeedback(error.message || 'Kunde inte spara urvalet.');
+        }
+        return;
+    }
+
+    const note = document.getElementById('relation-metadata-note')?.value?.trim();
+    const description = document.getElementById('relation-description')?.value?.trim();
 
     const relationsPayload = relationModalState.basket.map(item => ({
         targetId: item.id,

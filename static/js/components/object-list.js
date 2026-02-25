@@ -18,6 +18,7 @@ class ObjectListComponent {
         this.typeDisplayFieldMap = {};
         this.selectedObjectIds = new Set();
         this.filteredObjects = [];
+        this.bulkTypeFieldsCache = {};
     }
     
     async render() {
@@ -33,6 +34,9 @@ class ObjectListComponent {
                            value="${this.searchTerm}">
                     <button class="btn btn-primary btn-sm bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" disabled>
                         Koppla markerade (0)
+                    </button>
+                    <button class="btn btn-secondary btn-sm bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" disabled>
+                        Redigera markerade (0)
                     </button>
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
                         ⚙️ Kolumner
@@ -84,6 +88,13 @@ class ObjectListComponent {
         if (bulkRelateBtn) {
             bulkRelateBtn.addEventListener('click', () => {
                 this.openBulkRelationModal();
+            });
+        }
+
+        const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
+        if (bulkEditBtn) {
+            bulkEditBtn.addEventListener('click', () => {
+                this.openBulkEditModal();
             });
         }
     }
@@ -457,9 +468,17 @@ class ObjectListComponent {
                 }
             }
         }
-        
-        // Always add files indicator and actions column at the end
-        columns.push({ field_name: 'files_indicator', display_name: '📎' });
+
+        // Place paperclip column immediately before files column when present.
+        const filesColumnIndex = columns.findIndex(col => String(col.field_name).toLowerCase() === 'files');
+        if (filesColumnIndex >= 0) {
+            columns.splice(filesColumnIndex, 0, { field_name: 'files_indicator', display_name: '📎' });
+        } else {
+            // Fallback: keep indicator near the end if files column is not visible.
+            columns.push({ field_name: 'files_indicator', display_name: '📎' });
+        }
+
+        // Keep actions column last.
         columns.push({ field_name: 'actions', display_name: 'Åtgärder' });
         
         return columns;
@@ -507,6 +526,7 @@ class ObjectListComponent {
         
         // Annars baserat på fälttyp
         if (fieldType === 'textarea') return 'col-description';
+        if (fieldType === 'richtext') return 'col-description';
         if (fieldType === 'date') return 'col-date';
         if (fieldType === 'boolean') return 'col-status';
         if (fieldType === 'number') return 'col-number';
@@ -598,6 +618,10 @@ class ObjectListComponent {
 
         if (value && typeof value === 'object') {
             return escapeHtml(JSON.stringify(value));
+        }
+
+        if (typeof value === 'string' && /<[^>]+>/.test(value)) {
+            return escapeHtml(stripHtmlTags(value));
         }
 
         return escapeHtml(value || '');
@@ -867,6 +891,383 @@ class ObjectListComponent {
         await this.loadObjects();
     }
 
+    normalizeFieldKey(fieldName) {
+        return String(fieldName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    getDataValueCaseInsensitive(data, fieldName) {
+        if (!data || typeof data !== 'object') return null;
+        if (Object.prototype.hasOwnProperty.call(data, fieldName)) {
+            return data[fieldName];
+        }
+        const normalized = this.normalizeFieldKey(fieldName);
+        for (const [key, value] of Object.entries(data)) {
+            if (this.normalizeFieldKey(key) === normalized) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            return JSON.parse(rawOptions);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    parseFieldOptions(rawOptions) {
+        if (!rawOptions) return [];
+        if (Array.isArray(rawOptions)) return rawOptions;
+        if (typeof rawOptions === 'object') {
+            if (Array.isArray(rawOptions.values)) return rawOptions.values;
+            return [];
+        }
+        if (typeof rawOptions !== 'string') return [];
+        try {
+            const parsed = JSON.parse(rawOptions);
+            if (Array.isArray(parsed)) return parsed;
+            if (parsed && Array.isArray(parsed.values)) return parsed.values;
+        } catch (_error) {
+            return rawOptions.split(',').map(item => item.trim()).filter(Boolean);
+        }
+        return [];
+    }
+
+    valuesEqual(a, b) {
+        if (a === b) return true;
+        return JSON.stringify(a) === JSON.stringify(b);
+    }
+
+    async resolveSelectOptions(field) {
+        const normalized = this.normalizeFieldOptions(field.field_options);
+        if (normalized?.source === 'building_part_categories') {
+            try {
+                const categories = await BuildingPartCategoriesAPI.getAll();
+                return categories.map(category => category.name).filter(Boolean);
+            } catch (_error) {
+                return [];
+            }
+        }
+        if (normalized?.source === 'managed_list') {
+            const listId = Number(normalized.list_id);
+            if (!Number.isFinite(listId) || listId <= 0) return [];
+            try {
+                const managedList = await ManagedListsAPI.getById(listId, true, false);
+                return (managedList?.items || []).map(item => item.value).filter(Boolean);
+            } catch (_error) {
+                return [];
+            }
+        }
+        return this.parseFieldOptions(field.field_options);
+    }
+
+    async getObjectTypeFields(obj) {
+        if (Array.isArray(obj?.object_type?.fields) && obj.object_type.fields.length > 0) {
+            return obj.object_type.fields;
+        }
+
+        const typeId = Number(obj?.object_type?.id || obj?.object_type_id);
+        if (!Number.isFinite(typeId) || typeId <= 0) return [];
+
+        if (this.bulkTypeFieldsCache[typeId]) {
+            return this.bulkTypeFieldsCache[typeId];
+        }
+
+        try {
+            const type = await ObjectTypesAPI.getById(typeId);
+            const fields = Array.isArray(type?.fields) ? type.fields : [];
+            this.bulkTypeFieldsCache[typeId] = fields;
+            return fields;
+        } catch (error) {
+            console.error(`Failed to load object type ${typeId} for bulk edit:`, error);
+            this.bulkTypeFieldsCache[typeId] = [];
+            return [];
+        }
+    }
+
+    async buildBulkEditableFields(selectedObjects) {
+        if (!selectedObjects.length) return [];
+
+        const fieldsByObject = await Promise.all(
+            selectedObjects.map(obj => this.getObjectTypeFields(obj))
+        );
+        const fieldMaps = fieldsByObject.map(fields =>
+            new Map((fields || []).map(field => [this.normalizeFieldKey(field.field_name), field]))
+        );
+
+        if (!fieldMaps.length || !fieldMaps[0].size) return [];
+
+        let commonKeys = Array.from(fieldMaps[0].keys());
+        for (let index = 1; index < fieldMaps.length; index += 1) {
+            const keys = new Set(fieldMaps[index].keys());
+            commonKeys = commonKeys.filter(key => keys.has(key));
+        }
+
+        const result = [];
+        for (const key of commonKeys) {
+            const defs = fieldMaps.map(map => map.get(key)).filter(Boolean);
+            if (!defs.length) continue;
+
+            const type = defs[0].field_type;
+            if (defs.some(def => def.field_type !== type)) continue;
+
+            const rawValues = selectedObjects.map((obj, objIndex) => {
+                const def = defs[objIndex] || defs[0];
+                return this.getDataValueCaseInsensitive(obj.data, def.field_name);
+            });
+
+            const allEqual = rawValues.every(value => this.valuesEqual(value, rawValues[0]));
+            const fieldMeta = defs[0];
+            const selectOptions = type === 'select' ? await this.resolveSelectOptions(fieldMeta) : [];
+
+            result.push({
+                key,
+                fieldName: fieldMeta.field_name,
+                displayName: fieldMeta.display_name || fieldMeta.field_name,
+                fieldType: type,
+                options: selectOptions,
+                value: allEqual ? rawValues[0] : null,
+                varies: !allEqual
+            });
+        }
+
+        return result.sort((a, b) => String(a.displayName).localeCompare(String(b.displayName), 'sv', { sensitivity: 'base' }));
+    }
+
+    renderBulkFieldInput(field) {
+        const id = `bulk-field-${field.key}`;
+        const variesLabel = field.varies ? '<small class="form-help">Varierar</small>' : '';
+        const value = field.value;
+
+        if (field.fieldType === 'textarea') {
+            return `
+                <div class="form-group">
+                    <label for="${id}">${escapeHtml(field.displayName)}</label>
+                    <textarea id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="${field.fieldType}" rows="3" placeholder="${field.varies ? 'Varierar' : ''}">${field.varies || value === null || value === undefined ? '' : escapeHtml(String(value))}</textarea>
+                    ${variesLabel}
+                </div>
+            `;
+        }
+
+        if (field.fieldType === 'boolean') {
+            const selectedValue = field.varies ? '' : (value ? 'true' : 'false');
+            return `
+                <div class="form-group">
+                    <label for="${id}">${escapeHtml(field.displayName)}</label>
+                    <select id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="${field.fieldType}">
+                        <option value="">Varierar / Oförändrat</option>
+                        <option value="true" ${selectedValue === 'true' ? 'selected' : ''}>Ja</option>
+                        <option value="false" ${selectedValue === 'false' ? 'selected' : ''}>Nej</option>
+                    </select>
+                </div>
+            `;
+        }
+
+        if (field.fieldType === 'select') {
+            const options = Array.isArray(field.options) ? field.options : [];
+            const currentValue = field.varies ? '' : (value ?? '');
+            return `
+                <div class="form-group">
+                    <label for="${id}">${escapeHtml(field.displayName)}</label>
+                    <select id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="${field.fieldType}">
+                        <option value="">${field.varies ? 'Varierar / Oförändrat' : 'Oförändrat'}</option>
+                        ${options.map(option => `<option value="${escapeHtml(String(option))}" ${String(currentValue) === String(option) ? 'selected' : ''}>${escapeHtml(String(option))}</option>`).join('')}
+                    </select>
+                </div>
+            `;
+        }
+
+        const typeMap = {
+            number: 'number',
+            decimal: 'number',
+            date: 'date',
+            datetime: 'datetime-local'
+        };
+        const inputType = typeMap[field.fieldType] || 'text';
+        const inputValue = (!field.varies && value !== null && value !== undefined) ? String(value) : '';
+        const stepAttr = (field.fieldType === 'decimal' || field.fieldType === 'number') ? ' step="any"' : '';
+
+        return `
+            <div class="form-group">
+                <label for="${id}">${escapeHtml(field.displayName)}</label>
+                <input type="${inputType}" id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="${field.fieldType}" value="${escapeHtml(inputValue)}" placeholder="${field.varies ? 'Varierar' : ''}"${stepAttr}>
+                ${variesLabel}
+            </div>
+        `;
+    }
+
+    async openBulkEditModal() {
+        const selectedIds = Array.from(this.selectedObjectIds);
+        if (!selectedIds.length) {
+            showToast('Markera minst ett objekt först', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('bulk-edit-modal');
+        const overlay = document.getElementById('modal-overlay');
+        const form = document.getElementById('bulk-edit-form');
+        const summary = document.getElementById('bulk-edit-summary');
+        const fieldsContainer = document.getElementById('bulk-edit-fields-container');
+        if (!modal || !overlay || !form || !summary || !fieldsContainer) {
+            console.error('Bulk edit modal is missing required DOM elements', {
+                modal: Boolean(modal),
+                overlay: Boolean(overlay),
+                form: Boolean(form),
+                summary: Boolean(summary),
+                fieldsContainer: Boolean(fieldsContainer)
+            });
+            showToast('Kunde inte öppna massredigering (dialog saknas i sidan)', 'error');
+            return;
+        }
+
+        try {
+            const selectedObjects = [];
+            const failedIds = [];
+            const settled = await Promise.allSettled(selectedIds.map(id => ObjectsAPI.getById(id)));
+            settled.forEach((result, index) => {
+                if (result.status === 'fulfilled' && result.value) {
+                    selectedObjects.push(result.value);
+                    return;
+                }
+                failedIds.push(selectedIds[index]);
+            });
+
+            if (!selectedObjects.length) {
+                showToast('Kunde inte ladda markerade objekt', 'error');
+                return;
+            }
+
+            const editableFields = await this.buildBulkEditableFields(selectedObjects);
+            if (!editableFields.length) {
+                showToast('Inga gemensamma redigerbara fält hittades för markerade objekt', 'error');
+                return;
+            }
+
+            const suffix = failedIds.length ? ` ${failedIds.length} objekt kunde inte läsas in.` : '';
+            summary.textContent = `${selectedObjects.length} objekt markerade. Fält med olika värden visas som "Varierar".`;
+            if (suffix) {
+                summary.textContent += suffix;
+            }
+            fieldsContainer.innerHTML = editableFields.map(field => this.renderBulkFieldInput(field)).join('');
+            const firstInput = fieldsContainer.querySelector('.bulk-edit-input');
+            if (firstInput) {
+                setTimeout(() => firstInput.focus(), 0);
+            }
+
+            form.onsubmit = async (event) => {
+                event.preventDefault();
+                await this.saveBulkEditChanges(selectedObjects, editableFields);
+            };
+
+            if (typeof openModal === 'function') {
+                openModal('bulk-edit-modal');
+            } else {
+                modal.style.display = 'block';
+                overlay.style.display = 'block';
+            }
+        } catch (error) {
+            console.error('Failed to open bulk edit modal:', error);
+            showToast(error.message || 'Kunde inte öppna massredigering', 'error');
+        }
+    }
+
+    collectBulkEditChanges(editableFields) {
+        const form = document.getElementById('bulk-edit-form');
+        if (!form) return [];
+
+        const changes = [];
+        form.querySelectorAll('.bulk-edit-input').forEach(input => {
+            const key = input.dataset.fieldKey;
+            const fieldType = input.dataset.fieldType;
+            const field = editableFields.find(item => item.key === key);
+            if (!field) return;
+
+            let parsedValue = null;
+            const rawValue = input.value;
+
+            if (fieldType === 'boolean') {
+                if (rawValue === '') return;
+                parsedValue = rawValue === 'true';
+            } else if (fieldType === 'number' || fieldType === 'decimal') {
+                if (rawValue === '') return;
+                const num = Number(rawValue);
+                if (!Number.isFinite(num)) return;
+                parsedValue = num;
+            } else {
+                if (rawValue === '') return;
+                parsedValue = rawValue;
+            }
+
+            if (!field.varies && this.valuesEqual(parsedValue, field.value)) return;
+
+            changes.push({ key, value: parsedValue });
+        });
+        return changes;
+    }
+
+    async saveBulkEditChanges(selectedObjects, editableFields) {
+        const submitBtn = document.querySelector('#bulk-edit-form button[type="submit"]');
+        const changes = this.collectBulkEditChanges(editableFields);
+        if (!changes.length) {
+            showToast('Inga ändringar att spara', 'error');
+            return;
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sparar...';
+        }
+
+        try {
+            let updatedCount = 0;
+            const errors = [];
+
+            for (const obj of selectedObjects) {
+                try {
+                    const currentData = {};
+                    const fields = await this.getObjectTypeFields(obj);
+                    fields.forEach(field => {
+                        currentData[field.field_name] = this.getDataValueCaseInsensitive(obj.data, field.field_name);
+                    });
+
+                    changes.forEach(change => {
+                        const targetField = fields.find(field => this.normalizeFieldKey(field.field_name) === change.key);
+                        if (!targetField) return;
+                        currentData[targetField.field_name] = change.value;
+                    });
+
+                    await ObjectsAPI.update(obj.id, {
+                        status: obj.status,
+                        data: currentData
+                    });
+                    updatedCount += 1;
+                } catch (error) {
+                    console.error(`Failed to update object ${obj.id}:`, error);
+                    errors.push(obj.auto_id || String(obj.id));
+                }
+            }
+
+            if (!errors.length) {
+                showToast(`Uppdaterade ${updatedCount} objekt`, 'success');
+            } else {
+                showToast(`Uppdaterade ${updatedCount} objekt, ${errors.length} misslyckades`, 'error');
+            }
+
+            closeModal();
+            await this.refresh();
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Spara';
+            }
+        }
+    }
+
     toggleSelectAllFiltered(checked) {
         (this.filteredObjects || []).forEach(obj => {
             const objectId = Number(obj.id);
@@ -902,11 +1303,17 @@ class ObjectListComponent {
 
     updateBulkRelationButton() {
         const bulkRelateBtn = document.getElementById(`bulk-relate-btn-${this.containerId}`);
-        if (!bulkRelateBtn) return;
+        const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
 
         const selectedCount = this.selectedObjectIds.size;
-        bulkRelateBtn.disabled = selectedCount === 0;
-        bulkRelateBtn.textContent = `Koppla markerade (${selectedCount})`;
+        if (bulkRelateBtn) {
+            bulkRelateBtn.disabled = selectedCount === 0;
+            bulkRelateBtn.textContent = `Koppla markerade (${selectedCount})`;
+        }
+        if (bulkEditBtn) {
+            bulkEditBtn.disabled = selectedCount === 0;
+            bulkEditBtn.textContent = `Redigera markerade (${selectedCount})`;
+        }
     }
 
     openBulkRelationModal() {

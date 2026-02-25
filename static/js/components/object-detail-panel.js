@@ -10,6 +10,7 @@ class ObjectDetailPanel {
         this.objectId = null;
         this.objectData = null;
         this.activeTab = 'details';
+        this.richTextValues = {};
         
         // Configuration options
         this.options = {
@@ -97,6 +98,20 @@ class ObjectDetailPanel {
                 this.close();
             });
         }
+
+        // Rich text open handlers (detail panel layout only)
+        const richTextButtons = this.container.querySelectorAll('[data-open-richtext-key]');
+        richTextButtons.forEach(node => {
+            node.addEventListener('click', (event) => {
+                event.preventDefault();
+                this.openRichTextViewer(node.dataset.openRichtextKey);
+            });
+            node.addEventListener('keydown', (event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                this.openRichTextViewer(node.dataset.openRichtextKey);
+            });
+        });
     }
     
     renderHeader(obj, displayName) {
@@ -165,6 +180,10 @@ class ObjectDetailPanel {
     renderDetails() {
         const obj = this.objectData;
         const data = obj.data || {};
+        this.richTextValues = {};
+        let richTextCounter = 0;
+        const objectTypeFields = Array.isArray(obj.object_type?.fields) ? obj.object_type.fields : [];
+        const fieldMap = new Map(objectTypeFields.map(field => [field.field_name, field]));
         
         let html = '<div class="detail-list">';
         
@@ -211,16 +230,46 @@ class ObjectDetailPanel {
         for (const [key, value] of Object.entries(data)) {
             if (value !== null && value !== undefined) {
                 // Find field definition for better display
-                const field = obj.object_type?.fields?.find(f => f.field_name === key);
+                const field = fieldMap.get(key);
                 const label = field?.display_name || key;
-                const formattedValue = this.options.layout === 'detail' 
-                    ? formatFieldValue(value, field?.field_type)
+                const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
+                const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
+                const formattedValue = this.options.layout === 'detail'
+                    ? formatFieldValue(value, resolvedFieldType)
                     : escapeHtml(String(value));
+                const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
+                const detailItemClass = isRichText ? 'detail-item detail-item-richtext' : 'detail-item';
+                const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
+                const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
+
+                if (isRichText) {
+                    const rawHtml = sanitizeRichTextHtml(String(value || ''));
+                    this.richTextValues[richTextKey] = {
+                        label,
+                        html: rawHtml || formattedValue
+                    };
+                }
+
+                const richTextHtml = isRichText
+                    ? String(this.richTextValues[richTextKey]?.html || '').trim()
+                    : '';
+                const valueMarkup = isRichText
+                    ? `
+                        <div class="${valueClass}">
+                            <div class="richtext-preview-text">${richTextHtml || '<p>Innehåll finns</p>'}</div>
+                            <button type="button"
+                                    class="btn btn-secondary btn-sm richtext-open-btn"
+                                    data-open-richtext-key="${richTextKey}">
+                                Öppna innehåll
+                            </button>
+                        </div>
+                    `
+                    : `<div class="${valueClass}">${formattedValue}</div>`;
                 
                 html += `
-                    <div class="detail-item">
-                        <span class="detail-label">${label}</span>
-                        <span class="detail-value">${formattedValue}</span>
+                    <div class="${detailItemClass}">
+                        <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
+                        ${valueMarkup}
                     </div>
                 `;
             }
@@ -298,8 +347,72 @@ class ObjectDetailPanel {
             await this.loadFilesIfNeeded();
         }
     }
+
+    ensureRichTextViewer() {
+        let viewer = document.getElementById('richtext-viewer');
+        if (viewer) return viewer;
+
+        viewer = document.createElement('div');
+        viewer.id = 'richtext-viewer';
+        viewer.className = 'richtext-viewer';
+        viewer.innerHTML = `
+            <div class="richtext-viewer-backdrop">
+                <div class="richtext-viewer-dialog" role="dialog" aria-modal="true" aria-labelledby="richtext-viewer-title">
+                    <div class="richtext-viewer-header">
+                        <h3 id="richtext-viewer-title">Formaterad text</h3>
+                        <button type="button" class="close-btn" data-action="close-richtext-viewer" aria-label="Stäng">&times;</button>
+                    </div>
+                    <div id="richtext-viewer-content" class="richtext-viewer-content"></div>
+                </div>
+            </div>
+        `;
+
+        viewer.addEventListener('click', (event) => {
+            const backdrop = viewer.querySelector('.richtext-viewer-backdrop');
+            if (event.target === backdrop || event.target.closest('[data-action="close-richtext-viewer"]')) {
+                this.closeRichTextViewer();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            const isOpen = viewer.classList.contains('active');
+            if (isOpen && event.key === 'Escape') {
+                this.closeRichTextViewer();
+            }
+        });
+
+        document.body.appendChild(viewer);
+        return viewer;
+    }
+
+    openRichTextViewer(richTextKey) {
+        if (!richTextKey || !this.richTextValues[richTextKey]) return;
+
+        const viewer = this.ensureRichTextViewer();
+        const titleNode = viewer.querySelector('#richtext-viewer-title');
+        const contentNode = viewer.querySelector('#richtext-viewer-content');
+        const richText = this.richTextValues[richTextKey];
+        if (!titleNode || !contentNode || !richText) return;
+
+        titleNode.textContent = richText.label || 'Formaterad text';
+        let html = String(richText.html || '');
+        if (!/<\s*[a-z][^>]*>/i.test(html) && /&lt;\s*[a-z][^&]*&gt;/i.test(html)) {
+            const decoder = document.createElement('textarea');
+            decoder.innerHTML = html;
+            html = sanitizeRichTextHtml(decoder.value || '');
+        }
+        contentNode.innerHTML = html || '-';
+        viewer.classList.add('active');
+    }
+
+    closeRichTextViewer() {
+        const viewer = document.getElementById('richtext-viewer');
+        if (!viewer) return;
+        viewer.classList.remove('active');
+    }
     
     close() {
+        this.closeRichTextViewer();
         if (this.options.onClose) {
             this.options.onClose();
         } else if (this.container) {

@@ -12,6 +12,8 @@ from models.relation import ObjectRelation
 from models.document import Document
 from models.view_configuration import ViewConfiguration
 from models.building_part_category import BuildingPartCategory
+from models.managed_list import ManagedList
+from models.managed_list_item import ManagedListItem
 
 __all__ = [
     'db',
@@ -22,5 +24,7 @@ __all__ = [
     'ObjectRelation',
     'Document',
     'ViewConfiguration',
-    'BuildingPartCategory'
+    'BuildingPartCategory',
+    'ManagedList',
+    'ManagedListItem'
 ]
