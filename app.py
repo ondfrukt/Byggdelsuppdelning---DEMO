@@ -37,6 +37,12 @@ def create_app():
             run_migration(db)
         except Exception as e:
             logger.warning(f"Migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_object_type_colors import run_migration as run_object_type_color_migration
+            run_object_type_color_migration(db)
+        except Exception as e:
+            logger.warning(f"Object type color migration may have already run: {str(e)}")
         
         try:
             from migrations.add_view_configurations import run_migration as run_view_config_migration

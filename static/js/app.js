@@ -13,6 +13,7 @@ let detailHistory = [];
 let detailHistoryIndex = -1;
 const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
 window.currentDuplicateContext = null;
+window.currentCreateObjectRelations = [];
 
 // Initialize global window properties for cross-component access
 window.treeViewActive = false;
@@ -483,7 +484,7 @@ function renderDuplicateSelectionSection() {
                 </span>
             </td>
             <td class="col-name">${escapeHtml(String(row.name))}</td>
-            <td class="col-description">${escapeHtml(String(getDuplicateRelationRowDescription(row)))}</td>
+            <td class="col-description">${formatFieldValue(getDuplicateRelationRowDescription(row), 'textarea')}</td>
             <td class="col-actions">
                 <button
                     type="button"
@@ -538,6 +539,63 @@ function renderDuplicateSelectionSection() {
             </div>
         </div>
     `;
+}
+
+function captureDuplicateSearchFocusState() {
+    const context = window.currentDuplicateContext;
+    if (!context) return;
+
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLInputElement)) {
+        context.searchFocusState = null;
+        return;
+    }
+
+    if (activeElement.classList.contains('duplicate-column-search-input') && activeElement.dataset.field) {
+        context.searchFocusState = {
+            kind: 'column',
+            field: activeElement.dataset.field,
+            selectionStart: Number.isInteger(activeElement.selectionStart) ? activeElement.selectionStart : null,
+            selectionEnd: Number.isInteger(activeElement.selectionEnd) ? activeElement.selectionEnd : null
+        };
+        return;
+    }
+
+    if (activeElement.id === 'duplicate-selection-search') {
+        context.searchFocusState = {
+            kind: 'global',
+            selectionStart: Number.isInteger(activeElement.selectionStart) ? activeElement.selectionStart : null,
+            selectionEnd: Number.isInteger(activeElement.selectionEnd) ? activeElement.selectionEnd : null
+        };
+        return;
+    }
+
+    context.searchFocusState = null;
+}
+
+function restoreDuplicateSearchFocusState() {
+    const context = window.currentDuplicateContext;
+    const state = context?.searchFocusState;
+    if (!state) return;
+
+    let input = null;
+    if (state.kind === 'global') {
+        input = document.getElementById('duplicate-selection-search');
+    } else if (state.kind === 'column' && state.field) {
+        const escapedField = state.field.replace(/["\\]/g, '\\$&');
+        input = document.querySelector(`.duplicate-column-search-input[data-field="${escapedField}"]`);
+    }
+
+    if (!input) return;
+
+    input.focus({ preventScroll: true });
+    if (Number.isInteger(state.selectionStart) && Number.isInteger(state.selectionEnd)) {
+        try {
+            input.setSelectionRange(state.selectionStart, state.selectionEnd);
+        } catch (_error) {
+            // Best effort
+        }
+    }
 }
 
 function getSelectedDuplicateRelationPayload() {
@@ -648,8 +706,10 @@ function bindDuplicateSelectionEvents() {
 function renderDuplicateSelectionUI() {
     const container = document.getElementById('duplicate-options-container');
     if (!container) return;
+    captureDuplicateSearchFocusState();
     container.innerHTML = renderDuplicateSelectionSection();
     bindDuplicateSelectionEvents();
+    restoreDuplicateSearchFocusState();
 }
 
 function splitMetadataFromFormData(formData) {
@@ -676,6 +736,8 @@ async function showDuplicateObjectModal(objectId) {
 
     window.currentObjectForm = null;
     window.currentDuplicateContext = null;
+    resetCreateObjectRelationSelection();
+    setCreateObjectRelationsVisible(false);
     formContainer.innerHTML = '';
 
     const sourceObject = await ObjectsAPI.getById(objectId);
@@ -727,7 +789,8 @@ async function showDuplicateObjectModal(objectId) {
             description: ''
         },
         sortField: 'name',
-        sortDirection: 'asc'
+        sortDirection: 'asc',
+        searchFocusState: null
     };
     renderDuplicateSelectionUI();
 
@@ -830,7 +893,7 @@ async function loadTreeViewPage() {
 
     updateObjectsWorkspaceHeader({
         title: 'Trädvy',
-        showCreateButton: false
+        showCreateButton: true
     });
 
     treeViewActive = true;
@@ -960,8 +1023,89 @@ function formatFieldValue(value, fieldType) {
             const sanitized = sanitizeRichTextHtml(String(value));
             return sanitized || '-';
         }
+        case 'textarea':
+            return escapeHtml(String(value)).replace(/\r?\n/g, '<br>');
         default:
             return escapeHtml(String(value));
+    }
+}
+
+function resetCreateObjectRelationSelection() {
+    window.currentCreateObjectRelations = [];
+}
+
+function setCreateObjectRelationsVisible(visible) {
+    const group = document.getElementById('object-create-relations-group');
+    if (!group) return;
+    group.style.display = visible ? '' : 'none';
+}
+
+function getCreateObjectRelationLabel(item) {
+    const autoId = String(item?.auto_id || '').trim();
+    const typeName = String(item?.type_name || '').trim();
+    const name = String(item?.display_name || '').trim();
+    if (autoId && typeName && name) return `${autoId} • ${typeName} • ${name}`;
+    if (autoId && name) return `${autoId} • ${name}`;
+    return name || autoId || 'Okänt objekt';
+}
+
+function renderCreateObjectRelationSelection() {
+    const listContainer = document.getElementById('object-create-relations-list');
+    const actionButton = document.getElementById('object-create-relations-btn');
+    if (!listContainer || !actionButton) return;
+
+    const selected = Array.isArray(window.currentCreateObjectRelations)
+        ? window.currentCreateObjectRelations
+        : [];
+
+    if (!selected.length) {
+        listContainer.innerHTML = '<p class="empty-state">Inga relationer valda</p>';
+    } else {
+        listContainer.innerHTML = `
+            <ul>
+                ${selected.map(item => `<li>${escapeHtml(getCreateObjectRelationLabel(item))}</li>`).join('')}
+            </ul>
+        `;
+    }
+
+    actionButton.textContent = selected.length > 0
+        ? `Uppdatera relationer (${selected.length})`
+        : 'Lägg till relationer';
+}
+
+async function openCreateObjectRelationPicker() {
+    const objectModal = document.getElementById('object-modal');
+    if (!objectModal || objectModal.dataset.mode !== 'create') return;
+    if (typeof showAddRelationModal !== 'function') {
+        showToast('Relationpanelen är inte tillgänglig', 'error');
+        return;
+    }
+
+    try {
+        await showAddRelationModal([], {
+            mode: 'select',
+            title: 'Välj relationer för nytt objekt',
+            description: 'Sök och välj objekt som ska kopplas när objektet skapas.',
+            confirmLabel: 'Använd urval',
+            hideSettings: true,
+            allowNoSource: true,
+            onSubmit: async ({ selectedItems }) => {
+                const normalized = (Array.isArray(selectedItems) ? selectedItems : [])
+                    .map(item => ({
+                        id: Number(item?.id),
+                        auto_id: item?.auto_id || '',
+                        type_name: item?.object_type?.name || '',
+                        display_name: getObjectDisplayName(item)
+                    }))
+                    .filter(item => Number.isFinite(item.id));
+                const uniqueById = new Map(normalized.map(item => [item.id, item]));
+                window.currentCreateObjectRelations = Array.from(uniqueById.values());
+                renderCreateObjectRelationSelection();
+            }
+        });
+    } catch (error) {
+        console.error('Failed to open relation picker for create modal:', error);
+        showToast(error.message || 'Kunde inte öppna relationpanelen', 'error');
     }
 }
 
@@ -975,6 +1119,9 @@ async function showCreateObjectModal() {
     // Clear previous form data
     window.currentObjectForm = null;
     window.currentDuplicateContext = null;
+    resetCreateObjectRelationSelection();
+    setCreateObjectRelationsVisible(true);
+    renderCreateObjectRelationSelection();
     const formContainer = document.getElementById('object-form-container');
     if (formContainer) {
         formContainer.innerHTML = '';
@@ -1023,6 +1170,8 @@ async function showCreateFileObjectModal() {
     // Clear previous form data
     window.currentObjectForm = null;
     window.currentDuplicateContext = null;
+    resetCreateObjectRelationSelection();
+    setCreateObjectRelationsVisible(false);
     const formContainer = document.getElementById('object-form-container');
     if (formContainer) {
         formContainer.innerHTML = '';
@@ -1030,30 +1179,46 @@ async function showCreateFileObjectModal() {
 
     try {
         const types = await ObjectTypesAPI.getAll();
-        const fileObjectType = (types || []).find(type => (type.name || '').toLowerCase().trim() === 'filobjekt');
-        if (!fileObjectType) {
+        const fileObjectTypeRef = (types || []).find(type => (type.name || '').toLowerCase().trim() === 'filobjekt');
+        if (!fileObjectTypeRef) {
             showToast('Kunde inte hitta objekttypen Filobjekt', 'error');
             return;
         }
+        const fileObjectType = await ObjectTypesAPI.getById(fileObjectTypeRef.id);
 
         typeSelect.disabled = true;
         typeSelect.innerHTML = `<option value="${fileObjectType.id}" selected>${fileObjectType.name}</option>`;
 
-        const formComponent = new ObjectFormComponent(fileObjectType);
-        await formComponent.render('object-form-container');
-        window.currentObjectForm = formComponent;
+        window.currentObjectForm = null;
+        window.currentFileObjectTypeForBatch = fileObjectType;
 
-        // Add required file upload field for this flow
+        window.currentFileObjectBatchUpload = {
+            rows: [],
+            table: null,
+            nextRowId: 1
+        };
+
+        // Render only the batch file upload UI for this flow (no full object form)
         if (formContainer) {
-            const uploadGroup = document.createElement('div');
-            uploadGroup.className = 'form-group';
-            uploadGroup.id = 'file-object-upload-group';
-            uploadGroup.innerHTML = `
-                <label for="file-object-files">Filer *</label>
-                <input type="file" id="file-object-files" class="form-control" multiple required>
+            formContainer.innerHTML = `
+                <div id="file-object-upload-group" class="form-group">
+                    <label>Filer *</label>
+                    <div class="upload-area create-file-object-dropzone" id="file-object-batch-dropzone">
+                        <div class="upload-content">
+                            <p>Dra och släpp filer här eller <label for="file-object-files" class="file-label">välj filer</label></p>
+                            <input type="file" id="file-object-files" class="form-control" multiple style="display:none;">
+                        </div>
+                    </div>
+                    <div class="batch-file-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="file-object-batch-merge-btn">Slå ihop markerade</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="file-object-batch-clear-btn">Rensa filer</button>
+                    </div>
+                    <div id="file-object-batch-table"></div>
+                </div>
             `;
-            formContainer.appendChild(uploadGroup);
         }
+
+        setupFileObjectBatchUpload();
 
         modal.dataset.mode = 'create-file-object';
         modal.style.display = 'block';
@@ -1062,6 +1227,279 @@ async function showCreateFileObjectModal() {
         console.error('Failed to prepare file object modal:', error);
         showToast('Kunde inte öppna dialog för filobjekt', 'error');
     }
+}
+
+function stripFilenameExtension(filename) {
+    const value = String(filename || '').trim();
+    const lastDot = value.lastIndexOf('.');
+    if (lastDot <= 0) return value;
+    return value.substring(0, lastDot);
+}
+
+function getFileObjectNameFieldName() {
+    const objectType = window.currentFileObjectTypeForBatch;
+    const fields = Array.isArray(objectType?.fields) ? objectType.fields : [];
+    const preferred = fields.find(field => ['namn', 'name'].includes(String(field.field_name || '').toLowerCase()));
+    if (preferred) return preferred.field_name;
+    const firstText = fields.find(field => ['text', 'textarea'].includes(String(field.field_type || '').toLowerCase()));
+    return firstText?.field_name || null;
+}
+
+function syncFileObjectNameFieldFromBatchRows() {
+    // No visible object form in batch mode; keep as no-op.
+}
+
+function parseFieldOptionsForAutoValue(fieldOptions) {
+    if (!fieldOptions) return null;
+    if (Array.isArray(fieldOptions)) return fieldOptions;
+    if (typeof fieldOptions === 'object') return fieldOptions;
+    if (typeof fieldOptions === 'string') {
+        try {
+            const parsed = JSON.parse(fieldOptions);
+            return parsed;
+        } catch (_error) {
+            const values = fieldOptions.split(',').map(item => item.trim()).filter(Boolean);
+            return values.length ? values : null;
+        }
+    }
+    return null;
+}
+
+function getAutoValueForRequiredField(field, objectName) {
+    const fieldName = String(field.field_name || '').toLowerCase();
+    const fieldType = String(field.field_type || '').toLowerCase();
+
+    if (fieldName === 'namn' || fieldName === 'name') return objectName;
+    if (field.default_value !== undefined && field.default_value !== null && String(field.default_value) !== '') {
+        return field.default_value;
+    }
+
+    if (fieldType === 'boolean') return false;
+    if (fieldType === 'number' || fieldType === 'decimal') return 0;
+    if (fieldType === 'date') return new Date().toISOString().split('T')[0];
+    if (fieldType === 'select') {
+        const options = parseFieldOptionsForAutoValue(field.field_options || field.options);
+        if (Array.isArray(options) && options.length) return options[0];
+        if (options && Array.isArray(options.values) && options.values.length) return options.values[0];
+        return null;
+    }
+
+    return '-';
+}
+
+function buildAutoFileObjectData(objectType, objectName) {
+    const fields = Array.isArray(objectType?.fields) ? objectType.fields : [];
+    const data = {};
+    const errors = [];
+
+    fields.forEach(field => {
+        if (!field?.is_required) return;
+        const value = getAutoValueForRequiredField(field, objectName);
+        if (value === null || value === undefined || value === '') {
+            errors.push(`Obligatoriskt fält "${field.field_name}" saknar auto-värde`);
+            return;
+        }
+        data[field.field_name] = value;
+    });
+
+    return { data, errors };
+}
+
+function bindDropzone(dropzone, onFiles) {
+    if (!dropzone || typeof onFiles !== 'function') return;
+    let dragDepth = 0;
+    const isFileDrag = (event) => {
+        const types = Array.from(event?.dataTransfer?.types || []);
+        return types.includes('Files');
+    };
+
+    const setDragState = (active) => {
+        if (active) dropzone.classList.add('dragover');
+        else dropzone.classList.remove('dragover');
+    };
+
+    dropzone.addEventListener('dragenter', (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        dragDepth += 1;
+        setDragState(true);
+    });
+
+    dropzone.addEventListener('dragover', (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+        setDragState(true);
+    });
+
+    dropzone.addEventListener('dragleave', (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) setDragState(false);
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        if (!isFileDrag(event)) return;
+        event.preventDefault();
+        dragDepth = 0;
+        setDragState(false);
+        onFiles(Array.from(event.dataTransfer?.files || []));
+    });
+}
+
+function setupFileObjectBatchUpload() {
+    const fileInput = document.getElementById('file-object-files');
+    const dropzone = document.getElementById('file-object-batch-dropzone');
+    const mergeBtn = document.getElementById('file-object-batch-merge-btn');
+    const clearBtn = document.getElementById('file-object-batch-clear-btn');
+
+    if (fileInput) {
+        fileInput.addEventListener('change', (event) => {
+            const files = Array.from(event.target.files || []);
+            addFilesToFileObjectBatch(files);
+            fileInput.value = '';
+        });
+    }
+    if (dropzone) {
+        bindDropzone(dropzone, (files) => addFilesToFileObjectBatch(files));
+    }
+    if (mergeBtn) {
+        mergeBtn.addEventListener('click', () => mergeSelectedFileObjectBatchRows());
+    }
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => clearFileObjectBatchRows());
+    }
+
+    renderFileObjectBatchTable();
+}
+
+function addFilesToFileObjectBatch(files) {
+    const state = window.currentFileObjectBatchUpload;
+    if (!state) return;
+
+    const incoming = Array.isArray(files) ? files.filter(Boolean) : [];
+    if (!incoming.length) return;
+
+    const existingKeys = new Set(state.rows.map(row => `${row.filename}|${row.file?.size}|${row.file?.lastModified}`));
+    incoming.forEach(file => {
+        const key = `${file.name}|${file.size}|${file.lastModified}`;
+        if (existingKeys.has(key)) return;
+        existingKeys.add(key);
+        state.rows.push({
+            row_id: state.nextRowId++,
+            selected: false,
+            filename: file.name,
+            object_name: stripFilenameExtension(file.name) || 'Filobjekt',
+            file
+        });
+    });
+
+    syncFileObjectNameFieldFromBatchRows();
+    renderFileObjectBatchTable();
+}
+
+function clearFileObjectBatchRows() {
+    const state = window.currentFileObjectBatchUpload;
+    if (!state) return;
+    state.rows = [];
+    state.table = null;
+    renderFileObjectBatchTable();
+}
+
+function mergeSelectedFileObjectBatchRows() {
+    const state = window.currentFileObjectBatchUpload;
+    if (!state) return;
+
+    const selectedRows = state.rows.filter(row => row.selected);
+    if (selectedRows.length < 2) {
+        showToast('Markera minst två filer att slå ihop', 'error');
+        return;
+    }
+
+    const mergedName = String(selectedRows[0].object_name || '').trim();
+    if (!mergedName) {
+        showToast('Första markerade raden saknar filobjektnamn', 'error');
+        return;
+    }
+
+    state.rows = state.rows.map(row => (row.selected ? { ...row, object_name: mergedName } : row));
+    syncFileObjectNameFieldFromBatchRows();
+    renderFileObjectBatchTable();
+}
+
+function renderFileObjectBatchTable() {
+    const containerId = 'file-object-batch-table';
+    const container = document.getElementById(containerId);
+    const state = window.currentFileObjectBatchUpload;
+    if (!container || !state) return;
+
+    if (!state.rows.length) {
+        container.innerHTML = '<p class="empty-state">Inga filer valda</p>';
+        return;
+    }
+
+    if (typeof SystemTable === 'undefined') {
+        container.innerHTML = '<p class="empty-state">Kunde inte ladda tabellkomponenten</p>';
+        return;
+    }
+
+    state.table = new SystemTable({
+        containerId,
+        tableId: 'file-object-batch-table-inner',
+        columns: [
+            {
+                field: 'selected',
+                label: '',
+                className: 'col-actions',
+                sortable: false,
+                searchable: false,
+                render: (row) => `<input type="checkbox" class="file-object-batch-select" data-row-id="${row.row_id}" ${row.selected ? 'checked' : ''}>`
+            },
+            {
+                field: 'filename',
+                label: 'Filnamn',
+                className: 'col-name'
+            },
+            {
+                field: 'object_name',
+                label: 'Filobjektnamn',
+                className: 'col-description',
+                render: (row, table) => `
+                    <input type="text"
+                           class="form-control file-object-batch-name"
+                           data-row-id="${row.row_id}"
+                           value="${table.escape(row.object_name || '')}"
+                           placeholder="Ange filobjektnamn">
+                `
+            }
+        ],
+        rows: state.rows.map(row => ({
+            row_id: row.row_id,
+            selected: row.selected,
+            filename: row.filename,
+            object_name: row.object_name
+        })),
+        emptyText: 'Inga filer valda',
+        onRender: () => {
+            container.querySelectorAll('.file-object-batch-select').forEach(node => {
+                node.addEventListener('change', () => {
+                    const rowId = parseInt(node.dataset.rowId || '', 10);
+                    if (!Number.isFinite(rowId)) return;
+                    state.rows = state.rows.map(row => (row.row_id === rowId ? { ...row, selected: node.checked } : row));
+                });
+            });
+            container.querySelectorAll('.file-object-batch-name').forEach(node => {
+                node.addEventListener('input', () => {
+                    const rowId = parseInt(node.dataset.rowId || '', 10);
+                    if (!Number.isFinite(rowId)) return;
+                    state.rows = state.rows.map(row => (row.row_id === rowId ? { ...row, object_name: node.value } : row));
+                    syncFileObjectNameFieldFromBatchRows();
+                });
+            });
+        }
+    });
+    state.table.render();
 }
 
 // Edit object
@@ -1074,6 +1512,8 @@ async function editObject(objectId) {
         const overlay = document.getElementById('modal-overlay');
         
         if (!modal || !overlay) return;
+        resetCreateObjectRelationSelection();
+        setCreateObjectRelationsVisible(false);
         
         // Set type select (disabled for edit)
         const typeSelect = document.getElementById('object-type-select');
@@ -1119,44 +1559,105 @@ async function saveObject(event) {
             return;
         }
     }
-    
-    if (!window.currentObjectForm) {
+
+    const isBatchFileMode = mode === 'create-file-object';
+
+    if (!isBatchFileMode && !window.currentObjectForm) {
         showToast('Formulär ej tillgängligt', 'error');
         return;
     }
-    
-    if (!window.currentObjectForm.validate()) {
+
+    if (!isBatchFileMode && !window.currentObjectForm.validate()) {
         showToast('Fyll i alla obligatoriska fält', 'error');
         return;
     }
-    
+
     const typeId = parseInt(document.getElementById('object-type-select').value);
-    const formData = window.currentObjectForm.getFormData();
-    const { metadata, objectData } = splitMetadataFromFormData(formData);
-    
+    const formData = isBatchFileMode ? {} : window.currentObjectForm.getFormData();
+    const { metadata, objectData } = isBatchFileMode
+        ? { metadata: { status: 'In work' }, objectData: {} }
+        : splitMetadataFromFormData(formData);
+
     const data = {
         object_type_id: typeId,
-        status: metadata.status,
+        status: metadata.status || 'In work',
         data: objectData
     };
     
     try {
         if (mode === 'create') {
-            await ObjectsAPI.create(data);
+            const createdObject = await ObjectsAPI.create(data);
             showToast('Objekt skapat', 'success');
+            const createdObjectId = Number(createdObject?.id);
+            const selectedRelations = Array.isArray(window.currentCreateObjectRelations)
+                ? window.currentCreateObjectRelations
+                : [];
+            if (Number.isFinite(createdObjectId) && selectedRelations.length > 0) {
+                try {
+                    const result = await ObjectsAPI.addRelationsBatch({
+                        sourceId: createdObjectId,
+                        relations: selectedRelations.map(item => ({ targetId: item.id }))
+                    });
+                    const createdCount = Number(result?.summary?.created || 0);
+                    const failedCount = Number(result?.summary?.failed || 0);
+                    if (failedCount > 0) {
+                        showToast(`Objekt skapat. ${createdCount} relation(er) kopplades, ${failedCount} misslyckades.`, 'error');
+                    } else {
+                        showToast(`${createdCount} relation(er) kopplades`, 'success');
+                    }
+                } catch (relationError) {
+                    console.error('Failed to create selected relations for new object:', relationError);
+                    showToast('Objekt skapat, men relationer kunde inte kopplas', 'error');
+                }
+            }
+            resetCreateObjectRelationSelection();
         } else if (mode === 'create-file-object') {
-            const filesInput = document.getElementById('file-object-files');
-            const files = Array.from(filesInput?.files || []);
-            if (!files.length) {
+            const batchState = window.currentFileObjectBatchUpload;
+            const rows = Array.isArray(batchState?.rows) ? batchState.rows : [];
+            if (!rows.length) {
                 showToast('Välj minst en fil', 'error');
                 return;
             }
 
-            const createdObject = await ObjectsAPI.create(data);
-            for (const file of files) {
-                await ObjectsAPI.uploadDocument(createdObject.id, file);
+            const fileObjectType = window.currentFileObjectTypeForBatch || await ObjectTypesAPI.getById(typeId);
+            if (!fileObjectType) {
+                showToast('Kunde inte ladda filobjekttyp', 'error');
+                return;
             }
-            showToast('Filobjekt skapat med filer', 'success');
+
+            const grouped = new Map();
+            for (const row of rows) {
+                const objectName = String(row.object_name || '').trim();
+                if (!objectName) {
+                    showToast(`Ange filobjektnamn för filen "${row.filename}"`, 'error');
+                    return;
+                }
+                if (!grouped.has(objectName)) grouped.set(objectName, []);
+                grouped.get(objectName).push(row.file);
+            }
+
+            let createdCount = 0;
+            for (const [objectName, files] of grouped.entries()) {
+                const autoDataResult = buildAutoFileObjectData(fileObjectType, objectName);
+                if (autoDataResult.errors.length) {
+                    showToast(autoDataResult.errors[0], 'error');
+                    return;
+                }
+
+                const groupedData = {
+                    object_type_id: typeId,
+                    status: 'In work',
+                    data: autoDataResult.data
+                };
+                const createdObject = await ObjectsAPI.create(groupedData);
+                for (const file of files) {
+                    await ObjectsAPI.uploadDocument(createdObject.id, file);
+                }
+                createdCount += 1;
+            }
+            showToast(`${createdCount} filobjekt skapade med filer`, 'success');
+            window.currentFileObjectBatchUpload = null;
+            window.currentFileObjectTypeForBatch = null;
         } else if (mode === 'duplicate') {
             const { relationIds, additionalTargetIds } = getSelectedDuplicateRelationPayload();
             const sourceObjectId = Number(objectId);

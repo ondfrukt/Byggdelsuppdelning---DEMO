@@ -141,11 +141,14 @@ class SystemTable {
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    highlightText(value, field) {
+    highlightText(value, field, options = {}) {
         const text = String(value ?? '');
         const escapedText = this.escape(text);
+        const preserveLineBreaks = options.preserveLineBreaks === true;
         const terms = this.getActiveSearchTerms(field);
-        if (!terms.length || !text) return escapedText;
+        if (!terms.length || !text) {
+            return preserveLineBreaks ? escapedText.replace(/\r?\n/g, '<br>') : escapedText;
+        }
 
         let highlighted = escapedText;
         terms.forEach(term => {
@@ -154,7 +157,7 @@ class SystemTable {
             const regex = new RegExp(`(${escapedTerm})`, 'gi');
             highlighted = highlighted.replace(regex, '<mark class="search-highlight">$1</mark>');
         });
-        return highlighted;
+        return preserveLineBreaks ? highlighted.replace(/\r?\n/g, '<br>') : highlighted;
     }
 
     renderCell(row, column) {
@@ -168,7 +171,10 @@ class SystemTable {
         }
 
         if (value === null || value === undefined || value === '') return '-';
-        return this.highlightText(value, column.field);
+        const isTextareaColumn = column.multiline === true
+            || column.fieldType === 'textarea'
+            || column.field_type === 'textarea';
+        return this.highlightText(value, column.field, { preserveLineBreaks: isTextareaColumn });
     }
 
     filteredRows() {

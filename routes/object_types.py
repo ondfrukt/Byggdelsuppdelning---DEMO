@@ -6,6 +6,14 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('object_types', __name__, url_prefix='/api/object-types')
 
 REQUIRED_NAME_FIELD = 'namn'
+OBJECT_TYPE_COLOR_PALETTE = {
+    '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16',
+    '#EAB308', '#F97316', '#EF4444', '#EC4899',
+    '#8B5CF6', '#6366F1', '#06B6D4', '#64748B',
+    '#3498db', '#2ecc71', '#e74c3c', '#f39c12',
+    '#9b59b6', '#1abc9c', '#34495e', '#95a5a6'
+}
+OBJECT_TYPE_COLOR_PALETTE_UPPER = {color.upper() for color in OBJECT_TYPE_COLOR_PALETTE}
 
 
 def normalize_field_name(value):
@@ -14,6 +22,31 @@ def normalize_field_name(value):
 
 def is_name_field_name(value):
     return normalize_field_name(value) == REQUIRED_NAME_FIELD
+
+
+def normalize_object_type_color(value):
+    if value is None:
+        return None
+
+    normalized = str(value).strip().upper()
+    if not normalized:
+        return None
+
+    if not normalized.startswith('#'):
+        normalized = f'#{normalized}'
+
+    if len(normalized) != 7:
+        return None
+
+    hex_part = normalized[1:]
+    if any(ch not in '0123456789ABCDEF' for ch in hex_part):
+        return None
+
+    normalized = f"#{hex_part.lower()}"
+    if normalized.upper() not in OBJECT_TYPE_COLOR_PALETTE_UPPER:
+        return None
+
+    return normalized
 
 
 @bp.route('', methods=['GET'])
@@ -60,8 +93,12 @@ def create_object_type():
             description=data.get('description'),
             icon=data.get('icon'),
             id_prefix=data.get('id_prefix'),
+            color=normalize_object_type_color(data.get('color')),
             is_system=False  # User-created types are never system types
         )
+
+        if data.get('color') is not None and object_type.color is None:
+            return jsonify({'error': 'Invalid color. Choose a value from the fixed color palette'}), 400
         
         db.session.add(object_type)
         db.session.flush()
@@ -110,6 +147,12 @@ def update_object_type(id):
         
         if 'id_prefix' in data:
             object_type.id_prefix = data['id_prefix']
+
+        if 'color' in data:
+            normalized_color = normalize_object_type_color(data.get('color'))
+            if data.get('color') is not None and normalized_color is None:
+                return jsonify({'error': 'Invalid color. Choose a value from the fixed color palette'}), 400
+            object_type.color = normalized_color
         
         db.session.commit()
         

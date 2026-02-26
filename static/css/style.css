@@ -49,7 +49,7 @@
     --data-col-select-min-width: max-content;
     --data-col-tight-width: 1%;
     --data-col-name-min: 150px;
-    --data-col-name-max: 300px;
+    --data-col-name-max: min(25vw, 420px);
     --data-col-description-min: 200px;
     --data-col-description-max: 400px;
 }
@@ -248,6 +248,45 @@ body {
     min-width: 200px;
 }
 
+.type-color-palette {
+    display: grid;
+    grid-template-columns: repeat(10, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.type-color-swatch {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-color: var(--swatch-color, #95a5a6);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+.type-color-swatch:hover {
+    transform: translateY(-1px);
+}
+
+.type-color-swatch:focus-visible {
+    outline: none;
+    border-color: #0f172a;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.2);
+}
+
+.type-color-swatch.selected {
+    border-color: #0f172a;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.95), 0 0 0 4px rgba(15, 23, 42, 0.35);
+}
+
+@media (max-width: 768px) {
+    .type-color-palette {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+}
+
 /* Table */
 .table-container {
     width: 100%;
@@ -339,13 +378,16 @@ body {
     width: auto;
     min-width: var(--data-col-name-min);
     max-width: var(--data-col-name-max);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .data-table .col-description {
     width: auto;
     min-width: var(--data-col-description-min);
     max-width: var(--data-col-description-max);
-    white-space: normal;
+    white-space: pre-line;
 }
 
 /* Default för kolumner utan specifik klass */
@@ -1004,6 +1046,27 @@ body {
     font-size: 0.75rem;
 }
 
+#object-main-form .create-relations-actions {
+    margin-bottom: var(--spacing-xs);
+}
+
+#object-main-form .create-relations-list {
+    margin-top: var(--spacing-sm);
+}
+
+#object-main-form .create-relations-list .empty-state {
+    margin: 0;
+}
+
+#object-main-form .create-relations-list ul {
+    margin: 0;
+    padding-left: 1.1rem;
+}
+
+#object-main-form .create-relations-list li {
+    margin: 0 0 4px;
+}
+
 #object-main-form .form-section h4 {
     margin-bottom: var(--spacing-sm);
     font-size: 0.95rem;
@@ -1103,6 +1166,21 @@ body {
 .rich-text-fallback .rich-text-editor ul,
 .rich-text-fallback .rich-text-editor ol {
     padding-left: 1.25rem;
+}
+
+.rich-text-fallback .rich-text-editor ul.dash-list {
+    list-style: none;
+    padding-left: 1.15rem;
+}
+
+.rich-text-fallback .rich-text-editor ul.dash-list > li {
+    position: relative;
+}
+
+.rich-text-fallback .rich-text-editor ul.dash-list > li::before {
+    content: "- ";
+    position: absolute;
+    left: -0.95rem;
 }
 
 .rich-text-fallback .rich-text-editor img {
@@ -1816,6 +1894,22 @@ body {
 .document-actions {
     display: flex;
     gap: var(--spacing-sm);
+}
+
+.create-file-object-dropzone {
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-lg);
+}
+
+.batch-file-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+    margin-bottom: var(--spacing-sm);
+}
+
+.batch-file-name-input {
+    min-width: 220px;
 }
 
 
@@ -2724,6 +2818,21 @@ body {
     padding-left: 1.1rem;
 }
 
+.detail-panel .richtext-preview-text ul.dash-list {
+    list-style: none;
+    padding-left: 1.1rem;
+}
+
+.detail-panel .richtext-preview-text ul.dash-list > li {
+    position: relative;
+}
+
+.detail-panel .richtext-preview-text ul.dash-list > li::before {
+    content: "- ";
+    position: absolute;
+    left: -0.95rem;
+}
+
 .detail-panel .richtext-preview-text img {
     max-height: 180px;
     width: auto;
@@ -2763,6 +2872,24 @@ body {
 .detail-panel .richtext-value ul,
 .detail-panel .richtext-value ol {
     padding-left: 1.25rem;
+}
+
+.detail-panel .richtext-value ul.dash-list,
+.richtext-viewer-content ul.dash-list {
+    list-style: none;
+    padding-left: 1.2rem;
+}
+
+.detail-panel .richtext-value ul.dash-list > li,
+.richtext-viewer-content ul.dash-list > li {
+    position: relative;
+}
+
+.detail-panel .richtext-value ul.dash-list > li::before,
+.richtext-viewer-content ul.dash-list > li::before {
+    content: "- ";
+    position: absolute;
+    left: -0.95rem;
 }
 
 .detail-panel .richtext-value img,

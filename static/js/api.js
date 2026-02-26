@@ -63,7 +63,12 @@ async function getStats() {
 const ObjectTypesAPI = {
     getAll: (includeFields = false) => {
         const params = includeFields ? '?include_fields=true' : '';
-        return fetchAPI(`/object-types${params}`);
+        return fetchAPI(`/object-types${params}`).then((types) => {
+            if (typeof setObjectTypeColorMapFromTypes === 'function') {
+                setObjectTypeColorMapFromTypes(types);
+            }
+            return types;
+        });
     },
     
     getById: (id) => {

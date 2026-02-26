@@ -8,6 +8,11 @@ class TableSort {
         this.table = document.getElementById(tableId);
         this.sortColumn = null;
         this.sortDirection = 'asc';
+        this.textCollator = new Intl.Collator('sv', {
+            sensitivity: 'base',
+            numeric: true,
+            ignorePunctuation: true
+        });
         
         if (this.table) {
             this.initialize();
@@ -17,7 +22,7 @@ class TableSort {
     initialize() {
         const headers = this.table.querySelectorAll('th[data-sortable]');
         
-        headers.forEach((header, index) => {
+        headers.forEach((header) => {
             header.style.cursor = 'pointer';
             header.style.userSelect = 'none';
             
@@ -28,7 +33,7 @@ class TableSort {
             header.appendChild(indicator);
             
             header.addEventListener('click', () => {
-                this.sortByColumn(index, header);
+                this.sortByColumn(header.cellIndex, header);
             });
         });
     }
@@ -59,22 +64,25 @@ class TableSort {
             let bValue = bCell.textContent.trim();
             
             // Use data-value attribute if available
-            if (aCell.dataset.value) aValue = aCell.dataset.value;
-            if (bCell.dataset.value) bValue = bCell.dataset.value;
+            if (Object.prototype.hasOwnProperty.call(aCell.dataset, 'value')) aValue = aCell.dataset.value;
+            if (Object.prototype.hasOwnProperty.call(bCell.dataset, 'value')) bValue = bCell.dataset.value;
             
             let comparison = 0;
             
             if (sortType === 'number') {
-                const aNum = parseFloat(aValue) || 0;
-                const bNum = parseFloat(bValue) || 0;
+                const aNum = this.parseNumber(aValue);
+                const bNum = this.parseNumber(bValue);
                 comparison = aNum - bNum;
             } else if (sortType === 'date') {
-                const aDate = new Date(aValue);
-                const bDate = new Date(bValue);
-                comparison = aDate - bDate;
+                const aDate = this.parseDate(aValue);
+                const bDate = this.parseDate(bValue);
+                if (Number.isFinite(aDate) && Number.isFinite(bDate)) {
+                    comparison = aDate - bDate;
+                } else {
+                    comparison = this.compareText(aValue, bValue);
+                }
             } else {
-                // Text comparison
-                comparison = aValue.localeCompare(bValue, 'sv');
+                comparison = this.compareText(aValue, bValue);
             }
             
             return this.sortDirection === 'asc' ? comparison : -comparison;
@@ -107,6 +115,28 @@ class TableSort {
     // Method to make any table sortable
     static makeTableSortable(tableId) {
         return new TableSort(tableId);
+    }
+
+    compareText(aValue, bValue) {
+        const aText = String(aValue ?? '').trim();
+        const bText = String(bValue ?? '').trim();
+        return this.textCollator.compare(aText, bText);
+    }
+
+    parseNumber(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw) return 0;
+        const normalized = raw
+            .replace(/\s+/g, '')
+            .replace(',', '.')
+            .replace(/[^\d.-]/g, '');
+        const parsed = Number.parseFloat(normalized);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    parseDate(value) {
+        const parsed = Date.parse(String(value ?? '').trim());
+        return Number.isFinite(parsed) ? parsed : NaN;
     }
 }
 

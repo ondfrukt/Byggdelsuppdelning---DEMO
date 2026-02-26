@@ -99,18 +99,44 @@ function getRelationTypeLabel(type) {
 }
 
 // Get object type color
+const OBJECT_TYPE_DEFAULT_COLORS = {
+    'Byggdel': '#3498db',
+    'Produkt': '#2ecc71',
+    'Kravställning': '#e74c3c',
+    'Anslutning': '#f39c12',
+    'Ritningsobjekt': '#9b59b6',
+    'Filobjekt': '#9b59b6',
+    'Egenskap': '#1abc9c',
+    'Anvisning': '#34495e'
+};
+
+const OBJECT_TYPE_COLOR_PALETTE = [
+    '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16',
+    '#EAB308', '#F97316', '#EF4444', '#EC4899',
+    '#8B5CF6', '#6366F1', '#06B6D4', '#64748B',
+    '#3498db', '#2ecc71', '#e74c3c', '#f39c12',
+    '#9b59b6', '#1abc9c', '#34495e', '#95a5a6'
+];
+
+function getObjectTypeColorPalette() {
+    return [...OBJECT_TYPE_COLOR_PALETTE];
+}
+
+function setObjectTypeColorMapFromTypes(types) {
+    if (!Array.isArray(types)) return;
+    const map = {};
+    types.forEach(type => {
+        const name = String(type?.name || '').trim();
+        const color = String(type?.color || '').trim();
+        if (!name || !color) return;
+        map[name] = color;
+    });
+    window.objectTypeColorMap = map;
+}
+
 function getObjectTypeColor(typeName) {
-    const colors = {
-        'Byggdel': '#3498db',
-        'Produkt': '#2ecc71',
-        'Kravställning': '#e74c3c',
-        'Anslutning': '#f39c12',
-        'Ritningsobjekt': '#9b59b6',
-        'Filobjekt': '#9b59b6',
-        'Egenskap': '#1abc9c',
-        'Anvisning': '#34495e'
-    };
-    return colors[typeName] || '#95a5a6';
+    const customColors = window.objectTypeColorMap || {};
+    return customColors[typeName] || OBJECT_TYPE_DEFAULT_COLORS[typeName] || '#95a5a6';
 }
 
 // Escape HTML to prevent XSS
@@ -147,6 +173,7 @@ function sanitizeRichTextHtml(html) {
         span: new Set(['style']),
         p: new Set(['style']),
         div: new Set(['style']),
+        ul: new Set(['class']),
         img: new Set(['src', 'alt', 'title', 'style']),
         table: new Set(['style']),
         thead: new Set(['style']),
@@ -267,6 +294,18 @@ function sanitizeRichTextHtml(html) {
                             child.setAttribute('style', sanitized);
                         } else {
                             child.removeAttribute('style');
+                        }
+                    }
+                    if (tag === 'ul' && attrName === 'class') {
+                        const classes = String(attr.value || '')
+                            .split(/\s+/)
+                            .map(item => item.trim())
+                            .filter(Boolean);
+                        const safeClasses = classes.filter(className => className === 'dash-list');
+                        if (safeClasses.length === 0) {
+                            child.removeAttribute('class');
+                        } else {
+                            child.setAttribute('class', safeClasses.join(' '));
                         }
                     }
                 });

@@ -94,6 +94,16 @@
                     </select>
                 </div>
                 <div id="object-form-container"></div>
+                <div id="object-create-relations-group" class="form-group" style="display:none;">
+                    <label>Relationer (valfritt)</label>
+                    <div class="create-relations-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="object-create-relations-btn" onclick="openCreateObjectRelationPicker()">
+                            Lägg till relationer
+                        </button>
+                    </div>
+                    <small class="form-help">Välj objekt att koppla direkt när det nya objektet skapas.</small>
+                    <div id="object-create-relations-list" class="create-relations-list"></div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
                         Avbryt
@@ -207,6 +217,12 @@
                 <div class="form-group">
                     <label for="type-prefix">ID-prefix</label>
                     <input type="text" id="type-prefix" class="form-control" placeholder="t.ex. BYG">
+                </div>
+                <div class="form-group">
+                    <label for="type-color">Färg</label>
+                    <input type="hidden" id="type-color">
+                    <div id="type-color-palette" class="type-color-palette" role="radiogroup" aria-label="Färgpalett för objekttyp"></div>
+                    <small class="form-help">Välj färg från fast palett för badges och tabeller.</small>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">

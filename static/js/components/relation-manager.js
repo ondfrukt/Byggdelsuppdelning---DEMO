@@ -32,7 +32,10 @@ const relationModalState = {
     confirmLabel: 'Koppla',
     modalTitle: 'Lägg till relationer',
     modalDescription: 'Sök, välj och koppla flera objekt i ett batch-anrop.',
-    hideSettings: false
+    hideSettings: false,
+    blockedIdFulls: new Set(),
+    searchFocusState: null,
+    allowNoSource: false
 };
 
 class RelationManagerComponent {
@@ -298,6 +301,43 @@ function isFileObjectType(typeName) {
     return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
 }
 
+function normalizeIdFull(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim().toLowerCase();
+}
+
+async function loadBlockedIdFullsForSources() {
+    const sourceIds = (relationModalState.sourceIds || [])
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id) && id > 0);
+
+    const blockedIdFulls = new Set();
+
+    const relationsBySource = await Promise.all(sourceIds.map(async sourceId => {
+        try {
+            return await ObjectsAPI.getRelations(sourceId);
+        } catch (error) {
+            console.warn('Failed to load source relations while preparing relation fail-safe:', sourceId, error);
+            return [];
+        }
+    }));
+
+    relationsBySource.forEach((relations, index) => {
+        const sourceId = sourceIds[index];
+        (relations || []).forEach(relation => {
+            const linkedObject = relation.direction === 'incoming'
+                ? relation.source_object
+                : relation.direction === 'outgoing'
+                    ? relation.target_object
+                    : (relation.source_object_id === sourceId ? relation.target_object : relation.source_object);
+            const linkedIdFull = normalizeIdFull(linkedObject?.id_full);
+            if (linkedIdFull) blockedIdFulls.add(linkedIdFull);
+        });
+    });
+
+    relationModalState.blockedIdFulls = blockedIdFulls;
+}
+
 function renderRelationModalSourceContext() {
     const sourceElement = document.getElementById('relation-modal-source');
     if (!sourceElement) return;
@@ -377,6 +417,8 @@ async function loadRelationCandidates() {
     const sourceIdSet = new Set((relationModalState.sourceIds || []).map(id => Number(id)));
     relationModalState.items = loadedItems.filter(item => {
         if (sourceIdSet.has(Number(item.id))) return false;
+        const idFull = normalizeIdFull(item.id_full);
+        if (idFull && relationModalState.blockedIdFulls.has(idFull)) return false;
         return !isFileObjectType(item?.object_type?.name);
     });
 }
@@ -449,7 +491,62 @@ function applyRelationTableFilters() {
     relationModalState.page = Math.min(relationModalState.page, relationModalState.totalPages);
 }
 
+function captureRelationSearchFocusState() {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLInputElement)) {
+        relationModalState.searchFocusState = null;
+        return;
+    }
+
+    if (activeElement.classList.contains('column-search-input') && activeElement.dataset.field) {
+        relationModalState.searchFocusState = {
+            kind: 'column',
+            field: activeElement.dataset.field,
+            selectionStart: Number.isInteger(activeElement.selectionStart) ? activeElement.selectionStart : null,
+            selectionEnd: Number.isInteger(activeElement.selectionEnd) ? activeElement.selectionEnd : null
+        };
+        return;
+    }
+
+    if (activeElement.id === 'relation-object-search') {
+        relationModalState.searchFocusState = {
+            kind: 'global',
+            selectionStart: Number.isInteger(activeElement.selectionStart) ? activeElement.selectionStart : null,
+            selectionEnd: Number.isInteger(activeElement.selectionEnd) ? activeElement.selectionEnd : null
+        };
+        return;
+    }
+
+    relationModalState.searchFocusState = null;
+}
+
+function restoreRelationSearchFocusState() {
+    const state = relationModalState.searchFocusState;
+    if (!state) return;
+
+    let input = null;
+    if (state.kind === 'global') {
+        input = document.getElementById('relation-object-search');
+    } else if (state.kind === 'column' && state.field) {
+        const escapedField = state.field.replace(/["\\]/g, '\\$&');
+        input = document.querySelector(`#relation-table-search-row .column-search-input[data-field="${escapedField}"]`);
+    }
+
+    if (!input) return;
+
+    input.focus({ preventScroll: true });
+    if (Number.isInteger(state.selectionStart) && Number.isInteger(state.selectionEnd)) {
+        try {
+            input.setSelectionRange(state.selectionStart, state.selectionEnd);
+        } catch (_error) {
+            // Best effort
+        }
+    }
+}
+
 function renderRelationTable() {
+    captureRelationSearchFocusState();
+
     const header = document.getElementById('relation-table-headers');
     const searchRow = document.getElementById('relation-table-search-row');
     const tbody = document.getElementById('relation-object-table-body');
@@ -554,11 +651,19 @@ function renderRelationTable() {
             }
         });
     });
+
+    restoreRelationSearchFocusState();
 }
 
 function addToBasket(objectId) {
     const object = relationModalState.items.find(item => item.id === objectId);
     if (!object) return;
+
+    const idFull = normalizeIdFull(object.id_full);
+    if (idFull && relationModalState.blockedIdFulls.has(idFull)) {
+        setRelationModalFeedback(`Objekt med full ID ${object.id_full} är redan kopplat.`);
+        return;
+    }
 
     if (relationModalState.basket.some(item => item.id === objectId)) {
         setRelationModalFeedback('Objektet finns redan i korgen.');
@@ -722,27 +827,37 @@ async function showAddRelationModal(objectIdOrIds, options = {}) {
     relationModalState.modalTitle = options.title || 'Lägg till relationer';
     relationModalState.modalDescription = options.description || 'Sök, välj och koppla flera objekt i ett batch-anrop.';
     relationModalState.hideSettings = Boolean(options.hideSettings);
+    relationModalState.allowNoSource = Boolean(options.allowNoSource);
+    relationModalState.blockedIdFulls = new Set();
+    relationModalState.searchFocusState = null;
 
     try {
-        if (!relationModalState.sourceIds.length) {
+        if (!relationModalState.sourceIds.length && !relationModalState.allowNoSource) {
             showToast('Minst ett källobjekt krävs för att skapa relationer', 'error');
             return;
         }
 
-        relationModalState.sourceObjects = (await Promise.all(
-            relationModalState.sourceIds.map(async (sourceId) => {
-                try {
-                    return await ObjectsAPI.getById(sourceId);
-                } catch (sourceError) {
-                    console.warn('Failed to load source object for relation modal context:', sourceId, sourceError);
-                    return null;
-                }
-            })
-        )).filter(Boolean);
-        relationModalState.sourceObject = relationModalState.sourceObjects[0] || null;
-        if (relationModalState.sourceIds.length === 1 && !relationModalState.sourceObject) {
-            showToast('Kunde inte läsa källobjekt för relationer', 'error');
-            return;
+        if (relationModalState.sourceIds.length > 0) {
+            relationModalState.sourceObjects = (await Promise.all(
+                relationModalState.sourceIds.map(async (sourceId) => {
+                    try {
+                        return await ObjectsAPI.getById(sourceId);
+                    } catch (sourceError) {
+                        console.warn('Failed to load source object for relation modal context:', sourceId, sourceError);
+                        return null;
+                    }
+                })
+            )).filter(Boolean);
+            relationModalState.sourceObject = relationModalState.sourceObjects[0] || null;
+            if (relationModalState.sourceIds.length === 1 && !relationModalState.sourceObject) {
+                showToast('Kunde inte läsa källobjekt för relationer', 'error');
+                return;
+            }
+            await loadBlockedIdFullsForSources();
+        } else {
+            relationModalState.sourceObjects = [];
+            relationModalState.sourceObject = null;
+            relationModalState.blockedIdFulls = new Set();
         }
         renderRelationModalSourceContext();
 
@@ -789,6 +904,7 @@ function closeRelationModal() {
     relationModalState.modalTitle = 'Lägg till relationer';
     relationModalState.modalDescription = 'Sök, välj och koppla flera objekt i ett batch-anrop.';
     relationModalState.hideSettings = false;
+    relationModalState.allowNoSource = false;
     document.getElementById('relation-form')?.reset();
     applyRelationModalModeConfig();
     renderRelationModalSourceContext();
@@ -798,18 +914,14 @@ function closeRelationModal() {
 async function saveRelation(event) {
     event.preventDefault();
 
-    const sourceIds = (relationModalState.sourceIds || [])
-        .map(id => Number(id))
-        .filter(id => Number.isFinite(id) && id > 0);
-    if (!sourceIds.length) {
-        setRelationModalFeedback('Källobjekt krävs.');
-        return;
-    }
-
     if (relationModalState.basket.length === 0) {
         setRelationModalFeedback('Lägg till minst ett objekt i korgen innan du kopplar.');
         return;
     }
+
+    const sourceIds = (relationModalState.sourceIds || [])
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id) && id > 0);
 
     if (typeof relationModalState.onSubmit === 'function') {
         try {
@@ -822,6 +934,11 @@ async function saveRelation(event) {
             console.error('Custom relation modal submit failed:', error);
             setRelationModalFeedback(error.message || 'Kunde inte spara urvalet.');
         }
+        return;
+    }
+
+    if (!sourceIds.length) {
+        setRelationModalFeedback('Källobjekt krävs.');
         return;
     }
 

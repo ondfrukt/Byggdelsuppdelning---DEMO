@@ -7,19 +7,16 @@ class TreeView {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.data = [];
+        this.viewMode = this.loadViewMode();
+        this.modeStateStorageKey = 'tree-view-mode-states';
+        this.defaultColumnSearches = this.getDefaultColumnSearches();
+        this.modeStates = this.loadModeStates();
         this.expandedNodes = new Set();
         this.onNodeClick = null;
         this.tableSortInstance = null;
         this.selectedObjectId = window.currentSelectedObjectId || null;
-        this.columnSearches = {
-            name: '',
-            id: '',
-            type: '',
-            kravtext: '',
-            beskrivning: '',
-            files: '',
-            has_files: ''
-        };
+        this.columnSearches = { ...this.defaultColumnSearches };
+        this.restoreModeState(this.viewMode);
         this.columnVisibility = this.loadColumnVisibility();
         this.renderedTreeData = [];
         this.searchExpandedNodes = new Set();
@@ -32,7 +29,8 @@ class TreeView {
     
     async loadData() {
         try {
-            const response = await fetch('/api/objects/tree');
+            const params = new URLSearchParams({ view: this.viewMode });
+            const response = await fetch(`/api/objects/tree?${params.toString()}`);
             if (!response.ok) {
                 throw new Error('Failed to load tree data');
             }
@@ -47,20 +45,22 @@ class TreeView {
         if (!this.container) return;
         
         await this.loadData();
-        
-        if (this.data.length === 0) {
-            this.container.innerHTML = '<p class="empty-state">Inga byggdelar ännu</p>';
-            return;
-        }
-        
+
         const filteredData = this.getFilteredTreeData();
         this.renderedTreeData = filteredData;
         const visibleColumns = this.getVisibleColumns();
-        const treeHtml = filteredData.map(node => this.renderNode(node, 0, visibleColumns)).join('');
+        const treeHtml = filteredData.length
+            ? filteredData.map(node => this.renderNode(node, 0, visibleColumns)).join('')
+            : `<tr><td colspan="${visibleColumns.length}" class="empty-state">${this.escapeHtml(this.getEmptyStateText())}</td></tr>`;
 
         this.container.innerHTML = `
             <div class="tree-view">
                 <div class="tree-toolbar">
+                    <div class="tree-view-mode-buttons" role="group" aria-label="Trädvy-läge">
+                        <button type="button" class="btn btn-sm tree-view-mode-btn ${this.viewMode === 'byggdelar' ? 'active' : ''}" data-view-mode="byggdelar">Byggdelar</button>
+                        <button type="button" class="btn btn-sm tree-view-mode-btn ${this.viewMode === 'utrymmen' ? 'active' : ''}" data-view-mode="utrymmen">Utrymmen</button>
+                        <button type="button" class="btn btn-sm tree-view-mode-btn ${this.viewMode === 'system' ? 'active' : ''}" data-view-mode="system">System</button>
+                    </div>
                     <button type="button" class="btn btn-secondary btn-sm" id="tree-column-config-btn">
                         ⚙️ Kolumner
                     </button>
@@ -98,6 +98,94 @@ class TreeView {
         
         // Tree view sorting is intentionally disabled.
         this.tableSortInstance = null;
+    }
+
+    getDefaultColumnSearches() {
+        return {
+            name: '',
+            id: '',
+            type: '',
+            kravtext: '',
+            beskrivning: '',
+            files: '',
+            has_files: ''
+        };
+    }
+
+    loadViewMode() {
+        try {
+            const stored = localStorage.getItem('tree-view-mode');
+            if (stored === 'byggdelar' || stored === 'utrymmen' || stored === 'system') {
+                return stored;
+            }
+        } catch (_error) {
+            // Ignore storage errors
+        }
+        return 'byggdelar';
+    }
+
+    saveViewMode() {
+        try {
+            localStorage.setItem('tree-view-mode', this.viewMode);
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    loadModeStates() {
+        try {
+            const raw = sessionStorage.getItem(this.modeStateStorageKey);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
+    saveModeStates() {
+        try {
+            sessionStorage.setItem(this.modeStateStorageKey, JSON.stringify(this.modeStates || {}));
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    persistCurrentModeState() {
+        const mode = this.viewMode;
+        if (!['byggdelar', 'utrymmen', 'system'].includes(mode)) return;
+
+        this.modeStates[mode] = {
+            expandedNodes: Array.from(this.expandedNodes || []),
+            columnSearches: { ...(this.columnSearches || {}) }
+        };
+        this.saveModeStates();
+    }
+
+    restoreModeState(mode) {
+        const state = this.modeStates?.[mode];
+        if (!state || typeof state !== 'object') {
+            this.expandedNodes = new Set();
+            this.columnSearches = { ...this.defaultColumnSearches };
+            return;
+        }
+
+        const expandedNodes = Array.isArray(state.expandedNodes) ? state.expandedNodes : [];
+        const columnSearches = state.columnSearches && typeof state.columnSearches === 'object'
+            ? state.columnSearches
+            : {};
+
+        this.expandedNodes = new Set(expandedNodes.map(item => String(item)));
+        this.columnSearches = {
+            ...this.defaultColumnSearches,
+            ...columnSearches
+        };
+    }
+
+    getEmptyStateText() {
+        if (this.viewMode === 'utrymmen') return 'Inga utrymmen ännu';
+        if (this.viewMode === 'system') return 'Inga systemobjekt ännu';
+        return 'Inga byggdelar ännu';
     }
 
     getVisibleColumns() {
@@ -319,6 +407,10 @@ class TreeView {
             .replace(/'/g, '&#39;');
     }
 
+    escapeHtmlWithLineBreaks(value) {
+        return this.escapeHtml(value).replace(/\r?\n/g, '<br>');
+    }
+
     escapeRegExp(value) {
         return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -331,7 +423,7 @@ class TreeView {
         const text = String(value ?? '');
         const trimmedTerm = String(term || '').trim();
         if (!trimmedTerm) {
-            return this.escapeHtml(text);
+            return this.escapeHtmlWithLineBreaks(text);
         }
 
         const pattern = new RegExp(this.escapeRegExp(trimmedTerm), 'ig');
@@ -342,13 +434,13 @@ class TreeView {
         while (match) {
             const start = match.index;
             const end = start + match[0].length;
-            result += this.escapeHtml(text.slice(lastIndex, start));
-            result += `<mark class="tree-search-hit">${this.escapeHtml(text.slice(start, end))}</mark>`;
+            result += this.escapeHtmlWithLineBreaks(text.slice(lastIndex, start));
+            result += `<mark class="tree-search-hit">${this.escapeHtmlWithLineBreaks(text.slice(start, end))}</mark>`;
             lastIndex = end;
             match = pattern.exec(text);
         }
 
-        result += this.escapeHtml(text.slice(lastIndex));
+        result += this.escapeHtmlWithLineBreaks(text.slice(lastIndex));
         return result;
     }
 
@@ -446,6 +538,22 @@ class TreeView {
     }
     
     attachEventListeners() {
+        const viewModeButtons = this.container.querySelectorAll('.tree-view-mode-btn[data-view-mode]');
+        if (viewModeButtons.length > 0) {
+            viewModeButtons.forEach(button => {
+                button.addEventListener('click', async () => {
+                    const nextMode = button.dataset.viewMode;
+                    if (!['byggdelar', 'utrymmen', 'system'].includes(nextMode)) return;
+                    if (nextMode === this.viewMode) return;
+                    this.persistCurrentModeState();
+                    this.viewMode = nextMode;
+                    this.saveViewMode();
+                    this.restoreModeState(nextMode);
+                    await this.render();
+                });
+            });
+        }
+
         const configButton = this.container.querySelector('#tree-column-config-btn');
         const configPanel = this.container.querySelector('#tree-column-config-panel');
         if (configButton && configPanel) {
@@ -472,6 +580,7 @@ class TreeView {
 
                 this.searchDebounceTimer = setTimeout(() => {
                     this.searchDebounceTimer = null;
+                    this.persistCurrentModeState();
                     this.render({ preserveSearchFocus: true });
                 }, this.searchDebounceMs);
             });
@@ -488,6 +597,7 @@ class TreeView {
                 }
                 this.searchDebounceTimer = setTimeout(() => {
                     this.searchDebounceTimer = null;
+                    this.persistCurrentModeState();
                     this.render();
                 }, this.searchDebounceMs);
             });
@@ -506,6 +616,7 @@ class TreeView {
                 } else {
                     this.expandedNodes.add(nodeId);
                 }
+                this.persistCurrentModeState();
                 
                 this.render();
             });
@@ -540,13 +651,9 @@ class TreeView {
         // Double-click toggles the whole subtree.
         const nodes = this.container.querySelectorAll('.tree-node');
         nodes.forEach(node => {
-            const nodeLevel = parseInt(node.dataset.treeLevel || '0', 10);
-            const disableDoubleClickRule = nodeLevel === 1;
-
             node.addEventListener('mousedown', (e) => {
                 const hasChildren = node.dataset.hasChildren === 'true';
                 if (!hasChildren) return;
-                if (disableDoubleClickRule) return;
                 if (e.detail < 2) return;
 
                 // Keep native behavior on explicit interactive controls.
@@ -561,16 +668,6 @@ class TreeView {
                 if (hasChildren) {
                     const nodeId = node.dataset.nodeId;
 
-                    if (disableDoubleClickRule) {
-                        if (this.expandedNodes.has(nodeId)) {
-                            this.expandedNodes.delete(nodeId);
-                        } else {
-                            this.expandedNodes.add(nodeId);
-                        }
-                        this.render();
-                        return;
-                    }
-
                     if (this.pendingToggleTimer) {
                         clearTimeout(this.pendingToggleTimer);
                         this.pendingToggleTimer = null;
@@ -583,6 +680,7 @@ class TreeView {
                         } else {
                             this.expandedNodes.add(nodeId);
                         }
+                        this.persistCurrentModeState();
                         this.render();
                     }, this.pendingToggleDelayMs);
                 }
@@ -591,7 +689,6 @@ class TreeView {
             node.addEventListener('dblclick', (e) => {
                 const hasChildren = node.dataset.hasChildren === 'true';
                 if (!hasChildren) return;
-                if (disableDoubleClickRule) return;
 
                 e.preventDefault();
                 e.stopPropagation();
@@ -613,6 +710,7 @@ class TreeView {
                 } else {
                     expandableIds.forEach(id => this.expandedNodes.add(id));
                 }
+                this.persistCurrentModeState();
 
                 this.render();
             });

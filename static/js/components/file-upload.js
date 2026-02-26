@@ -24,6 +24,9 @@ class FileUploadComponent {
             files: '',
             metadata: ''
         };
+        this.batchFileRows = [];
+        this.batchFileTable = null;
+        this.batchFileRowIdSeq = 1;
     }
 
     isFileObjectType(typeName) {
@@ -118,17 +121,23 @@ class FileUploadComponent {
                 <div id="document-object-modal-${this.objectId}" class="modal document-object-modal" role="dialog" aria-modal="true" aria-labelledby="create-document-title-${this.objectId}">
                     <div class="modal-content document-object-modal-content">
                         <div class="modal-header">
-                            <h3 id="create-document-title-${this.objectId}">Skapa nytt filobjekt</h3>
+                            <h3 id="create-document-title-${this.objectId}">Skapa filobjekt från filer</h3>
                             <button class="close-btn" type="button" data-close-modal="document-object-modal-${this.objectId}">&times;</button>
                         </div>
                         <div style="padding: var(--spacing-lg);">
-                            <div class="form-group">
-                                <label for="document-object-name-${this.objectId}">Namn på filobjekt *</label>
-                                <input id="document-object-name-${this.objectId}" type="text" class="form-control" placeholder="Ange namn">
+                            <div class="upload-area create-file-object-dropzone" id="create-file-object-dropzone-${this.objectId}">
+                                <div class="upload-content">
+                                    <p>Dra och släpp filer här eller <label for="create-document-file-input-${this.objectId}" class="file-label">välj filer</label></p>
+                                    <input id="create-document-file-input-${this.objectId}" type="file" class="form-control" multiple style="display: none;">
+                                </div>
+                            </div>
+                            <div class="batch-file-actions">
+                                <button class="btn btn-secondary btn-sm" type="button" id="batch-merge-files-btn-${this.objectId}">Slå ihop markerade</button>
+                                <button class="btn btn-secondary btn-sm" type="button" id="batch-clear-files-btn-${this.objectId}">Rensa filer</button>
                             </div>
                             <div class="form-group">
-                                <label for="create-document-file-input-${this.objectId}">Filer *</label>
-                                <input id="create-document-file-input-${this.objectId}" type="file" class="form-control" multiple>
+                                <label>Valda filer</label>
+                                <div id="batch-file-table-container-${this.objectId}"></div>
                             </div>
                             <div class="modal-footer">
                                 <button class="btn btn-secondary" type="button" data-close-modal="document-object-modal-${this.objectId}">Avbryt</button>
@@ -174,6 +183,9 @@ class FileUploadComponent {
         const confirmLinkExistingBtn = document.getElementById(`confirm-link-existing-btn-${this.objectId}`);
         const confirmCreateDocumentBtn = document.getElementById(`confirm-create-document-btn-${this.objectId}`);
         const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
+        const createDropzone = document.getElementById(`create-file-object-dropzone-${this.objectId}`);
+        const mergeFilesBtn = document.getElementById(`batch-merge-files-btn-${this.objectId}`);
+        const clearFilesBtn = document.getElementById(`batch-clear-files-btn-${this.objectId}`);
         const existingSearchInput = document.getElementById(`existing-document-search-${this.objectId}`);
         const selectAllCheckbox = document.getElementById(`existing-document-select-all-${this.objectId}`);
         const columnFilters = this.container.querySelectorAll('.existing-document-column-filter');
@@ -197,8 +209,19 @@ class FileUploadComponent {
         if (createDocumentFileInput) {
             createDocumentFileInput.addEventListener('change', (e) => {
                 const files = Array.from(e.target.files || []);
-                this.selectedFiles = files;
+                this.addFilesToBatch(files);
+                if (createDocumentFileInput) createDocumentFileInput.value = '';
             });
+        }
+        if (mergeFilesBtn) {
+            mergeFilesBtn.addEventListener('click', () => this.mergeSelectedBatchRows());
+        }
+        if (clearFilesBtn) {
+            clearFilesBtn.addEventListener('click', () => this.clearBatchFiles());
+        }
+
+        if (createDropzone) {
+            this.bindDropzone(createDropzone, (files) => this.addFilesToBatch(files));
         }
 
         if (existingSearchInput) {
@@ -235,54 +258,7 @@ class FileUploadComponent {
 
         // Drag and drop
         if (uploadArea) {
-            const uploadRoot = this.container.querySelector('.file-upload') || uploadArea;
-            let dragDepth = 0;
-            const isFileDrag = (event) => {
-                const types = Array.from(event?.dataTransfer?.types || []);
-                return types.includes('Files');
-            };
-
-            const setDragoverState = (isActive) => {
-                if (isActive) {
-                    uploadArea.classList.add('dragover');
-                } else {
-                    uploadArea.classList.remove('dragover');
-                }
-            };
-
-            uploadRoot.addEventListener('dragenter', (e) => {
-                if (!isFileDrag(e)) return;
-                e.preventDefault();
-                dragDepth += 1;
-                setDragoverState(true);
-            });
-
-            uploadRoot.addEventListener('dragover', (e) => {
-                if (!isFileDrag(e)) return;
-                e.preventDefault();
-                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-                setDragoverState(true);
-            });
-
-            uploadRoot.addEventListener('dragleave', (e) => {
-                if (!isFileDrag(e)) return;
-                e.preventDefault();
-                dragDepth = Math.max(0, dragDepth - 1);
-                if (dragDepth === 0) {
-                    setDragoverState(false);
-                }
-            });
-
-            uploadRoot.addEventListener('drop', (e) => {
-                if (!isFileDrag(e)) return;
-                e.preventDefault();
-                e.stopPropagation();
-                dragDepth = 0;
-                setDragoverState(false);
-
-                const files = Array.from(e.dataTransfer?.files || []);
-                this.prepareUpload(files);
-            });
+            this.bindDropzone(uploadArea, (files) => this.prepareUpload(files));
         }
         
         // File input
@@ -292,6 +268,58 @@ class FileUploadComponent {
                 this.prepareUpload(files);
             });
         }
+    }
+
+    bindDropzone(dropzone, onFiles) {
+        if (!dropzone || typeof onFiles !== 'function') return;
+        const uploadRoot = this.container.querySelector('.file-upload') || dropzone;
+        let dragDepth = 0;
+        const isFileDrag = (event) => {
+            const types = Array.from(event?.dataTransfer?.types || []);
+            return types.includes('Files');
+        };
+
+        const setDragoverState = (isActive) => {
+            if (isActive) {
+                dropzone.classList.add('dragover');
+            } else {
+                dropzone.classList.remove('dragover');
+            }
+        };
+
+        uploadRoot.addEventListener('dragenter', (e) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+            dragDepth += 1;
+            setDragoverState(true);
+        });
+
+        uploadRoot.addEventListener('dragover', (e) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+            setDragoverState(true);
+        });
+
+        uploadRoot.addEventListener('dragleave', (e) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+            dragDepth = Math.max(0, dragDepth - 1);
+            if (dragDepth === 0) {
+                setDragoverState(false);
+            }
+        });
+
+        uploadRoot.addEventListener('drop', (e) => {
+            if (!isFileDrag(e)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            dragDepth = 0;
+            setDragoverState(false);
+
+            const files = Array.from(e.dataTransfer?.files || []);
+            onFiles(files);
+        });
     }
     
     async prepareUpload(files) {
@@ -535,10 +563,166 @@ class FileUploadComponent {
             return;
         }
         this.resetUploadForm();
-        this.selectedFiles = [];
+        this.clearBatchFiles();
         const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
         if (createDocumentFileInput) createDocumentFileInput.value = '';
         this.openModal(`document-object-modal-${this.objectId}`);
+    }
+
+    stripFileExtension(filename) {
+        const name = String(filename || '').trim();
+        const lastDot = name.lastIndexOf('.');
+        if (lastDot <= 0) return name;
+        return name.substring(0, lastDot);
+    }
+
+    makeBatchFileRow(file) {
+        return {
+            row_id: this.batchFileRowIdSeq++,
+            selected: false,
+            file,
+            filename: file?.name || 'Okänd fil',
+            object_name: this.stripFileExtension(file?.name || '') || 'Filobjekt'
+        };
+    }
+
+    addFilesToBatch(files) {
+        const incoming = Array.isArray(files) ? files.filter(Boolean) : [];
+        if (!incoming.length) return;
+        const existingKeys = new Set(this.batchFileRows.map(row => `${row.filename}|${row.file?.size}|${row.file?.lastModified}`));
+        const addedRows = [];
+        incoming.forEach(file => {
+            const key = `${file.name}|${file.size}|${file.lastModified}`;
+            if (existingKeys.has(key)) return;
+            existingKeys.add(key);
+            addedRows.push(this.makeBatchFileRow(file));
+        });
+        if (!addedRows.length) return;
+        this.batchFileRows = [...this.batchFileRows, ...addedRows];
+        this.renderBatchFileTable();
+    }
+
+    clearBatchFiles() {
+        this.batchFileRows = [];
+        this.batchFileTable = null;
+        const container = document.getElementById(`batch-file-table-container-${this.objectId}`);
+        if (container) {
+            container.innerHTML = '<p class="empty-state">Inga filer valda</p>';
+        }
+    }
+
+    mergeSelectedBatchRows() {
+        const selectedRows = this.batchFileRows.filter(row => row.selected);
+        if (selectedRows.length < 2) {
+            showToast('Markera minst två filer att slå ihop', 'error');
+            return;
+        }
+
+        const firstName = String(selectedRows[0].object_name || '').trim();
+        if (!firstName) {
+            showToast('Första markerade filen saknar namn', 'error');
+            return;
+        }
+
+        this.batchFileRows = this.batchFileRows.map(row => (
+            row.selected ? { ...row, object_name: firstName } : row
+        ));
+        this.renderBatchFileTable();
+        showToast('Markerade filer har fått samma filobjektnamn', 'success');
+    }
+
+    buildBatchTableRows() {
+        return this.batchFileRows.map(row => ({
+            row_id: row.row_id,
+            selected: row.selected,
+            filename: row.filename,
+            object_name: row.object_name
+        }));
+    }
+
+    renderBatchFileTable() {
+        const containerId = `batch-file-table-container-${this.objectId}`;
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const rows = this.buildBatchTableRows();
+        if (!rows.length) {
+            container.innerHTML = '<p class="empty-state">Inga filer valda</p>';
+            return;
+        }
+
+        if (typeof SystemTable === 'undefined') {
+            container.innerHTML = '<p class="empty-state">Tabellkomponenten kunde inte laddas</p>';
+            return;
+        }
+
+        this.batchFileTable = new SystemTable({
+            containerId,
+            tableId: `batch-file-table-${this.objectId}`,
+            columns: [
+                {
+                    field: 'selected',
+                    label: '',
+                    className: 'col-actions',
+                    sortable: false,
+                    searchable: false,
+                    render: (row) => `
+                        <input type="checkbox"
+                               class="batch-file-row-select"
+                               data-row-id="${row.row_id}"
+                               ${row.selected ? 'checked' : ''}
+                               aria-label="Markera filrad">
+                    `
+                },
+                {
+                    field: 'filename',
+                    label: 'Filnamn',
+                    className: 'col-name'
+                },
+                {
+                    field: 'object_name',
+                    label: 'Filobjektnamn',
+                    className: 'col-description',
+                    render: (row, table) => `
+                        <input type="text"
+                               class="form-control batch-file-name-input"
+                               data-row-id="${row.row_id}"
+                               value="${table.escape(row.object_name || '')}"
+                               placeholder="Ange filobjektnamn">
+                    `
+                }
+            ],
+            rows,
+            emptyText: 'Inga filer valda',
+            onRender: () => this.bindBatchTableEvents()
+        });
+
+        this.batchFileTable.render();
+    }
+
+    bindBatchTableEvents() {
+        const container = document.getElementById(`batch-file-table-container-${this.objectId}`);
+        if (!container) return;
+
+        container.querySelectorAll('.batch-file-row-select').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const rowId = parseInt(checkbox.dataset.rowId || '', 10);
+                if (!Number.isFinite(rowId)) return;
+                this.batchFileRows = this.batchFileRows.map(row => (
+                    row.row_id === rowId ? { ...row, selected: checkbox.checked } : row
+                ));
+            });
+        });
+
+        container.querySelectorAll('.batch-file-name-input').forEach(input => {
+            input.addEventListener('input', () => {
+                const rowId = parseInt(input.dataset.rowId || '', 10);
+                if (!Number.isFinite(rowId)) return;
+                this.batchFileRows = this.batchFileRows.map(row => (
+                    row.row_id === rowId ? { ...row, object_name: input.value } : row
+                ));
+            });
+        });
     }
 
     async openLinkExistingDocumentsModal() {
@@ -652,22 +836,8 @@ class FileUploadComponent {
     }
 
     async createAndLinkDocumentObject() {
-        const nameInput = document.getElementById(`document-object-name-${this.objectId}`);
-        const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
-        const objectName = (nameInput?.value || '').trim();
-
-        if (!objectName) {
-            showToast('Ange ett namn på filobjektet', 'error');
-            return;
-        }
-
-        if (createDocumentFileInput && (!this.selectedFiles || this.selectedFiles.length === 0)) {
-            const files = Array.from(createDocumentFileInput.files || []);
-            this.selectedFiles = files;
-        }
-
-        if (!this.selectedFiles || this.selectedFiles.length === 0) {
-            showToast('Välj minst en fil innan du skapar dokumentobjektet', 'error');
+        if (!this.batchFileRows.length) {
+            showToast('Välj minst en fil innan du skapar filobjekt', 'error');
             return;
         }
 
@@ -678,25 +848,41 @@ class FileUploadComponent {
         }
 
         try {
-            // 1) Skapa dokumentobjekt
-            const createdObject = await ObjectsAPI.create({
-                object_type_id: this.documentObjectType.id,
-                data: { [nameField]: objectName }
-            });
+            const groups = new Map();
+            for (const row of this.batchFileRows) {
+                const objectName = String(row.object_name || '').trim();
+                if (!objectName) {
+                    showToast(`Ange filobjektnamn för filen "${row.filename}"`, 'error');
+                    return;
+                }
+                if (!groups.has(objectName)) groups.set(objectName, []);
+                groups.get(objectName).push(row.file);
+            }
 
-            // 2) Ladda upp valda filer på det skapade dokumentobjektet
-            await this.uploadFilesToObject(createdObject.id, this.selectedFiles);
+            let createdCount = 0;
+            for (const [objectName, files] of groups.entries()) {
+                // 1) Skapa filobjektet
+                const createdObject = await ObjectsAPI.create({
+                    object_type_id: this.documentObjectType.id,
+                    data: { [nameField]: objectName }
+                });
 
-            // 3) Koppla dokumentobjektet till aktivt objekt
-            await ObjectsAPI.addRelation(this.objectId, {
-                target_object_id: createdObject.id
-            });
+                // 2) Ladda upp gruppens filer
+                await this.uploadFilesToObject(createdObject.id, files);
 
-            showToast('Filobjekt skapat och kopplat', 'success');
+                // 3) Koppla filobjektet till aktivt objekt
+                await ObjectsAPI.addRelation(this.objectId, {
+                    target_object_id: createdObject.id
+                });
+                createdCount += 1;
+            }
+
+            showToast(`${createdCount} filobjekt skapade och kopplade`, 'success');
             this.closeModal(`document-object-modal-${this.objectId}`);
-            if (nameInput) nameInput.value = '';
+            const createDocumentFileInput = document.getElementById(`create-document-file-input-${this.objectId}`);
             if (createDocumentFileInput) createDocumentFileInput.value = '';
             this.resetUploadForm();
+            this.clearBatchFiles();
             await this.loadLinkedDocumentObjects();
         } catch (error) {
             console.error('Failed to create and link document object:', error);

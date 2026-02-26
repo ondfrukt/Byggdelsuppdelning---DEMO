@@ -1,8 +1,33 @@
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 from models import db, Object, ObjectRelation
 
 bp = Blueprint('relation_entities', __name__, url_prefix='/api/relations')
 DEFAULT_RELATION_TYPE = 'relaterad'
+
+
+def normalize_id_full(value):
+    if value is None:
+        return ''
+    return str(value).strip().lower()
+
+
+def get_linked_id_fulls(source_id):
+    linked_id_fulls = set()
+    relations = ObjectRelation.query.filter(
+        or_(
+            ObjectRelation.source_object_id == source_id,
+            ObjectRelation.target_object_id == source_id
+        )
+    ).all()
+
+    for relation in relations:
+        linked_object = relation.target_object if relation.source_object_id == source_id else relation.source_object
+        linked_id_full = normalize_id_full(linked_object.id_full if linked_object else None)
+        if linked_id_full:
+            linked_id_fulls.add(linked_id_full)
+
+    return linked_id_fulls
 
 
 @bp.route('', methods=['GET'])
@@ -50,6 +75,10 @@ def create_relation():
     if not source_object or not target_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
 
+    target_id_full = normalize_id_full(target_object.id_full)
+    if target_id_full and target_id_full in get_linked_id_fulls(source_object_id):
+        return jsonify({'error': f'Relation already exists for full ID: {target_object.id_full}'}), 409
+
     relation = ObjectRelation(
         source_object_id=source_object_id,
         target_object_id=target_object_id,
@@ -80,6 +109,9 @@ def create_relations_batch():
     if not source_object:
         return jsonify({'error': 'Invalid sourceId'}), 400
 
+    existing_linked_id_fulls = get_linked_id_fulls(source_id)
+    batch_linked_id_fulls = set()
+
     created = []
     errors = []
 
@@ -101,6 +133,15 @@ def create_relations_batch():
             errors.append({'index': index, 'targetId': target_id, 'error': 'Target object not found'})
             continue
 
+        target_id_full = normalize_id_full(target_object.id_full)
+        if target_id_full and (target_id_full in existing_linked_id_fulls or target_id_full in batch_linked_id_fulls):
+            errors.append({
+                'index': index,
+                'targetId': target_id,
+                'error': f'An object with full ID {target_object.id_full} is already linked'
+            })
+            continue
+
         duplicate = ObjectRelation.query.filter_by(
             source_object_id=source_id,
             target_object_id=target_id,
@@ -120,6 +161,8 @@ def create_relations_batch():
         db.session.add(relation)
         db.session.flush()
         created.append(relation.to_dict(include_objects=True))
+        if target_id_full:
+            batch_linked_id_fulls.add(target_id_full)
 
     if created:
         db.session.commit()

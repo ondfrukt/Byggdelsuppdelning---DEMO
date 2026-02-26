@@ -183,7 +183,10 @@ class ObjectDetailPanel {
         this.richTextValues = {};
         let richTextCounter = 0;
         const objectTypeFields = Array.isArray(obj.object_type?.fields) ? obj.object_type.fields : [];
-        const fieldMap = new Map(objectTypeFields.map(field => [field.field_name, field]));
+        const fieldMap = new Map(objectTypeFields.map(field => [String(field.field_name || ''), field]));
+        const normalizedFieldMap = new Map(
+            objectTypeFields.map(field => [this.normalizeFieldKey(field.field_name), field])
+        );
         
         let html = '<div class="detail-list">';
         
@@ -230,13 +233,12 @@ class ObjectDetailPanel {
         for (const [key, value] of Object.entries(data)) {
             if (value !== null && value !== undefined) {
                 // Find field definition for better display
-                const field = fieldMap.get(key);
+                const field = fieldMap.get(String(key))
+                    || normalizedFieldMap.get(this.normalizeFieldKey(key));
                 const label = field?.display_name || key;
                 const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
                 const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
-                const formattedValue = this.options.layout === 'detail'
-                    ? formatFieldValue(value, resolvedFieldType)
-                    : escapeHtml(String(value));
+                const formattedValue = formatFieldValue(value, resolvedFieldType);
                 const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
                 const detailItemClass = isRichText ? 'detail-item detail-item-richtext' : 'detail-item';
                 const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
@@ -281,6 +283,10 @@ class ObjectDetailPanel {
         
         html += '</div>';
         return html;
+    }
+
+    normalizeFieldKey(key) {
+        return String(key || '').trim().toLowerCase();
     }
     
     renderRelationsTab() {

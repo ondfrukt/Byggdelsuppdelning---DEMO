@@ -645,6 +645,7 @@ class ObjectTypeManager {
         
         document.getElementById('type-modal-title').textContent = 'Skapa Objekttyp';
         document.getElementById('type-form').reset();
+        this.renderTypeColorOptions('', null);
         modal.dataset.mode = 'create';
         
         modal.style.display = 'block';
@@ -663,13 +664,78 @@ class ObjectTypeManager {
         document.getElementById('type-modal-title').textContent = 'Redigera Objekttyp';
         document.getElementById('type-name').value = type.name;
         document.getElementById('type-description').value = type.description || '';
-        document.getElementById('type-prefix').value = type.auto_id_prefix || '';
+        document.getElementById('type-prefix').value = type.id_prefix || '';
+        this.renderTypeColorOptions(type.color || getObjectTypeColor(type.name), type.id);
         
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = typeId;
         
         modal.style.display = 'block';
         overlay.style.display = 'block';
+    }
+
+    renderTypeColorOptions(selectedColor = '', currentTypeId = null) {
+        const colorInput = document.getElementById('type-color');
+        const paletteContainer = document.getElementById('type-color-palette');
+        if (!colorInput || !paletteContainer) return;
+
+        const fullPalette = typeof getObjectTypeColorPalette === 'function'
+            ? getObjectTypeColorPalette()
+            : ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#95a5a6'];
+
+        const usedByOtherTypes = new Set(
+            (this.objectTypes || [])
+                .filter(type => Number(type?.id) !== Number(currentTypeId))
+                .map(type => String(type?.color || '').trim().toLowerCase())
+                .filter(Boolean)
+        );
+        const palette = fullPalette.filter(color => !usedByOtherTypes.has(String(color).trim().toLowerCase()));
+
+        const normalizedSelected = String(selectedColor || '').trim().toLowerCase();
+        const fallbackColor = String(palette[0] || '').trim().toLowerCase();
+        const activeColor = palette.some(color => String(color).trim().toLowerCase() === normalizedSelected)
+            ? normalizedSelected
+            : fallbackColor;
+
+        colorInput.value = activeColor;
+
+        if (!palette.length) {
+            paletteContainer.innerHTML = '<p class="empty-state" style="padding: 0; margin: 0;">Inga lediga färger i paletten.</p>';
+            return;
+        }
+
+        paletteContainer.innerHTML = palette.map(color => {
+            const value = String(color).trim().toLowerCase();
+            const isSelected = value === activeColor;
+            return `
+                <button
+                    type="button"
+                    class="type-color-swatch ${isSelected ? 'selected' : ''}"
+                    data-color="${value}"
+                    style="--swatch-color: ${value};"
+                    role="radio"
+                    aria-checked="${isSelected ? 'true' : 'false'}"
+                    aria-label="Välj färg"
+                ></button>
+            `;
+        }).join('');
+
+        paletteContainer.querySelectorAll('.type-color-swatch').forEach(button => {
+            button.addEventListener('click', () => {
+                const nextColor = String(button.dataset.color || '').trim().toLowerCase();
+                if (!nextColor) return;
+                colorInput.value = nextColor;
+                paletteContainer.querySelectorAll('.type-color-swatch').forEach(swatch => {
+                    const selected = swatch === button;
+                    swatch.classList.toggle('selected', selected);
+                    swatch.setAttribute('aria-checked', selected ? 'true' : 'false');
+                });
+            });
+        });
+
+        if (!colorInput.value && palette.length > 0) {
+            colorInput.value = fallbackColor;
+        }
     }
     
     async deleteType(typeId) {
@@ -810,7 +876,8 @@ async function saveObjectType(event) {
     const data = {
         name: document.getElementById('type-name').value,
         description: document.getElementById('type-description').value,
-        id_prefix: document.getElementById('type-prefix').value
+        id_prefix: document.getElementById('type-prefix').value,
+        color: document.getElementById('type-color')?.value || null
     };
     
     try {
@@ -824,6 +891,9 @@ async function saveObjectType(event) {
         
         closeModal();
         await adminManager.loadObjectTypes();
+        if (typeof setObjectTypeColorMapFromTypes === 'function') {
+            setObjectTypeColorMapFromTypes(adminManager.objectTypes);
+        }
     } catch (error) {
         console.error('Failed to save type:', error);
         showToast(error.message || 'Kunde inte spara objekttyp', 'error');

@@ -133,11 +133,14 @@ class ObjectDetailComponent {
         
         // Dynamic fields from object data
         if (this.object.data) {
+            const objectTypeFields = Array.isArray(this.object.object_type?.fields) ? this.object.object_type.fields : [];
+            const fieldTypeByName = new Map(objectTypeFields.map(field => [String(field.field_name || ''), field.field_type]));
             Object.entries(this.object.data).forEach(([key, value]) => {
+                const fieldType = fieldTypeByName.get(String(key)) || undefined;
                 fields.push(`
                     <div class="detail-item">
                         <span class="detail-label">${this.formatFieldName(key)}</span>
-                        <span class="detail-value">${this.formatValue(value)}</span>
+                        <span class="detail-value">${this.formatValue(value, fieldType)}</span>
                     </div>
                 `);
             });
@@ -165,10 +168,11 @@ class ObjectDetailComponent {
         return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ');
     }
     
-    formatValue(value) {
+    formatValue(value, fieldType = undefined) {
         if (value === null || value === undefined) return 'N/A';
         if (typeof value === 'boolean') return value ? 'Ja' : 'Nej';
         if (typeof value === 'object') return JSON.stringify(value);
+        if (fieldType === 'textarea') return escapeHtml(String(value)).replace(/\r?\n/g, '<br>');
         return escapeHtml(String(value));
     }
     

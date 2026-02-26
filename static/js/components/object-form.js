@@ -11,6 +11,8 @@ class ObjectFormComponent {
         this.buildingPartCategories = [];
         this.managedListValues = {};
         this.richTextWindowState = null;
+        this.richTextCopiedFormat = null;
+        this.richTextApplyButtonApis = new Set();
     }
     
     async loadFields() {
@@ -199,10 +201,13 @@ class ObjectFormComponent {
                                 <button type="button" class="btn-icon" data-editor-command="underline" title="Understruken"><u>U</u></button>
                                 <button type="button" class="btn-icon" data-editor-command="insertUnorderedList" title="Punktlista">• List</button>
                                 <button type="button" class="btn-icon" data-editor-command="insertOrderedList" title="Numrerad lista">1. List</button>
+                                <button type="button" class="btn-icon" data-editor-action="toggleDashList" title="Strecklista">- List</button>
                                 <button type="button" class="btn-icon" data-editor-command="indent" title="Öka indrag">→|</button>
                                 <button type="button" class="btn-icon" data-editor-command="outdent" title="Minska indrag">|←</button>
                                 <button type="button" class="btn-icon" data-editor-action="insertTab" title="Infoga tabb">Tab</button>
                                 <button type="button" class="btn-icon" data-editor-action="insertImageUrl" title="Infoga bild via URL">Bild</button>
+                                <button type="button" class="btn-icon" data-editor-action="copyFormat" title="Kopiera format">Kopiera format</button>
+                                <button type="button" class="btn-icon" data-editor-action="applyFormat" title="Applicera format">Applicera format</button>
                                 <button type="button" class="btn-icon" data-editor-command="removeFormat" title="Rensa format">Tx</button>
                             </div>
                             <div class="rich-text-editor form-control"
@@ -323,6 +328,267 @@ class ObjectFormComponent {
         return 'form-group-compact';
     }
 
+    getTinyMceSelectionNode(editor) {
+        const selectedNode = editor?.selection?.getNode?.();
+        if (!selectedNode) return null;
+        return selectedNode.nodeType === Node.TEXT_NODE ? selectedNode.parentElement : selectedNode;
+    }
+
+    getComputedNodeStyle(node) {
+        if (!node) return null;
+        const win = node.ownerDocument?.defaultView || window;
+        return win.getComputedStyle(node);
+    }
+
+    normalizeTinyMceCopiedFormat(format) {
+        if (!format) return null;
+        return {
+            bold: Boolean(format.bold),
+            italic: Boolean(format.italic),
+            underline: Boolean(format.underline),
+            strikethrough: Boolean(format.strikethrough),
+            forecolor: format.forecolor || '',
+            backcolor: format.backcolor || '',
+            fontFamily: format.fontFamily || '',
+            fontSize: format.fontSize || ''
+        };
+    }
+
+    captureTinyMceFormat(editor) {
+        if (!editor) return null;
+        const node = this.getTinyMceSelectionNode(editor);
+        if (!node) return null;
+
+        const computed = this.getComputedNodeStyle(node);
+        const textDecoration = (computed?.textDecorationLine || '').toLowerCase();
+        const fontWeight = Number.parseInt(computed?.fontWeight || '400', 10);
+
+        return this.normalizeTinyMceCopiedFormat({
+            bold: editor.formatter.match('bold') || fontWeight >= 600,
+            italic: editor.formatter.match('italic') || (computed?.fontStyle || '').toLowerCase() === 'italic',
+            underline: editor.formatter.match('underline') || textDecoration.includes('underline'),
+            strikethrough: editor.formatter.match('strikethrough') || textDecoration.includes('line-through'),
+            forecolor: computed?.color || '',
+            backcolor: computed?.backgroundColor || '',
+            fontFamily: computed?.fontFamily || '',
+            fontSize: computed?.fontSize || ''
+        });
+    }
+
+    setTinyMceInlineFormatState(editor, formatName, shouldApply) {
+        const isApplied = editor.formatter.match(formatName);
+        if (shouldApply && !isApplied) editor.formatter.apply(formatName);
+        if (!shouldApply && isApplied) editor.formatter.remove(formatName);
+    }
+
+    applyTinyMceFormat(editor, copiedFormat) {
+        if (!editor || !copiedFormat) return;
+
+        this.setTinyMceInlineFormatState(editor, 'bold', copiedFormat.bold);
+        this.setTinyMceInlineFormatState(editor, 'italic', copiedFormat.italic);
+        this.setTinyMceInlineFormatState(editor, 'underline', copiedFormat.underline);
+        this.setTinyMceInlineFormatState(editor, 'strikethrough', copiedFormat.strikethrough);
+
+        if (copiedFormat.fontFamily) {
+            editor.execCommand('FontName', false, copiedFormat.fontFamily);
+        }
+        if (copiedFormat.fontSize) {
+            editor.execCommand('FontSize', false, copiedFormat.fontSize);
+        }
+        if (copiedFormat.forecolor) {
+            editor.execCommand('ForeColor', false, copiedFormat.forecolor);
+        }
+        if (copiedFormat.backcolor && copiedFormat.backcolor !== 'rgba(0, 0, 0, 0)' && copiedFormat.backcolor !== 'transparent') {
+            editor.execCommand('HiliteColor', false, copiedFormat.backcolor);
+        }
+    }
+
+    findTinyMceListNode(editor) {
+        const node = this.getTinyMceSelectionNode(editor);
+        if (!node) return null;
+        return editor.dom.getParent(node, 'ul,ol');
+    }
+
+    toggleTinyMceDashList(editor) {
+        if (!editor) return;
+        editor.undoManager.transact(() => {
+            let listNode = this.findTinyMceListNode(editor);
+            if (!listNode) {
+                editor.execCommand('InsertUnorderedList');
+                listNode = this.findTinyMceListNode(editor);
+            } else if (listNode.nodeName === 'OL') {
+                editor.execCommand('InsertUnorderedList');
+                listNode = this.findTinyMceListNode(editor);
+            }
+
+            if (!listNode || listNode.nodeName !== 'UL') return;
+            if (editor.dom.hasClass(listNode, 'dash-list')) {
+                editor.dom.removeClass(listNode, 'dash-list');
+                if (!listNode.className.trim()) {
+                    listNode.removeAttribute('class');
+                }
+            } else {
+                editor.dom.addClass(listNode, 'dash-list');
+            }
+        });
+        editor.nodeChanged();
+    }
+
+    updateRichTextApplyButtonState() {
+        const enabled = Boolean(this.richTextCopiedFormat);
+        this.richTextApplyButtonApis.forEach(api => {
+            api.setEnabled(enabled);
+        });
+        document.querySelectorAll('[data-editor-action="applyFormat"]').forEach(button => {
+            button.disabled = !enabled;
+        });
+    }
+
+    registerTinyMceFormatButtons(editor) {
+        editor.ui.registry.addButton('dashlist', {
+            text: '- List',
+            tooltip: 'Växla strecklista',
+            onAction: () => {
+                this.toggleTinyMceDashList(editor);
+            }
+        });
+
+        editor.ui.registry.addButton('copyformat', {
+            text: 'Kopiera',
+            tooltip: 'Kopiera format',
+            onAction: () => {
+                const copiedFormat = this.captureTinyMceFormat(editor);
+                if (!copiedFormat) {
+                    editor.notificationManager.open({
+                        text: 'Markera text med format att kopiera först.',
+                        type: 'warning'
+                    });
+                    return;
+                }
+                this.richTextCopiedFormat = copiedFormat;
+                this.updateRichTextApplyButtonState();
+                editor.notificationManager.open({
+                    text: 'Formatering kopierad.',
+                    type: 'success'
+                });
+            }
+        });
+
+        editor.ui.registry.addButton('applyformat', {
+            text: 'Applicera',
+            tooltip: 'Applicera kopierat format',
+            onAction: () => {
+                if (!this.richTextCopiedFormat) {
+                    editor.notificationManager.open({
+                        text: 'Kopiera format först.',
+                        type: 'warning'
+                    });
+                    return;
+                }
+                this.applyTinyMceFormat(editor, this.richTextCopiedFormat);
+                editor.nodeChanged();
+            },
+            onSetup: (api) => {
+                this.richTextApplyButtonApis.add(api);
+                api.setEnabled(Boolean(this.richTextCopiedFormat));
+                return () => {
+                    this.richTextApplyButtonApis.delete(api);
+                };
+            }
+        });
+    }
+
+    captureFallbackFormat(editor) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return null;
+        const range = selection.getRangeAt(0);
+        const anchorNode = range.startContainer?.nodeType === Node.TEXT_NODE
+            ? range.startContainer.parentElement
+            : range.startContainer;
+        if (!anchorNode || !editor.contains(anchorNode)) return null;
+
+        const computed = this.getComputedNodeStyle(anchorNode);
+        const textDecoration = (computed?.textDecorationLine || '').toLowerCase();
+        const fontWeight = Number.parseInt(computed?.fontWeight || '400', 10);
+        return this.normalizeTinyMceCopiedFormat({
+            bold: fontWeight >= 600,
+            italic: (computed?.fontStyle || '').toLowerCase() === 'italic',
+            underline: textDecoration.includes('underline'),
+            strikethrough: textDecoration.includes('line-through'),
+            forecolor: computed?.color || '',
+            backcolor: computed?.backgroundColor || '',
+            fontFamily: computed?.fontFamily || '',
+            fontSize: computed?.fontSize || ''
+        });
+    }
+
+    applyFallbackFormat(editor, copiedFormat) {
+        if (!editor || !copiedFormat) return;
+        editor.focus();
+        document.execCommand('styleWithCSS', false, true);
+
+        const setToggle = (command, shouldApply) => {
+            const isApplied = document.queryCommandState(command);
+            if (Boolean(shouldApply) !== Boolean(isApplied)) {
+                document.execCommand(command, false, null);
+            }
+        };
+
+        setToggle('bold', copiedFormat.bold);
+        setToggle('italic', copiedFormat.italic);
+        setToggle('underline', copiedFormat.underline);
+        setToggle('strikeThrough', copiedFormat.strikethrough);
+
+        if (copiedFormat.fontFamily) {
+            document.execCommand('fontName', false, copiedFormat.fontFamily);
+        }
+        if (copiedFormat.forecolor) {
+            document.execCommand('foreColor', false, copiedFormat.forecolor);
+        }
+        if (copiedFormat.backcolor && copiedFormat.backcolor !== 'rgba(0, 0, 0, 0)' && copiedFormat.backcolor !== 'transparent') {
+            document.execCommand('hiliteColor', false, copiedFormat.backcolor);
+        }
+    }
+
+    getFallbackSelectionContainer(editor) {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) return null;
+        const range = selection.getRangeAt(0);
+        const node = range.startContainer?.nodeType === Node.TEXT_NODE
+            ? range.startContainer.parentElement
+            : range.startContainer;
+        if (!node || !editor.contains(node)) return null;
+        return node;
+    }
+
+    toggleFallbackDashList(editor) {
+        if (!editor) return;
+        editor.focus();
+
+        let containerNode = this.getFallbackSelectionContainer(editor);
+        let listNode = containerNode?.closest('ul,ol');
+
+        if (!listNode) {
+            document.execCommand('insertUnorderedList', false, null);
+            containerNode = this.getFallbackSelectionContainer(editor);
+            listNode = containerNode?.closest('ul,ol');
+        } else if (listNode.tagName === 'OL') {
+            document.execCommand('insertUnorderedList', false, null);
+            containerNode = this.getFallbackSelectionContainer(editor);
+            listNode = containerNode?.closest('ul,ol');
+        }
+
+        if (!listNode || listNode.tagName !== 'UL') return;
+        if (listNode.classList.contains('dash-list')) {
+            listNode.classList.remove('dash-list');
+            if (!listNode.className.trim()) {
+                listNode.removeAttribute('class');
+            }
+        } else {
+            listNode.classList.add('dash-list');
+        }
+    }
+
     async initializeRichTextEditors(scopeNode) {
         if (!scopeNode) return;
         const textareas = scopeNode.querySelectorAll('textarea.rich-text-textarea[data-richtext="true"]');
@@ -348,7 +614,7 @@ class ObjectFormComponent {
                 statusbar: true,
                 min_height: 240,
                 plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste autoresize nonbreaking',
-                toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat code fullscreen',
+                toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
                 toolbar_mode: 'sliding',
                 font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
                 font_family_formats: 'Arial=arial,helvetica,sans-serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif; Tahoma=tahoma,arial,helvetica,sans-serif; Courier New=courier new,courier,monospace',
@@ -362,8 +628,10 @@ class ObjectFormComponent {
                 convert_urls: false,
                 browser_spellcheck: true,
                 contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-                content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; }',
+                content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
                 setup: (editor) => {
+                    this.registerTinyMceFormatButtons(editor);
+
                     const syncEditor = () => {
                         editor.save();
                         textarea.value = sanitizeRichTextHtml(textarea.value || '');
@@ -506,7 +774,7 @@ class ObjectFormComponent {
             statusbar: true,
             min_height: 420,
             plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste nonbreaking',
-            toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image media table | removeformat code fullscreen',
+            toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
             toolbar_mode: 'sliding',
             resize: false,
             font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
@@ -521,8 +789,9 @@ class ObjectFormComponent {
             convert_urls: false,
             browser_spellcheck: true,
             contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-            content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; }',
+            content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
             setup: (editor) => {
+                this.registerTinyMceFormatButtons(editor);
                 editor.on('change input undo redo keyup', () => {
                     editor.save();
                 });
@@ -710,6 +979,38 @@ class ObjectFormComponent {
                         return;
                     }
                     insertSanitizedHtml(editor, `<img src="${escapeHtml(safeSrc)}" alt="Infogad bild" style="max-width: 100%; height: auto;">`, textarea);
+                });
+            });
+
+            fallback.querySelectorAll('[data-editor-action="toggleDashList"]').forEach(button => {
+                button.addEventListener('click', () => {
+                    this.toggleFallbackDashList(editor);
+                    this.syncFallbackRichTextEditor(editor, textarea);
+                });
+            });
+
+            fallback.querySelectorAll('[data-editor-action="copyFormat"]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const copiedFormat = this.captureFallbackFormat(editor);
+                    if (!copiedFormat) {
+                        showToast('Markera text med format att kopiera först', 'warning');
+                        return;
+                    }
+                    this.richTextCopiedFormat = copiedFormat;
+                    this.updateRichTextApplyButtonState();
+                    showToast('Formatering kopierad', 'success');
+                });
+            });
+
+            fallback.querySelectorAll('[data-editor-action="applyFormat"]').forEach(button => {
+                button.disabled = !this.richTextCopiedFormat;
+                button.addEventListener('click', () => {
+                    if (!this.richTextCopiedFormat) {
+                        showToast('Kopiera format först', 'warning');
+                        return;
+                    }
+                    this.applyFallbackFormat(editor, this.richTextCopiedFormat);
+                    this.syncFallbackRichTextEditor(editor, textarea);
                 });
             });
         });

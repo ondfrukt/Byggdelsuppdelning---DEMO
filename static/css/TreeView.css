@@ -14,9 +14,42 @@
 
 .tree-toolbar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding: 8px 8px 4px;
     background-color: var(--bg-primary);
+    gap: 10px;
+}
+
+.tree-view-mode-buttons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tree-view-mode-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.tree-view-mode-btn:hover {
+    background-color: #e2e8f0;
+    color: var(--text-primary);
+}
+
+.tree-view-mode-btn.active {
+    background-color: var(--primary-color);
+    color: #ffffff;
+    border-color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+    .tree-toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
 
 .tree-table {
@@ -92,11 +125,41 @@
 
 .tree-node.has-children {
     cursor: pointer;
-    background-color: #fff4e6;
 }
 
-.tree-node.has-children:hover {
-    background-color: #e0f2fe;
+/* Hierarchy tinting: strongest orange at top, lighter tones deeper down.
+   Only rows with children get hierarchy background colors. */
+.tree-node.has-children[data-tree-level="0"] {
+    background-color: #f9dba5;
+}
+
+.tree-node.has-children[data-tree-level="1"] {
+    background-color: #fbe5bf;
+}
+
+.tree-node.has-children[data-tree-level="2"] {
+    background-color: #fdf0d9;
+}
+
+.tree-node.has-children[data-tree-level="3"],
+.tree-node.has-children[data-tree-level="4"],
+.tree-node.has-children[data-tree-level="5"] {
+    background-color: #fef6ea;
+}
+
+.tree-node.has-children[data-tree-level="0"]:hover {
+    background-color: #f5cf8a;
+}
+
+.tree-node.has-children[data-tree-level="1"]:hover {
+    background-color: #f9dcaa;
+}
+
+.tree-node.has-children[data-tree-level="2"]:hover,
+.tree-node.has-children[data-tree-level="3"]:hover,
+.tree-node.has-children[data-tree-level="4"]:hover,
+.tree-node.has-children[data-tree-level="5"]:hover {
+    background-color: #fce8c3;
 }
 
 .tree-node-selected {
@@ -112,32 +175,11 @@
 .tree-node-group {
     font-weight: 500;
     color: var(--text-secondary);
-    background-color: #ffe9cc;
     font-size: 13px;
-}
-
-.tree-node-group:hover {
-    background-color: #e0f2fe;
-}
-
-.tree-node.has-children:not(.tree-node-group) {
-    background-color: #fff4e6;
-}
-
-.tree-node[data-tree-level="1"].has-children:not(.tree-node-group) {
-    background-color: #fff8ef;
 }
 
 .tree-node.has-children:not(.tree-node-group) td:first-child .tree-label {
     font-weight: 600;
-}
-
-.tree-node.has-children:not(.tree-node-group):hover {
-    background-color: #e0f2fe;
-}
-
-.tree-table tbody tr:hover {
-    background-color: #e0f2fe;
 }
 
 #tree-view-wrapper,
@@ -184,6 +226,12 @@
     margin-left: 4px;
     font-weight: 400;
     letter-spacing: -0.01em;
+    display: inline-block;
+    max-width: calc(100% - 28px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 .tree-label-group {
@@ -239,8 +287,9 @@
 /* Column widths optimization */
 .tree-table th:nth-child(1),
 .tree-table td:nth-child(1) {
-    width: auto;
-    min-width: 240px;
+    width: 25%;
+    min-width: 220px;
+    max-width: 25vw;
 }
 
 .tree-table th:nth-child(2),
@@ -355,7 +404,7 @@
 @media (max-width: 1400px) {
     .tree-table th:nth-child(1),
     .tree-table td:nth-child(1) {
-        width: 30%;
+        width: 25%;
     }
 
     .tree-table th:nth-child(4),

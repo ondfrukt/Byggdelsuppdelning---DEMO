@@ -10,6 +10,7 @@ class ObjectType(db.Model):
     description = db.Column(db.Text)
     icon = db.Column(db.String(50))
     id_prefix = db.Column(db.String(10))
+    color = db.Column(db.String(7))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_system = db.Column(db.Boolean, default=False)
     
@@ -24,6 +25,7 @@ class ObjectType(db.Model):
             'description': self.description,
             'icon': self.icon,
             'id_prefix': self.id_prefix,
+            'color': self.color,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_system': self.is_system
         }

@@ -101,13 +101,15 @@ class ObjectListComponent {
     
     async loadViewConfig() {
         try {
+            // Ensure object type colors are loaded before first table render.
+            // Otherwise custom types can briefly fall back to gray badges.
+            const objectTypes = await ObjectTypesAPI.getAll();
             await this.loadTypeDisplayFieldMap();
 
             // Load view configuration for the selected type
             if (this.selectedType) {
                 // Get object type by name
-                const types = await ObjectTypesAPI.getAll();
-                const objType = types.find(t => t.name === this.selectedType);
+                const objType = objectTypes.find(t => t.name === this.selectedType);
                 if (objType) {
                     const response = await fetchAPI(`/view-config/list-view/${objType.id}`);
                     this.viewConfig = response;
@@ -226,6 +228,13 @@ class ObjectListComponent {
             }
             
             this.objects = await ObjectsAPI.getAll(filters);
+            // Keep file objects out of the generic "Objekt" view; they belong in the dedicated Filobjekt view.
+            if (!this.selectedType) {
+                this.objects = this.objects.filter(obj => {
+                    const typeName = String(obj?.object_type?.name || '').toLowerCase().trim();
+                    return typeName !== 'filobjekt' && typeName !== 'ritningsobjekt';
+                });
+            }
             const validIds = new Set(this.objects.map(obj => Number(obj.id)));
             this.selectedObjectIds = new Set(
                 Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
@@ -378,9 +387,10 @@ class ObjectListComponent {
                 </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
-                    const displayValue = this.formatColumnValue(obj, col.field_name, value);
+                    const displayValue = this.formatColumnValue(obj, col.field_name, value, col);
                     const colClass = this.getColumnClass(col);
-                    return `<td data-value="${value}" class="${colClass}">${displayValue}</td>`;
+                    const sortValue = this.getSortableColumnValue(obj, col.field_name, value);
+                    return `<td data-value="${escapeHtml(String(sortValue))}" class="${colClass}">${displayValue}</td>`;
                 }).join('')}
             </tr>
         `).join('');
@@ -558,8 +568,42 @@ class ObjectListComponent {
     getSortType(col) {
         if (col.field_name === 'created_at') return 'date';
         if (col.field_name === 'files_indicator') return 'number';
-        if (col.field_type === 'number') return 'number';
+        if (col.field_type === 'number' || col.field_type === 'decimal') return 'number';
+        if (col.field_type === 'date' || col.field_type === 'datetime') return 'date';
+        if (col.field_type === 'boolean') return 'number';
         return 'text';
+    }
+
+    getSortableColumnValue(_obj, fieldName, value) {
+        if (fieldName === 'files_indicator') {
+            return Number(value || 0);
+        }
+        if (fieldName === 'created_at') {
+            return value || '';
+        }
+        if (fieldName === 'actions') {
+            return '';
+        }
+
+        if (Array.isArray(value)) {
+            return value.map(item => this.normalizeSortableText(item)).join(' ');
+        }
+
+        if (value && typeof value === 'object') {
+            return this.normalizeSortableText(JSON.stringify(value));
+        }
+
+        if (typeof value === 'boolean') {
+            return value ? 1 : 0;
+        }
+
+        return this.normalizeSortableText(value);
+    }
+
+    normalizeSortableText(value) {
+        const asString = String(value ?? '');
+        const stripped = /<[^>]+>/.test(asString) ? stripHtmlTags(asString) : asString;
+        return stripped.replace(/\s+/g, ' ').trim();
     }
     
     getColumnValue(obj, fieldName) {
@@ -577,7 +621,7 @@ class ObjectListComponent {
         return obj.data?.[fieldName] || '';
     }
     
-    formatColumnValue(obj, fieldName, value) {
+    formatColumnValue(obj, fieldName, value, column = null) {
         if (fieldName === 'auto_id') return `<strong>${value}</strong>`;
         if (fieldName === 'object_type') {
             return `<span class="object-type-badge" style="background-color: ${getObjectTypeColor(value)}">
@@ -622,6 +666,10 @@ class ObjectListComponent {
 
         if (typeof value === 'string' && /<[^>]+>/.test(value)) {
             return escapeHtml(stripHtmlTags(value));
+        }
+
+        if (column?.field_type === 'textarea' && typeof value === 'string') {
+            return escapeHtml(value).replace(/\r?\n/g, '<br>');
         }
 
         return escapeHtml(value || '');

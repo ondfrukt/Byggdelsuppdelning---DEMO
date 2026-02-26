@@ -5,6 +5,7 @@ from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
 from copy import deepcopy
+import re
 import logging
 import os
 
@@ -65,6 +66,136 @@ def get_data_value_case_insensitive(data, field_name):
             return value
 
     return None
+
+
+def normalize_lookup_key(value):
+    return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
+
+
+def parse_field_options(raw_options):
+    if isinstance(raw_options, dict):
+        return raw_options
+    if isinstance(raw_options, str):
+        try:
+            import json
+            parsed = json.loads(raw_options)
+            return parsed if isinstance(parsed, dict) else None
+        except Exception:
+            return None
+    return None
+
+
+def matches_tree_view_type(object_type_name, tree_view):
+    normalized = normalize_lookup_key(object_type_name)
+    if tree_view == 'byggdelar':
+        return 'byggdel' in normalized
+    if tree_view == 'utrymmen':
+        return 'utrymme' in normalized or 'rum' in normalized
+    if tree_view == 'system':
+        return 'system' in normalized
+    return False
+
+
+def get_tree_view_category_aliases(tree_view):
+    if tree_view == 'byggdelar':
+        return ['byggdelskategori', 'kategori', 'category']
+    if tree_view == 'utrymmen':
+        return ['typutrymme', 'typ utrymme', 'rumskategori', 'utrymmeskategori', 'kategori', 'category']
+    if tree_view == 'system':
+        return ['systemkategori', 'kategori', 'category']
+    return ['kategori', 'category']
+
+
+def get_tree_view_category_value(obj, tree_view):
+    object_data = obj.data or {}
+    object_fields = obj.object_type.fields if obj and obj.object_type else []
+    normalized_data = {
+        normalize_lookup_key(key): value
+        for key, value in object_data.items()
+        if isinstance(key, str)
+    }
+
+    if tree_view == 'byggdelar':
+        for field in object_fields:
+            if field.field_type != 'select':
+                continue
+            options = parse_field_options(field.field_options)
+            if isinstance(options, dict) and options.get('source') == 'building_part_categories':
+                value = object_data.get(field.field_name)
+                if value is None:
+                    value = normalized_data.get(normalize_lookup_key(field.field_name))
+                if value:
+                    return str(value).strip()
+
+    aliases = get_tree_view_category_aliases(tree_view)
+    for alias in aliases:
+        value = normalized_data.get(normalize_lookup_key(alias))
+        if value:
+            return str(value).strip()
+
+    return 'Okategoriserad'
+
+
+def build_tree_root_nodes(root_objects, view_config):
+    tree_nodes = []
+    for root_object in root_objects:
+        outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
+        incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
+        relations = outgoing + incoming
+
+        children = []
+        children_by_type = {}
+
+        for relation in relations:
+            linked_object = relation.target_object if relation.source_object_id == root_object.id else relation.source_object
+            direction = 'outgoing' if relation.source_object_id == root_object.id else 'incoming'
+
+            if linked_object:
+                type_name = linked_object.object_type.name
+                if type_name not in children_by_type:
+                    children_by_type[type_name] = []
+
+                display_name = get_display_name(linked_object, type_name, view_config)
+                linked_object_data = linked_object.data or {}
+
+                children_by_type[type_name].append({
+                    'id': str(linked_object.id),
+                    'auto_id': linked_object.auto_id,
+                    'name': display_name,
+                    'type': type_name,
+                    'direction': direction,
+                    'data': linked_object_data,
+                    'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
+                    'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
+                    'files': collect_tree_files_for_object(linked_object)
+                })
+
+        for type_name in sorted(children_by_type.keys(), key=lambda name: name.lower()):
+            type_children = sorted(children_by_type[type_name], key=lambda item: (item.get('name') or '').lower())
+            children.append({
+                'id': f'group-{root_object.id}-{type_name}',
+                'name': type_name,
+                'type': 'group',
+                'children': type_children
+            })
+
+        root_type_name = root_object.object_type.name if root_object.object_type else 'Objekt'
+        root_display_name = get_display_name(root_object, root_type_name, view_config)
+        root_data = root_object.data or {}
+
+        tree_nodes.append({
+            'id': str(root_object.id),
+            'auto_id': root_object.auto_id,
+            'name': root_display_name,
+            'type': root_type_name,
+            'data': root_data,
+            'kravtext': get_data_value_case_insensitive(root_data, 'kravtext'),
+            'beskrivning': get_data_value_case_insensitive(root_data, 'beskrivning'),
+            'files': collect_tree_files_for_object(root_object),
+            'children': children
+        })
+
+    return sorted(tree_nodes, key=lambda item: (item.get('name') or '').lower())
 
 
 def is_document_object_type(type_name):
@@ -263,6 +394,7 @@ def list_objects():
             payload = {
                 'id': obj.id,
                 'auto_id': obj.auto_id,
+                'id_full': obj.id_full,
                 'object_type': {
                     'id': obj.object_type.id if obj.object_type else None,
                     'name': obj.object_type.name if obj.object_type else None
@@ -696,8 +828,13 @@ def delete_object(id):
 
 @bp.route('/tree', methods=['GET'])
 def get_tree():
-    """Get hierarchical tree structure of objects, grouped by Byggdel"""
+    """Get hierarchical tree structure of objects, grouped by selected tree view mode."""
     try:
+        tree_view = (request.args.get('view') or 'byggdelar').strip().lower()
+        valid_views = {'byggdelar', 'utrymmen', 'system'}
+        if tree_view not in valid_views:
+            return jsonify({'error': 'Invalid view. Allowed values: byggdelar, utrymmen, system'}), 400
+
         # Get all view configurations
         view_configs_query = ViewConfiguration.query.all()
         view_config = {}
@@ -706,69 +843,43 @@ def get_tree():
                 view_config[config.object_type.name] = {
                     'tree_view_name_field': config.tree_view_name_field
                 }
-        
-        # Get all Byggdel objects (root nodes)
-        byggdel_type = ObjectType.query.filter_by(name='Byggdel').first()
-        if not byggdel_type:
+
+        object_types = ObjectType.query.all()
+        root_type_ids = [
+            object_type.id
+            for object_type in object_types
+            if matches_tree_view_type(object_type.name, tree_view)
+        ]
+
+        if not root_type_ids:
             return jsonify([]), 200
-        
-        byggdel_objects = Object.query.filter_by(object_type_id=byggdel_type.id).all()
-        
+
+        root_objects = Object.query.filter(Object.object_type_id.in_(root_type_ids)).all()
+        if not root_objects:
+            return jsonify([]), 200
+
+        if tree_view == 'system':
+            # For system view, system objects themselves should be top-level nodes.
+            return jsonify(build_tree_root_nodes(root_objects, view_config)), 200
+
+        category_groups = {}
+        for root_object in root_objects:
+            category_name = get_tree_view_category_value(root_object, tree_view)
+            if category_name not in category_groups:
+                category_groups[category_name] = []
+            category_groups[category_name].append(root_object)
+
         tree = []
-        for byggdel in byggdel_objects:
-            # Collect relation entities where the object appears on either side
-            outgoing = ObjectRelation.query.filter_by(source_object_id=byggdel.id).all()
-            incoming = ObjectRelation.query.filter_by(target_object_id=byggdel.id).all()
-            relations = outgoing + incoming
-
-            children = []
-            children_by_type = {}
-
-            for relation in relations:
-                # Resolve linked object from relation direction to support two-way traversal
-                linked_object = relation.target_object if relation.source_object_id == byggdel.id else relation.source_object
-                direction = 'outgoing' if relation.source_object_id == byggdel.id else 'incoming'
-
-                if linked_object:
-                    type_name = linked_object.object_type.name
-                    if type_name not in children_by_type:
-                        children_by_type[type_name] = []
-
-                    display_name = get_display_name(linked_object, type_name, view_config)
-
-                    linked_object_data = linked_object.data or {}
-
-                    children_by_type[type_name].append({
-                        'id': str(linked_object.id),
-                        'auto_id': linked_object.auto_id,
-                        'name': display_name,
-                        'type': type_name,
-                        'direction': direction,
-                        'data': linked_object_data,
-                        'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
-                        'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
-                        'files': collect_tree_files_for_object(linked_object)
-                    })
-
-            for type_name, objects in children_by_type.items():
-                children.append({
-                    'id': f'group-{byggdel.id}-{type_name}',
-                    'name': type_name,
-                    'type': 'group',
-                    'children': objects
-                })
-
-            byggdel_display_name = get_display_name(byggdel, 'Byggdel', view_config)
-
+        for index, category_name in enumerate(sorted(category_groups.keys(), key=lambda name: name.lower()), start=1):
+            category_roots = build_tree_root_nodes(category_groups[category_name], view_config)
+            category_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key(category_name)) or f'kategori-{index}'
             tree.append({
-                'id': str(byggdel.id),
-                'auto_id': byggdel.auto_id,
-                'name': byggdel_display_name,
-                'type': 'Byggdel',
-                'data': byggdel.data or {},
-                'children': children
+                'id': f'category-{tree_view}-{category_slug}-{index}',
+                'name': category_name,
+                'type': 'group',
+                'children': category_roots
             })
-        
+
         return jsonify(tree), 200
     except Exception as e:
         logger.error(f"Error getting tree: {str(e)}")

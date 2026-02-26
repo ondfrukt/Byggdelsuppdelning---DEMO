@@ -13,6 +13,30 @@ def is_file_object(obj):
     return type_name.strip().lower() == 'filobjekt'
 
 
+def normalize_id_full(value):
+    if value is None:
+        return ''
+    return str(value).strip().lower()
+
+
+def get_linked_id_fulls(source_id):
+    linked_id_fulls = set()
+    relations = ObjectRelation.query.filter(
+        or_(
+            ObjectRelation.source_object_id == source_id,
+            ObjectRelation.target_object_id == source_id
+        )
+    ).all()
+
+    for relation in relations:
+        linked_object = relation.target_object if relation.source_object_id == source_id else relation.source_object
+        linked_id_full = normalize_id_full(linked_object.id_full if linked_object else None)
+        if linked_id_full:
+            linked_id_fulls.add(linked_id_full)
+
+    return linked_id_fulls
+
+
 @bp.route('/<int:id>/relations', methods=['GET'])
 def get_relations(id):
     """Get all relations for an object"""
@@ -55,6 +79,10 @@ def create_relation(id):
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
         relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
+
+        target_id_full = normalize_id_full(target_object.id_full)
+        if target_id_full and target_id_full in get_linked_id_fulls(id):
+            return jsonify({'error': f'Relation already exists for full ID: {target_object.id_full}'}), 409
 
         # Create relation
         relation = ObjectRelation(
