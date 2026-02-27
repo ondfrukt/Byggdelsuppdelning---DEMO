@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
-from routes.relation_type_rules import validate_relation_type_scope, infer_relation_type, is_relation_blocked
+from routes.relation_type_rules import validate_relation_type_scope, enforce_pair_relation_type
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
-DEFAULT_RELATION_TYPE = 'relaterad'
+DEFAULT_RELATION_TYPE = 'uses_object'
 
 
 def is_file_object(obj):
@@ -79,14 +79,15 @@ def create_relation(id):
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
-        if is_relation_blocked(source_object, target_object):
-            source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
-            target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
-            return jsonify({'error': f'Linking is disabled between {source_type} and {target_type}'}), 422
-
         relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
-        if relation_type == 'auto':
-            relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
+        relation_type, pair_type_error = enforce_pair_relation_type(
+            relation_type=relation_type,
+            source_object=source_object,
+            target_object=target_object,
+            fallback=DEFAULT_RELATION_TYPE
+        )
+        if pair_type_error:
+            return jsonify({'error': pair_type_error}), 422
 
         relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
         if relation_scope_error:

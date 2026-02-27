@@ -971,7 +971,7 @@ def duplicate_object(id):
             if not target_object:
                 continue
 
-            relation_type = 'relaterad'
+            relation_type = 'uses_object'
             relation_key = (duplicate.id, target_id, relation_type)
             if relation_key in created_relation_keys:
                 continue

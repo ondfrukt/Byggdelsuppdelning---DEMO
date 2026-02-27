@@ -1838,6 +1838,17 @@ body {
     margin-top: 0;
 }
 
+.relation-rules-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.relation-rules-column {
+    min-width: 0;
+}
+
 #relation-type-rules-system-table .filters {
     margin-bottom: 6px;
 }
@@ -1852,13 +1863,16 @@ body {
 #relation-type-rules-system-table .table-container {
     max-height: 62vh;
     overflow: auto;
+    display: flex;
+    justify-content: center;
 }
 
 #relation-type-rules-system-table .data-table th,
 #relation-type-rules-system-table .data-table td {
-    padding: 4px 6px;
+    padding: 2px 6px;
     font-size: 12px;
-    line-height: 1.2;
+    line-height: 1.1;
+    white-space: nowrap;
 }
 
 #relation-type-rules-system-table .column-search-input {
@@ -1869,18 +1883,18 @@ body {
 }
 
 #relation-type-rules-system-table .data-table .col-id {
-    width: 56px;
-    min-width: 56px;
+    width: auto;
+    min-width: 0;
 }
 
 #relation-type-rules-system-table .data-table .col-type {
-    width: 140px;
-    min-width: 140px;
+    width: auto;
+    min-width: 0;
 }
 
 #relation-type-rules-system-table .data-table .col-relation-type {
-    width: 180px;
-    min-width: 180px;
+    width: auto;
+    min-width: 0;
 }
 
 #relation-type-rules-system-table .data-table .col-status {
@@ -1890,10 +1904,51 @@ body {
 }
 
 #relation-type-rules-system-table .relation-rule-inline-type {
-    height: 26px;
-    min-height: 26px;
+    height: 24px;
+    min-height: 24px;
     padding: 2px 6px;
     font-size: 12px;
+}
+
+#relation-type-rules-system-table .relation-rule-inline-direction {
+    height: 24px;
+    min-height: 24px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+#relation-type-rules-system-table .data-table {
+    width: max-content;
+    min-width: 0;
+}
+
+#relation-types-system-table .table-container {
+    max-height: 62vh;
+    overflow: auto;
+}
+
+#relation-types-system-table .data-table th,
+#relation-types-system-table .data-table td {
+    padding: 3px 6px;
+    font-size: 12px;
+    line-height: 1.2;
+}
+
+#relation-type-rules-system-table .relation-pair-badges {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#relation-type-rules-system-table .relation-pair-separator {
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+@media (max-width: 1100px) {
+    .relation-rules-layout {
+        grid-template-columns: 1fr;
+    }
 }
 
 .field-drag-handle {

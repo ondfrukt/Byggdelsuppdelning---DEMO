@@ -11,7 +11,8 @@ class ObjectTypeManager {
         this.managedLists = [];
         this.fieldTemplates = [];
         this.relationTypeRules = [];
-        this.availableRelationTypes = ['relaterad'];
+        this.relationTypes = [];
+        this.availableRelationTypes = ['uses_object'];
         this.selectedManagedListId = null;
         this.fieldModalTypeListenerAttached = false;
         this.relationRuleTableState = null;
@@ -356,9 +357,10 @@ class ObjectTypeManager {
         try {
             const response = await RelationTypeRulesAPI.getAll();
             this.relationTypeRules = Array.isArray(response?.items) ? response.items : [];
+            this.relationTypes = Array.isArray(response?.relation_types) ? response.relation_types : [];
             this.availableRelationTypes = Array.isArray(response?.available_relation_types) && response.available_relation_types.length
                 ? response.available_relation_types
-                : ['relaterad'];
+                : ['uses_object'];
             this.renderRelationTypeRules();
         } catch (error) {
             console.error('Failed to load relation type rules:', error);
@@ -382,94 +384,221 @@ class ObjectTypeManager {
             } : null);
 
         container.innerHTML = `
-            <div class="fields-section">
-                <div class="section-header">
-                    <h4>Fast relationstyp per objekttypspar</h4>
+            <div class="relation-rules-layout">
+                <div class="relation-rules-column relation-rules-left">
+                    <div class="fields-section">
+                        <div class="section-header">
+                            <h4>Objektpar</h4>
+                        </div>
+                        <p class="form-help">Välj Source, Relationstyp och Target för varje objekttyp-par. En riktning är tillåten åt gången.</p>
+                    </div>
+                    <div id="relation-type-rules-system-table"></div>
                 </div>
-                <p class="form-help">Redigera direkt i listan. Alla typkombinationer visas alltid.</p>
+                <div class="relation-rules-column relation-rules-right">
+                    <div class="fields-section">
+                        <div class="section-header">
+                            <h4>Relationstyper</h4>
+                        </div>
+                        <p class="form-help">Lista över alla tillgängliga relationstyper och deras beskrivningar.</p>
+                    </div>
+                    <div id="relation-types-system-table"></div>
+                </div>
             </div>
-            <div id="relation-type-rules-system-table"></div>
         `;
 
+        const relationTypesHost = document.getElementById('relation-types-system-table');
         const tableHost = document.getElementById('relation-type-rules-system-table');
-        if (!tableHost) return;
+        if (!relationTypesHost || !tableHost) return;
 
         if (typeof SystemTable !== 'function') {
+            relationTypesHost.innerHTML = '<p class="error">SystemTable saknas</p>';
             tableHost.innerHTML = '<p class="error">SystemTable saknas</p>';
             return;
         }
 
-        const rows = (this.relationTypeRules || []).map(rule => ({
-            id: Number(rule.id),
-            source_object_type_id: Number(rule.source_object_type_id),
-            target_object_type_id: Number(rule.target_object_type_id),
-            source_type: rule.source_object_type_name || '',
-            target_type: rule.target_object_type_name || '',
-            relation_type: rule.relation_type || '',
-            is_allowed: rule.is_allowed !== false
+        const relationTypeRows = (this.relationTypes || []).map(item => ({
+            key: item.key || '',
+            display_name: item.display_name || '',
+            description: item.description || ''
         }));
+
+        this.relationTypesTable = new SystemTable({
+            containerId: 'relation-types-system-table',
+            tableId: 'relation-types-table',
+            columns: [
+                { field: 'key', label: 'Key', className: 'col-id' },
+                { field: 'display_name', label: 'Namn', className: 'col-name' },
+                { field: 'description', label: 'Beskrivning', className: 'col-description', multiline: true }
+            ],
+            rows: relationTypeRows,
+            emptyText: 'Inga relationstyper hittades'
+        });
+        this.relationTypesTable.render();
+
+        const rows = this.buildRelationPairRows();
+        const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'uses_object').trim().toLowerCase() || 'uses_object';
+        const availableTypes = (this.availableRelationTypes || [fallbackRelationType])
+            .map(type => String(type || '').trim().toLowerCase())
+            .filter(Boolean);
+        const relationTypeMetaByKey = new Map(
+            (this.relationTypes || [])
+                .map(item => [String(item.key || '').trim().toLowerCase(), item])
+        );
 
         this.relationTypeRuleTable = new SystemTable({
             containerId: 'relation-type-rules-system-table',
             tableId: 'relation-type-rules-table',
             columns: [
-                { field: 'id', label: 'ID', className: 'col-id' },
-                { field: 'source_type', label: 'Källtyp', className: 'col-type', badge: 'type' },
-                { field: 'target_type', label: 'Måltyp', className: 'col-type', badge: 'type' },
+                {
+                    field: 'pair_label',
+                    label: 'Objektpar',
+                    className: 'col-name',
+                    render: (row) => {
+                        const options = Array.isArray(row.pair_type_options) ? row.pair_type_options : [];
+                        const left = options[0] || { name: '-' };
+                        const right = options[1] || { name: '-' };
+                        const leftColor = getObjectTypeColor(left.name);
+                        const rightColor = getObjectTypeColor(right.name);
+                        return `
+                            <div class="relation-pair-badges">
+                                <span class="object-type-badge" style="background-color: ${leftColor}">${escapeHtml(left.name)}</span>
+                                <span class="relation-pair-separator">↔</span>
+                                <span class="object-type-badge" style="background-color: ${rightColor}">${escapeHtml(right.name)}</span>
+                            </div>
+                        `;
+                    }
+                },
+                {
+                    field: 'source_object_type_id',
+                    label: 'Source',
+                    className: 'col-type',
+                    render: (row) => {
+                        const options = row.pair_type_options
+                            .map(option => `
+                                <option value="${option.id}" ${Number(row.source_object_type_id) === Number(option.id) ? 'selected' : ''}>
+                                    ${escapeHtml(option.name)}
+                                </option>
+                            `)
+                            .join('');
+                        return `<select class="form-control relation-rule-inline-source relation-rule-inline-direction" data-pair-key="${escapeHtml(row.pair_key)}">${options}</select>`;
+                    }
+                },
                 {
                     field: 'relation_type',
                     label: 'Relationstyp',
                     className: 'col-relation-type',
                     render: (row) => {
-                        const options = (this.availableRelationTypes || ['relaterad'])
-                            .map(type => `
-                                <option value="${escapeHtml(type)}" ${String(row.relation_type) === String(type) ? 'selected' : ''}>
-                                    ${escapeHtml(type)}
-                                </option>
-                            `)
-                            .join('');
+                        const normalizedType = String(row.relation_type || '').trim().toLowerCase();
+                        const selectValue = row.is_blocked || !normalizedType ? '__blocked__' : normalizedType;
+                        const typeOptions = availableTypes.map(type => `
+                            <option value="${escapeHtml(type)}" ${selectValue === type ? 'selected' : ''}>
+                                ${escapeHtml(String(relationTypeMetaByKey.get(type)?.display_name || type))}
+                            </option>
+                        `).join('');
+
+                        const options = `
+                            <option value="__blocked__" ${selectValue === '__blocked__' ? 'selected' : ''}>
+                                Spärrad (inte möjlig)
+                            </option>
+                            ${typeOptions}
+                        `;
                         return `
-                            <select class="form-control relation-rule-inline-type" data-rule-id="${row.id}">
+                            <select class="form-control relation-rule-inline-type" data-pair-key="${escapeHtml(row.pair_key)}">
                                 ${options}
                             </select>
                         `;
                     }
                 },
                 {
-                    field: 'is_allowed',
-                    label: 'Tillåten',
-                    className: 'col-status',
-                    render: (row) => `
-                        <input
-                            type="checkbox"
-                            class="required-toggle relation-rule-inline-allowed"
-                            data-rule-id="${row.id}"
-                            ${row.is_allowed ? 'checked' : ''}
-                            aria-label="Tillåt koppling för regel ${row.id}"
-                        >
-                    `
+                    field: 'target_object_type_id',
+                    label: 'Target',
+                    className: 'col-type',
+                    render: (row) => {
+                        const options = row.pair_type_options
+                            .map(option => `
+                                <option value="${option.id}" ${Number(row.target_object_type_id) === Number(option.id) ? 'selected' : ''}>
+                                    ${escapeHtml(option.name)}
+                                </option>
+                            `)
+                            .join('');
+                        return `<select class="form-control relation-rule-inline-target relation-rule-inline-direction" data-pair-key="${escapeHtml(row.pair_key)}">${options}</select>`;
+                    }
                 }
             ],
             rows,
             emptyText: 'Inga relationsregler ännu',
             onRender: () => {
-                tableHost.querySelectorAll('.relation-rule-inline-type').forEach(node => {
+                tableHost.querySelectorAll('.relation-rule-inline-source').forEach(node => {
                     node.addEventListener('change', async () => {
-                        const ruleId = Number(node.dataset.ruleId);
-                        if (!Number.isFinite(ruleId)) return;
-                        await this.updateRelationTypeRuleInline(ruleId, {
-                            relation_type: String(node.value || '').trim().toLowerCase()
-                        });
+                        const pairKey = String(node.dataset.pairKey || '');
+                        const sourceId = Number(node.value);
+                        const targetNode = tableHost.querySelector(`.relation-rule-inline-target[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        const typeNode = tableHost.querySelector(`.relation-rule-inline-type[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        if (!targetNode || !typeNode) return;
+
+                        let targetId = Number(targetNode.value);
+                        if (sourceId === targetId) {
+                            const row = rows.find(item => item.pair_key === pairKey);
+                            const alternate = (row?.pair_type_options || []).find(item => Number(item.id) !== sourceId);
+                            targetId = Number(alternate?.id);
+                            if (!Number.isFinite(targetId)) return;
+                            targetNode.value = String(targetId);
+                        }
+
+                        const selectedValue = String(typeNode.value || '').trim().toLowerCase();
+                        if (selectedValue === '__blocked__') {
+                            await this.updateRelationTypePairInline(pairKey, sourceId, targetId, fallbackRelationType, { blocked: true });
+                            return;
+                        }
+                        await this.updateRelationTypePairInline(pairKey, sourceId, targetId, selectedValue, { blocked: false });
                     });
                 });
 
-                tableHost.querySelectorAll('.relation-rule-inline-allowed').forEach(node => {
+                tableHost.querySelectorAll('.relation-rule-inline-target').forEach(node => {
                     node.addEventListener('change', async () => {
-                        const ruleId = Number(node.dataset.ruleId);
-                        if (!Number.isFinite(ruleId)) return;
-                        await this.updateRelationTypeRuleInline(ruleId, {
-                            is_allowed: Boolean(node.checked)
-                        });
+                        const pairKey = String(node.dataset.pairKey || '');
+                        const targetId = Number(node.value);
+                        const sourceNode = tableHost.querySelector(`.relation-rule-inline-source[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        const typeNode = tableHost.querySelector(`.relation-rule-inline-type[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        if (!sourceNode || !typeNode) return;
+
+                        let sourceId = Number(sourceNode.value);
+                        if (sourceId === targetId) {
+                            const row = rows.find(item => item.pair_key === pairKey);
+                            const alternate = (row?.pair_type_options || []).find(item => Number(item.id) !== targetId);
+                            sourceId = Number(alternate?.id);
+                            if (!Number.isFinite(sourceId)) return;
+                            sourceNode.value = String(sourceId);
+                        }
+
+                        const selectedValue = String(typeNode.value || '').trim().toLowerCase();
+                        if (selectedValue === '__blocked__') {
+                            await this.updateRelationTypePairInline(pairKey, sourceId, targetId, fallbackRelationType, { blocked: true });
+                            return;
+                        }
+                        await this.updateRelationTypePairInline(pairKey, sourceId, targetId, selectedValue, { blocked: false });
+                    });
+                });
+
+                tableHost.querySelectorAll('.relation-rule-inline-type').forEach(node => {
+                    node.addEventListener('change', async () => {
+                        const pairKey = String(node.dataset.pairKey || '');
+                        if (!pairKey) return;
+
+                        const sourceNode = tableHost.querySelector(`.relation-rule-inline-source[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        const targetNode = tableHost.querySelector(`.relation-rule-inline-target[data-pair-key="${CSS.escape(pairKey)}"]`);
+                        if (!sourceNode || !targetNode) return;
+
+                        const sourceId = Number(sourceNode.value);
+                        const targetId = Number(targetNode.value);
+                        if (!Number.isFinite(sourceId) || !Number.isFinite(targetId) || sourceId === targetId) return;
+
+                        const selectedValue = String(node.value || '').trim().toLowerCase();
+                        if (selectedValue === '__blocked__') {
+                            await this.updateRelationTypePairInline(pairKey, sourceId, targetId, fallbackRelationType, { blocked: true });
+                            return;
+                        }
+                        await this.updateRelationTypePairInline(pairKey, sourceId, targetId, selectedValue, { blocked: false });
                     });
                 });
             }
@@ -488,10 +617,83 @@ class ObjectTypeManager {
         this.relationTypeRuleTable.render();
     }
 
-    async updateRelationTypeRuleInline(ruleId, patch) {
-        if (!Number.isFinite(ruleId)) return;
-        const rule = (this.relationTypeRules || []).find(item => Number(item.id) === Number(ruleId));
-        if (!rule) return;
+    buildRelationPairRows() {
+        const objectTypeById = new Map((this.objectTypes || []).map(type => [Number(type.id), type]));
+        const pairMap = new Map();
+
+        (this.relationTypeRules || []).forEach(rule => {
+            const sourceId = Number(rule.source_object_type_id);
+            const targetId = Number(rule.target_object_type_id);
+            if (!Number.isFinite(sourceId) || !Number.isFinite(targetId) || sourceId === targetId) return;
+
+            const lowId = Math.min(sourceId, targetId);
+            const highId = Math.max(sourceId, targetId);
+            const pairKey = `${lowId}-${highId}`;
+
+            if (!pairMap.has(pairKey)) {
+                const lowType = objectTypeById.get(lowId);
+                const highType = objectTypeById.get(highId);
+                pairMap.set(pairKey, {
+                    pair_key: pairKey,
+                    pair_label: `${lowType?.name || `Typ ${lowId}`} ↔ ${highType?.name || `Typ ${highId}`}`,
+                    pair_type_options: [
+                        { id: lowId, name: lowType?.name || `Typ ${lowId}` },
+                        { id: highId, name: highType?.name || `Typ ${highId}` }
+                    ],
+                    rules: []
+                });
+            }
+
+            pairMap.get(pairKey).rules.push({
+                id: Number(rule.id),
+                source_object_type_id: sourceId,
+                target_object_type_id: targetId,
+                relation_type: String(rule.relation_type || '').trim().toLowerCase(),
+                is_allowed: rule.is_allowed !== false
+            });
+        });
+
+        return Array.from(pairMap.values()).map(pair => {
+            const allowedRules = pair.rules.filter(item => item.is_allowed);
+            const activeRule = allowedRules[0] || pair.rules[0] || null;
+
+            return {
+                pair_key: pair.pair_key,
+                pair_label: pair.pair_label,
+                pair_type_options: pair.pair_type_options,
+                source_object_type_id: activeRule ? activeRule.source_object_type_id : pair.pair_type_options[0].id,
+                target_object_type_id: activeRule ? activeRule.target_object_type_id : pair.pair_type_options[1].id,
+                relation_type: activeRule?.relation_type || '',
+                is_blocked: allowedRules.length === 0
+            };
+        }).sort((a, b) => String(a.pair_label).localeCompare(String(b.pair_label), 'sv'));
+    }
+
+    async updateRelationTypePairInline(pairKey, sourceObjectTypeId, targetObjectTypeId, relationType, options = {}) {
+        const normalizedSource = Number(sourceObjectTypeId);
+        const normalizedTarget = Number(targetObjectTypeId);
+        if (!Number.isFinite(normalizedSource) || !Number.isFinite(normalizedTarget) || normalizedSource === normalizedTarget) return;
+        const shouldBlockPair = Boolean(options?.blocked);
+
+        const pairRules = (this.relationTypeRules || []).filter(rule => {
+            const sourceId = Number(rule.source_object_type_id);
+            const targetId = Number(rule.target_object_type_id);
+            return (
+                (sourceId === normalizedSource && targetId === normalizedTarget)
+                || (sourceId === normalizedTarget && targetId === normalizedSource)
+            );
+        });
+
+        const selectedRule = pairRules.find(rule => (
+            Number(rule.source_object_type_id) === normalizedSource
+            && Number(rule.target_object_type_id) === normalizedTarget
+        ));
+        const reverseRule = pairRules.find(rule => (
+            Number(rule.source_object_type_id) === normalizedTarget
+            && Number(rule.target_object_type_id) === normalizedSource
+        ));
+
+        if (!selectedRule || !reverseRule) return;
 
         try {
             if (this.relationTypeRuleTable?.state) {
@@ -502,11 +704,21 @@ class ObjectTypeManager {
                     sortDirection: this.relationTypeRuleTable.state.sortDirection || 'asc'
                 };
             }
-            await RelationTypeRulesAPI.update(ruleId, {
-                source_object_type_id: Number(rule.source_object_type_id),
-                target_object_type_id: Number(rule.target_object_type_id),
-                relation_type: String((patch?.relation_type ?? rule.relation_type) || 'relaterad').trim().toLowerCase(),
-                is_allowed: patch?.is_allowed ?? (rule.is_allowed !== false)
+
+            const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'uses_object').trim().toLowerCase() || 'uses_object';
+            const normalizedRelationType = String(relationType || fallbackRelationType).trim().toLowerCase() || fallbackRelationType;
+
+            await RelationTypeRulesAPI.update(Number(selectedRule.id), {
+                source_object_type_id: normalizedSource,
+                target_object_type_id: normalizedTarget,
+                relation_type: normalizedRelationType,
+                is_allowed: !shouldBlockPair
+            });
+            await RelationTypeRulesAPI.update(Number(reverseRule.id), {
+                source_object_type_id: normalizedTarget,
+                target_object_type_id: normalizedSource,
+                relation_type: normalizedRelationType,
+                is_allowed: false
             });
             await this.loadRelationTypeRules();
             this.relationRuleTableState = null;

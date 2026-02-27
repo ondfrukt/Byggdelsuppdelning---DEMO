@@ -1,10 +1,10 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
-from routes.relation_type_rules import validate_relation_type_scope, infer_relation_type, is_relation_blocked
+from routes.relation_type_rules import validate_relation_type_scope, enforce_pair_relation_type
 
 bp = Blueprint('relation_entities', __name__, url_prefix='/api/relations')
-DEFAULT_RELATION_TYPE = 'relaterad'
+DEFAULT_RELATION_TYPE = 'uses_object'
 
 
 def normalize_id_full(value):
@@ -76,13 +76,14 @@ def create_relation():
     if not source_object or not target_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
 
-    if is_relation_blocked(source_object, target_object):
-        source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
-        target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
-        return jsonify({'error': f'Linking is disabled between {source_type} and {target_type}'}), 422
-
-    if relation_type == 'auto':
-        relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
+    relation_type, pair_type_error = enforce_pair_relation_type(
+        relation_type=relation_type,
+        source_object=source_object,
+        target_object=target_object,
+        fallback=DEFAULT_RELATION_TYPE
+    )
+    if pair_type_error:
+        return jsonify({'error': pair_type_error}), 422
 
     relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
     if relation_scope_error:
@@ -146,18 +147,15 @@ def create_relations_batch():
             errors.append({'index': index, 'targetId': target_id, 'error': 'Target object not found'})
             continue
 
-        if is_relation_blocked(source_object, target_object):
-            source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
-            target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
-            errors.append({
-                'index': index,
-                'targetId': target_id,
-                'error': f'Linking is disabled between {source_type} and {target_type}'
-            })
+        relation_type, pair_type_error = enforce_pair_relation_type(
+            relation_type=relation_type,
+            source_object=source_object,
+            target_object=target_object,
+            fallback=DEFAULT_RELATION_TYPE
+        )
+        if pair_type_error:
+            errors.append({'index': index, 'targetId': target_id, 'error': pair_type_error})
             continue
-
-        if relation_type == 'auto':
-            relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
 
         relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
         if relation_scope_error:
