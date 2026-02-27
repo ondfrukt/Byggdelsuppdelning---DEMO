@@ -63,6 +63,42 @@ def create_app():
             logger.warning(f"Metadata fields migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_relation_types_table import run_migration as run_relation_types_migration
+            run_relation_types_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation types migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_relation_type_rules_table import run_migration as run_relation_type_rules_migration
+            run_relation_type_rules_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation type rules migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_relation_type_rule_is_allowed import run_migration as run_relation_type_rules_allowed_migration
+            run_relation_type_rules_allowed_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation type rules is_allowed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.backfill_relation_type_rule_matrix import run_migration as run_relation_rule_matrix_backfill
+            run_relation_rule_matrix_backfill(db)
+        except Exception as e:
+            logger.warning(f"Relation type rule matrix backfill may have already run: {str(e)}")
+
+        try:
+            from migrations.seed_relation_types import run_migration as run_seed_relation_types_migration
+            run_seed_relation_types_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation types seed may have already run: {str(e)}")
+
+        try:
+            from migrations.normalize_object_identifiers import run_migration as run_identifier_migration
+            run_identifier_migration(db)
+        except Exception as e:
+            logger.warning(f"Identifier normalization migration may have already run: {str(e)}")
+
+        try:
             from migrations.migrate_direct_links_to_relations import run_migration as run_relation_migration
             migrated_count = run_relation_migration(db)
             logger.info(f"Direct-link migration created {migrated_count} relation entities")
@@ -82,10 +118,40 @@ def create_app():
             logger.warning(f"Managed lists migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_field_templates import run_migration as run_field_templates_migration
+            run_field_templates_migration(db)
+        except Exception as e:
+            logger.warning(f"Field templates migration may have already run: {str(e)}")
+
+        try:
+            from migrations.seed_field_templates import run_migration as run_seed_field_templates_migration
+            run_seed_field_templates_migration(db)
+        except Exception as e:
+            logger.warning(f"Field templates seed may have already run: {str(e)}")
+
+        try:
             from migrations.add_table_visibility_to_object_fields import run_migration as run_table_visibility_migration
             run_table_visibility_migration(db)
         except Exception as e:
             logger.warning(f"Table visibility migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_field_governance import run_migration as run_field_governance_migration
+            run_field_governance_migration(db)
+        except Exception as e:
+            logger.warning(f"Field governance migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_detail_width_to_object_fields import run_migration as run_detail_width_migration
+            run_detail_width_migration(db)
+        except Exception as e:
+            logger.warning(f"Detail width migration may have already run: {str(e)}")
+
+        try:
+            from migrations.consolidate_object_fields_to_templates import run_migration as run_field_template_consolidation_migration
+            run_field_template_consolidation_migration(db)
+        except Exception as e:
+            logger.warning(f"Field template consolidation migration may have already run: {str(e)}")
 
         try:
             from migrations.ensure_required_name_field_on_object_types import run_migration as run_required_name_field_migration
@@ -119,6 +185,30 @@ def create_app():
             run_managed_lists_migration(db)
         except Exception as e:
             logger.warning(f"Managed lists post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.normalize_object_identifiers import run_migration as run_identifier_migration
+            run_identifier_migration(db)
+        except Exception as e:
+            logger.warning(f"Identifier normalization post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.seed_relation_types import run_migration as run_seed_relation_types_migration
+            run_seed_relation_types_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation types post-seed may have already run: {str(e)}")
+
+        try:
+            from migrations.seed_field_templates import run_migration as run_seed_field_templates_migration
+            run_seed_field_templates_migration(db)
+        except Exception as e:
+            logger.warning(f"Field templates post-seed may have already run: {str(e)}")
+
+        try:
+            from migrations.consolidate_object_fields_to_templates import run_migration as run_field_template_consolidation_migration
+            run_field_template_consolidation_migration(db)
+        except Exception as e:
+            logger.warning(f"Field template consolidation post-seed may have already run: {str(e)}")
     
     # Register blueprints
     register_blueprints(app)

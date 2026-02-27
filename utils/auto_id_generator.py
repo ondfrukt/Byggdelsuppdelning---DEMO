@@ -1,5 +1,59 @@
+import re
 from models import db, Object, ObjectType
-from sqlalchemy import func, Integer, cast
+
+
+DEFAULT_PREFIX_MAP = {
+    'Byggdel': 'BYG',
+    'Produkt': 'PROD',
+    'Kravställning': 'KRAV',
+    'Anslutning': 'ANS',
+    'Ritningsobjekt': 'RIT',
+    'Egenskap': 'EG',
+    'Anvisning': 'ANV'
+}
+
+
+def get_object_type_prefix(object_type_name):
+    object_type = ObjectType.query.filter_by(name=object_type_name).first()
+    if object_type and object_type.id_prefix:
+        return str(object_type.id_prefix).strip().upper()
+    return DEFAULT_PREFIX_MAP.get(object_type_name, 'OBJ')
+
+
+def extract_numeric_suffix(identifier, expected_prefix=None):
+    text = str(identifier or '').strip()
+    if not text:
+        return None
+
+    if expected_prefix:
+        prefix = str(expected_prefix).strip().upper()
+        match = re.match(rf'^{re.escape(prefix)}-(\d+)$', text, flags=re.IGNORECASE)
+        if not match:
+            return None
+        return int(match.group(1))
+
+    generic = re.match(r'^([A-Za-z0-9_]+)-(\d+)$', text)
+    if not generic:
+        return None
+    return int(generic.group(2))
+
+
+def normalize_version(value):
+    text = str(value or '').strip().lower()
+    if not text:
+        return 'v1'
+    if text.startswith('v'):
+        text = text[1:]
+    text = text.lstrip('0') or '0'
+    return f"v{text}"
+
+
+def compose_full_id(base_id, version):
+    normalized_base = str(base_id or '').strip()
+    normalized_version = normalize_version(version)
+    if not normalized_base:
+        return normalized_version
+    return f"{normalized_base}.{normalized_version}"
 
 def generate_auto_id(object_type_name):
     """
@@ -9,46 +63,25 @@ def generate_auto_id(object_type_name):
         object_type_name (str): Name of the object type
         
     Returns:
-        str: Generated ID (e.g., 'BYG-001', 'PROD-042')
+        str: Generated base ID (e.g., 'BYG-1', 'PROD-42')
     """
-    # Get object type from database
-    object_type = ObjectType.query.filter_by(name=object_type_name).first()
-    
-    # Use id_prefix from database if available, otherwise use default mapping
-    if object_type and object_type.id_prefix:
-        prefix = object_type.id_prefix
-    else:
-        # Default prefix mapping as fallback
-        prefix_map = {
-            'Byggdel': 'BYG',
-            'Produkt': 'PROD',
-            'Kravställning': 'KRAV',
-            'Anslutning': 'ANS',
-            'Ritningsobjekt': 'RIT',
-            'Egenskap': 'EG',
-            'Anvisning': 'ANV'
-        }
-        prefix = prefix_map.get(object_type_name, 'OBJ')
-    
+    prefix = get_object_type_prefix(object_type_name)
+
     # Get the highest number for this type
     try:
-        # Find all objects with this prefix
         pattern = f'{prefix}-%'
-        last_obj = db.session.query(Object).filter(
-            Object.auto_id.like(pattern)
-        ).order_by(Object.auto_id.desc()).first()
-        
-        if last_obj:
-            # Extract number from auto_id (e.g., 'BYG-001' -> 1)
-            last_num = int(last_obj.auto_id.split('-')[-1])
-        else:
-            last_num = 0
-        
-        new_num = last_num + 1
-        return f"{prefix}-{new_num:03d}"
+        existing_ids = db.session.query(Object.auto_id).filter(Object.auto_id.like(pattern)).all()
+        max_num = 0
+        for (candidate,) in existing_ids:
+            number = extract_numeric_suffix(candidate, expected_prefix=prefix)
+            if number is not None and number > max_num:
+                max_num = number
+
+        new_num = max_num + 1
+        return f"{prefix}-{new_num}"
     except Exception as e:
-        # Log error and start from 001
+        # Log error and start from 1
         import logging
         logger = logging.getLogger(__name__)
-        logger.warning(f"Error generating auto_id for {object_type_name}: {str(e)}. Starting from 001.")
-        return f"{prefix}-001"
+        logger.warning(f"Error generating auto_id for {object_type_name}: {str(e)}. Starting from 1.")
+        return f"{prefix}-1"

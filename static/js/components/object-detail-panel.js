@@ -124,7 +124,7 @@ class ObjectDetailPanel {
                 <div class="side-panel-header">
                     <div>
                         <h3>${displayName}</h3>
-                        <p class="side-panel-subtitle">${obj.auto_id} • ${obj.object_type?.name || 'Objekt'}</p>
+                        <p class="side-panel-subtitle">${obj.id_full || obj.auto_id} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
                     <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
                 </div>
@@ -182,13 +182,19 @@ class ObjectDetailPanel {
         const data = obj.data || {};
         this.richTextValues = {};
         let richTextCounter = 0;
-        const objectTypeFields = Array.isArray(obj.object_type?.fields) ? obj.object_type.fields : [];
+        const objectTypeFields = Array.isArray(obj.object_type?.fields)
+            ? obj.object_type.fields.slice().sort((a, b) => (a.display_order || 9999) - (b.display_order || 9999))
+            : [];
         const fieldMap = new Map(objectTypeFields.map(field => [String(field.field_name || ''), field]));
         const normalizedFieldMap = new Map(
             objectTypeFields.map(field => [this.normalizeFieldKey(field.field_name), field])
         );
+        const normalizedDataMap = new Map(
+            Object.entries(data).map(([key, value]) => [this.normalizeFieldKey(key), { key, value }])
+        );
+        const renderedFieldKeys = new Set();
         
-        let html = '<div class="detail-list">';
+        let html = `<div class="detail-list ${this.options.layout === 'detail' ? 'detail-list-grid' : ''}">`;
         
         // Add compact header row for detail panel layout
         if (this.options.layout === 'detail') {
@@ -197,10 +203,10 @@ class ObjectDetailPanel {
                 <div class="detail-list-header">
                     <div class="detail-header-item">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value"><strong>${obj.auto_id}</strong></span>
+                        <span class="detail-value"><strong>${obj.id_full || obj.auto_id}</strong></span>
                     </div>
                     <div class="detail-header-item">
-                        <span class="detail-label">TYP</span>
+                        <span class="detail-label">Typ</span>
                         <span class="detail-value">
                             <span class="object-type-badge" data-type="${obj.object_type?.name || ''}" style="background-color: ${typeColor}">
                                 ${obj.object_type?.name || 'N/A'}
@@ -208,76 +214,142 @@ class ObjectDetailPanel {
                         </span>
                     </div>
                     <div class="detail-header-item">
-                        <span class="detail-label">SKAPAD</span>
+                        <span class="detail-label">Skapad</span>
                         <span class="detail-value">${formatDate(obj.created_at)}</span>
                     </div>
                 </div>
                 <div class="detail-list-header">
                     <div class="detail-header-item">
-                        <span class="detail-label">STATUS</span>
+                        <span class="detail-label">Status</span>
                         <span class="detail-value">${obj.status || 'N/A'}</span>
                     </div>
                     <div class="detail-header-item">
-                        <span class="detail-label">VERSION</span>
-                        <span class="detail-value">${obj.version || 'N/A'}</span>
+                        <span class="detail-label">Version</span>
+                        <span class="detail-value">${obj.version || 'v1'}</span>
                     </div>
                     <div class="detail-header-item">
-                        <span class="detail-label">ID (Full)</span>
-                        <span class="detail-value">${obj.id_full || obj.auto_id}</span>
+                        <span class="detail-label">BaseID</span>
+                        <span class="detail-value">${obj.main_id || obj.auto_id || 'N/A'}</span>
                     </div>
                 </div>
             `;
         }
         
-        // Render object data fields
-        for (const [key, value] of Object.entries(data)) {
-            if (value !== null && value !== undefined) {
-                // Find field definition for better display
-                const field = fieldMap.get(String(key))
-                    || normalizedFieldMap.get(this.normalizeFieldKey(key));
-                const label = field?.display_name || key;
-                const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
-                const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
-                const formattedValue = formatFieldValue(value, resolvedFieldType);
-                const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
-                const detailItemClass = isRichText ? 'detail-item detail-item-richtext' : 'detail-item';
-                const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
-                const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
+        if (this.options.layout === 'detail') {
+            html += '<div class="detail-field-grid">';
+        }
 
-                if (isRichText) {
-                    const rawHtml = sanitizeRichTextHtml(String(value || ''));
-                    this.richTextValues[richTextKey] = {
-                        label,
-                        html: rawHtml || formattedValue
-                    };
-                }
+        // Render object data fields in configured order
+        for (const field of objectTypeFields) {
+            const fieldName = String(field.field_name || '');
+            const normalizedName = this.normalizeFieldKey(fieldName);
+            const entry = normalizedDataMap.get(normalizedName);
+            renderedFieldKeys.add(normalizedName);
 
-                const richTextHtml = isRichText
-                    ? String(this.richTextValues[richTextKey]?.html || '').trim()
-                    : '';
-                const valueMarkup = isRichText
-                    ? `
-                        <div class="${valueClass}">
-                            <div class="richtext-preview-text">${richTextHtml || '<p>Innehåll finns</p>'}</div>
-                            <button type="button"
-                                    class="btn btn-secondary btn-sm richtext-open-btn"
-                                    data-open-richtext-key="${richTextKey}">
-                                Öppna innehåll
-                            </button>
-                        </div>
-                    `
-                    : `<div class="${valueClass}">${formattedValue}</div>`;
-                
-                html += `
-                    <div class="${detailItemClass}">
-                        <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
-                        ${valueMarkup}
-                    </div>
-                `;
+            const key = entry?.key || fieldName;
+            const value = entry?.value;
+            const label = field?.display_name || key;
+            const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
+            const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
+            const hasValue = !(value === null || value === undefined || value === '');
+            const formattedValue = formatFieldValue(value, resolvedFieldType);
+            const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext' && hasValue;
+            const detailWidthClass = this.getDetailWidthClass(field, isRichText);
+            const detailItemClass = isRichText
+                ? `detail-item detail-item-richtext ${detailWidthClass}`
+                : `detail-item ${detailWidthClass}`;
+            const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
+            const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
+
+            if (isRichText) {
+                const rawHtml = sanitizeRichTextHtml(String(value || ''));
+                this.richTextValues[richTextKey] = {
+                    label,
+                    html: rawHtml || formattedValue
+                };
             }
+
+            const richTextHtml = isRichText
+                ? String(this.richTextValues[richTextKey]?.html || '').trim()
+                : '';
+            const valueMarkup = isRichText
+                ? `
+                    <div class="${valueClass}">
+                        <div class="richtext-preview-text">${richTextHtml || '<p>Innehåll finns</p>'}</div>
+                        <button type="button"
+                                class="btn btn-secondary btn-sm richtext-open-btn"
+                                data-open-richtext-key="${richTextKey}">
+                            Öppna innehåll
+                        </button>
+                    </div>
+                `
+                : `<div class="${valueClass}">${formattedValue}</div>`;
+            
+            html += `
+                <div class="${detailItemClass}">
+                    <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
+                    ${valueMarkup}
+                </div>
+            `;
+        }
+
+        // Render any unknown data keys after configured fields.
+        for (const [key, value] of Object.entries(data)) {
+            const normalizedKey = this.normalizeFieldKey(key);
+            if (renderedFieldKeys.has(normalizedKey)) continue;
+            if (value === null || value === undefined) continue;
+
+            const field = fieldMap.get(String(key))
+                || normalizedFieldMap.get(normalizedKey);
+            const label = field?.display_name || key;
+            const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
+            const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
+            const formattedValue = formatFieldValue(value, resolvedFieldType);
+            const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
+            const detailWidthClass = this.getDetailWidthClass(field, isRichText);
+            const detailItemClass = isRichText
+                ? `detail-item detail-item-richtext ${detailWidthClass}`
+                : `detail-item ${detailWidthClass}`;
+            const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
+            const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
+
+            if (isRichText) {
+                const rawHtml = sanitizeRichTextHtml(String(value || ''));
+                this.richTextValues[richTextKey] = {
+                    label,
+                    html: rawHtml || formattedValue
+                };
+            }
+
+            const richTextHtml = isRichText
+                ? String(this.richTextValues[richTextKey]?.html || '').trim()
+                : '';
+            const valueMarkup = isRichText
+                ? `
+                    <div class="${valueClass}">
+                        <div class="richtext-preview-text">${richTextHtml || '<p>Innehåll finns</p>'}</div>
+                        <button type="button"
+                                class="btn btn-secondary btn-sm richtext-open-btn"
+                                data-open-richtext-key="${richTextKey}">
+                            Öppna innehåll
+                        </button>
+                    </div>
+                `
+                : `<div class="${valueClass}">${formattedValue}</div>`;
+
+            html += `
+                <div class="${detailItemClass}">
+                    <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
+                    ${valueMarkup}
+                </div>
+            `;
+        }
+
+        if (this.options.layout === 'detail') {
+            html += '</div>';
         }
         
-        if (Object.keys(data).length === 0 && this.options.layout === 'side') {
+        if (objectTypeFields.length === 0 && Object.keys(data).length === 0 && this.options.layout === 'side') {
             html += '<p class="empty-state">Ingen data registrerad</p>';
         }
         
@@ -287,6 +359,17 @@ class ObjectDetailPanel {
 
     normalizeFieldKey(key) {
         return String(key || '').trim().toLowerCase();
+    }
+
+    getDetailWidthClass(field, isRichText = false) {
+        if (isRichText) return 'detail-width-full';
+        const width = String(field?.detail_width || '').toLowerCase();
+        if (width === 'full') return 'detail-width-full';
+        if (width === 'third') return 'detail-width-third';
+        if (width === 'half') return 'detail-width-half';
+
+        const fieldType = String(field?.field_type || '').toLowerCase();
+        return (fieldType === 'richtext' || fieldType === 'textarea') ? 'detail-width-full' : 'detail-width-half';
     }
     
     renderRelationsTab() {

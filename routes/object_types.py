@@ -1,11 +1,13 @@
 from flask import Blueprint, request, jsonify
-from models import db, ObjectType, ObjectField
+from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate
+from routes.relation_type_rules import ensure_complete_relation_rule_matrix
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_types', __name__, url_prefix='/api/object-types')
 
 REQUIRED_NAME_FIELD = 'namn'
+ALLOWED_DETAIL_WIDTHS = {'full', 'half', 'third'}
 OBJECT_TYPE_COLOR_PALETTE = {
     '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16',
     '#EAB308', '#F97316', '#EF4444', '#EC4899',
@@ -22,6 +24,15 @@ def normalize_field_name(value):
 
 def is_name_field_name(value):
     return normalize_field_name(value) == REQUIRED_NAME_FIELD
+
+
+def normalize_detail_width(value):
+    if value is None:
+        return None
+    normalized = str(value).strip().lower()
+    if normalized in ALLOWED_DETAIL_WIDTHS:
+        return normalized
+    return None
 
 
 def normalize_object_type_color(value):
@@ -47,6 +58,48 @@ def normalize_object_type_color(value):
         return None
 
     return normalized
+
+
+def ensure_field_presence_for_all_objects(field):
+    """Ensure every object of field's type has an ObjectData row for this field."""
+    if not field or not field.object_type_id:
+        return
+
+    objects = Object.query.filter_by(object_type_id=field.object_type_id).all()
+    for obj in objects:
+        existing = ObjectData.query.filter_by(object_id=obj.id, field_id=field.id).first()
+        if existing:
+            continue
+        db.session.add(ObjectData(object_id=obj.id, field_id=field.id))
+
+
+def apply_template_to_field(field, template):
+    """Copy standardized template attributes into object type field definition."""
+    field.field_template_id = template.id
+    field.field_name = template.field_name
+    field.display_name = template.display_name
+    field.field_type = template.field_type
+    field.field_options = template.field_options
+    field.lock_required_setting = bool(template.lock_required_setting)
+    field.force_presence_on_all_objects = bool(template.force_presence_on_all_objects)
+    field.is_table_visible = bool(template.is_table_visible)
+    field.help_text = template.help_text
+
+
+def has_meaningful_field_data(field):
+    """True if any ObjectData row for field contains a non-empty value."""
+    for row in field.object_data:
+        if row.value_text not in (None, ''):
+            return True
+        if row.value_number is not None:
+            return True
+        if row.value_date is not None:
+            return True
+        if row.value_boolean is not None:
+            return True
+        if row.value_json not in (None, {}, [], ''):
+            return True
+    return False
 
 
 @bp.route('', methods=['GET'])
@@ -76,7 +129,7 @@ def get_object_type(id):
 def create_object_type():
     """Create a new object type"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         
         # Validate required fields
         if not data.get('name'):
@@ -103,6 +156,8 @@ def create_object_type():
         db.session.add(object_type)
         db.session.flush()
 
+        name_template = FieldTemplate.query.filter_by(field_name=REQUIRED_NAME_FIELD, is_active=True).order_by(FieldTemplate.id.asc()).first()
+
         # Every object type must have an obligatory namn-field.
         name_field = ObjectField(
             object_type_id=object_type.id,
@@ -110,10 +165,19 @@ def create_object_type():
             display_name='Namn',
             field_type='text',
             is_required=True,
+            lock_required_setting=True,
+            force_presence_on_all_objects=True,
             is_table_visible=True,
             display_order=1
         )
+        if name_template:
+            apply_template_to_field(name_field, name_template)
+            name_field.field_name = REQUIRED_NAME_FIELD
+            name_field.is_required = True
+            name_field.lock_required_setting = True
+            name_field.force_presence_on_all_objects = True
         db.session.add(name_field)
+        ensure_complete_relation_rule_matrix()
         db.session.commit()
         
         logger.info(f"Created object type: {object_type.name}")
@@ -129,7 +193,7 @@ def update_object_type(id):
     """Update an object type"""
     try:
         object_type = ObjectType.query.get_or_404(id)
-        data = request.get_json()
+        data = request.get_json() or {}
         
         # Update fields
         if 'name' in data and data['name'] != object_type.name:
@@ -206,14 +270,28 @@ def add_field(id):
     """Add a field to an object type"""
     try:
         object_type = ObjectType.query.get_or_404(id)
-        data = request.get_json()
+        data = request.get_json() or {}
         
-        # Validate required fields
-        if not data.get('field_name') or not data.get('field_type'):
-            return jsonify({'error': 'field_name and field_type are required'}), 400
+        template_id = data.get('field_template_id')
+        if template_id is None:
+            return jsonify({'error': 'field_template_id is required'}), 400
+        try:
+            template_id = int(template_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'field_template_id must be an integer'}), 400
+
+        template = FieldTemplate.query.get(template_id)
+        if not template:
+            return jsonify({'error': 'Field template not found'}), 404
+        if template.is_active is False:
+            return jsonify({'error': 'Field template is inactive'}), 400
+
+        normalized_detail_width = normalize_detail_width(data.get('detail_width'))
+        if data.get('detail_width') is not None and normalized_detail_width is None:
+            return jsonify({'error': "detail_width must be one of: full, half, third"}), 400
         
         # Check if field name already exists for this type
-        field_name = data['field_name']
+        field_name = template.field_name
         existing = next(
             (
                 field for field in ObjectField.query.filter_by(object_type_id=id).all()
@@ -230,16 +308,21 @@ def add_field(id):
         field = ObjectField(
             object_type_id=id,
             field_name=REQUIRED_NAME_FIELD if is_name_field else field_name,
-            display_name=data.get('display_name'),
-            field_type=data['field_type'],
-            field_options=data.get('field_options'),
-            is_required=True if is_name_field else data.get('is_required', False),
-            is_table_visible=data.get('is_table_visible', True),
-            help_text=data.get('help_text'),
-            display_order=data.get('display_order')
+            is_required=True if is_name_field else bool(data.get('is_required', template.is_required)),
+            display_order=data.get('display_order'),
+            detail_width=normalized_detail_width
         )
+        apply_template_to_field(field, template)
+        if is_name_field:
+            field.field_name = REQUIRED_NAME_FIELD
+            field.is_required = True
+            field.lock_required_setting = True
+            field.force_presence_on_all_objects = True
         
         db.session.add(field)
+        db.session.flush()
+        if field.force_presence_on_all_objects:
+            ensure_field_presence_for_all_objects(field)
         db.session.commit()
         
         logger.info(f"Added field {field.field_name} to object type {object_type.name}")
@@ -254,51 +337,26 @@ def _update_field_data(field, field_id, data):
     """Helper function to update field properties"""
     current_is_name_field = is_name_field_name(field.field_name)
 
-    # Update field properties
-    if 'field_name' in data:
-        new_field_name = data['field_name']
-        new_is_name_field = is_name_field_name(new_field_name)
+    immutable_keys = {'field_name', 'display_name', 'field_type', 'field_options', 'help_text', 'is_table_visible'}
+    if any(key in data for key in immutable_keys):
+        return {'error': 'Field definition is template-managed and cannot be edited here'}, 400
 
-        if current_is_name_field and not new_is_name_field:
-            return {'error': "Field 'namn' is required and cannot be renamed"}, 400
+    if 'field_template_id' in data:
+        return {'error': 'field_template_id cannot be changed on existing fields'}, 400
 
-        # Check if new name already exists for this type
-        existing = next(
-            (
-                candidate for candidate in ObjectField.query.filter(
-                    ObjectField.object_type_id == field.object_type_id,
-                    ObjectField.id != field_id
-                ).all()
-                if normalize_field_name(candidate.field_name) == normalize_field_name(new_field_name)
-            ),
-            None
-        )
-        if existing:
-            return {'error': 'Field with this name already exists for this object type'}, 400
-        field.field_name = REQUIRED_NAME_FIELD if new_is_name_field else new_field_name
-    
-    if 'display_name' in data:
-        field.display_name = data['display_name']
-    
-    if 'field_type' in data:
-        field.field_type = data['field_type']
-    
-    if 'field_options' in data:
-        field.field_options = data['field_options']
-    
     if 'is_required' in data:
         if current_is_name_field and data['is_required'] is not True:
             return {'error': "Field 'namn' must remain required"}, 400
         field.is_required = data['is_required']
-
-    if 'is_table_visible' in data:
-        field.is_table_visible = bool(data['is_table_visible'])
-    
-    if 'help_text' in data:
-        field.help_text = data['help_text']
     
     if 'display_order' in data:
         field.display_order = data['display_order']
+
+    if 'detail_width' in data:
+        normalized_width = normalize_detail_width(data.get('detail_width'))
+        if data.get('detail_width') is not None and normalized_width is None:
+            return {'error': "detail_width must be one of: full, half, third"}, 400
+        field.detail_width = normalized_width
     
     return None, None
 
@@ -316,12 +374,15 @@ def update_field_with_type(type_id, field_id):
         if field.object_type_id != type_id:
             return jsonify({'error': 'Field does not belong to this object type'}), 400
         
-        data = request.get_json()
+        data = request.get_json() or {}
         
         # Update field using helper function
         error_response, status_code = _update_field_data(field, field_id, data)
         if error_response:
             return jsonify(error_response), status_code
+
+        if field.force_presence_on_all_objects:
+            ensure_field_presence_for_all_objects(field)
         
         db.session.commit()
         
@@ -344,6 +405,9 @@ def update_field(field_id):
         error_response, status_code = _update_field_data(field, field_id, data)
         if error_response:
             return jsonify(error_response), status_code
+
+        if field.force_presence_on_all_objects:
+            ensure_field_presence_for_all_objects(field)
         
         db.session.commit()
         
@@ -370,10 +434,14 @@ def delete_field_with_type(type_id, field_id):
 
         if is_name_field_name(field.field_name):
             return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
+        if field.force_presence_on_all_objects:
+            return jsonify({'error': 'Disable force_presence_on_all_objects before deleting this field'}), 400
         
         # Check if there are object data entries using this field
-        if len(field.object_data) > 0:
+        if has_meaningful_field_data(field):
             return jsonify({'error': 'Cannot delete field that has data'}), 400
+        for row in list(field.object_data):
+            db.session.delete(row)
         
         db.session.delete(field)
         db.session.commit()
@@ -394,10 +462,14 @@ def delete_field(field_id):
 
         if is_name_field_name(field.field_name):
             return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
+        if field.force_presence_on_all_objects:
+            return jsonify({'error': 'Disable force_presence_on_all_objects before deleting this field'}), 400
         
         # Check if there are object data entries using this field
-        if len(field.object_data) > 0:
+        if has_meaningful_field_data(field):
             return jsonify({'error': 'Cannot delete field that has data'}), 400
+        for row in list(field.object_data):
+            db.session.delete(row)
         
         db.session.delete(field)
         db.session.commit()

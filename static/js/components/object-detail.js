@@ -22,7 +22,7 @@ class ObjectDetailComponent {
                     <div class="view-header">
                         <div>
                             <button class="btn btn-secondary" onclick="goBack()">← Tillbaka</button>
-                            <h2>${this.object.auto_id} - ${this.getDisplayName()}</h2>
+                            <h2>${this.object.id_full || this.object.auto_id} - ${this.getDisplayName()}</h2>
                         </div>
                         <div>
                             <button class="btn btn-primary" onclick="editObject(${this.objectId})">
@@ -83,7 +83,14 @@ class ObjectDetailComponent {
         fields.push(`
             <div class="detail-item">
                 <span class="detail-label">ID</span>
-                <span class="detail-value">${this.object.auto_id}</span>
+                <span class="detail-value">${this.object.id_full || 'N/A'}</span>
+            </div>
+        `);
+
+        fields.push(`
+            <div class="detail-item">
+                <span class="detail-label">BaseID</span>
+                <span class="detail-value">${this.object.main_id || this.object.auto_id || 'N/A'}</span>
             </div>
         `);
         
@@ -113,21 +120,7 @@ class ObjectDetailComponent {
         fields.push(`
             <div class="detail-item">
                 <span class="detail-label">Version</span>
-                <span class="detail-value">${this.object.version || '001'}</span>
-            </div>
-        `);
-        
-        fields.push(`
-            <div class="detail-item">
-                <span class="detail-label">MainID</span>
-                <span class="detail-value">${this.object.main_id || 'N/A'}</span>
-            </div>
-        `);
-        
-        fields.push(`
-            <div class="detail-item">
-                <span class="detail-label">Full ID</span>
-                <span class="detail-value">${this.object.id_full || 'N/A'}</span>
+                <span class="detail-value">${this.object.version || 'v1'}</span>
             </div>
         `);
         

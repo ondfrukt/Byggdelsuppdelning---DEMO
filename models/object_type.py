@@ -1,5 +1,6 @@
 from models import db
 from datetime import datetime
+import re
 
 class ObjectType(db.Model):
     """ObjectType model - represents types of objects in the system"""
@@ -17,6 +18,19 @@ class ObjectType(db.Model):
     # Relationships
     fields = db.relationship('ObjectField', back_populates='object_type', cascade='all, delete-orphan')
     objects = db.relationship('Object', back_populates='object_type')
+
+    def _calculate_next_auto_id_number(self):
+        max_number = 0
+        pattern = re.compile(r'^[A-Za-z0-9_]+-(\d+)$')
+        for obj in self.objects:
+            candidate = str(obj.auto_id or '').strip().split('.')[0]
+            match = pattern.match(candidate)
+            if not match:
+                continue
+            number = int(match.group(1))
+            if number > max_number:
+                max_number = number
+        return max_number + 1
     
     def to_dict(self, include_fields=False):
         result = {
@@ -25,6 +39,7 @@ class ObjectType(db.Model):
             'description': self.description,
             'icon': self.icon,
             'id_prefix': self.id_prefix,
+            'auto_id_next_number': self._calculate_next_auto_id_number(),
             'color': self.color,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_system': self.is_system

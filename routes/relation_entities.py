@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
+from routes.relation_type_rules import validate_relation_type_scope, infer_relation_type, is_relation_blocked
 
 bp = Blueprint('relation_entities', __name__, url_prefix='/api/relations')
 DEFAULT_RELATION_TYPE = 'relaterad'
@@ -75,6 +76,18 @@ def create_relation():
     if not source_object or not target_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
 
+    if is_relation_blocked(source_object, target_object):
+        source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
+        target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
+        return jsonify({'error': f'Linking is disabled between {source_type} and {target_type}'}), 422
+
+    if relation_type == 'auto':
+        relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
+
+    relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
+    if relation_scope_error:
+        return jsonify({'error': relation_scope_error}), 422
+
     target_id_full = normalize_id_full(target_object.id_full)
     if target_id_full and target_id_full in get_linked_id_fulls(source_object_id):
         return jsonify({'error': f'Relation already exists for full ID: {target_object.id_full}'}), 409
@@ -131,6 +144,24 @@ def create_relations_batch():
         target_object = Object.query.get(target_id)
         if not target_object:
             errors.append({'index': index, 'targetId': target_id, 'error': 'Target object not found'})
+            continue
+
+        if is_relation_blocked(source_object, target_object):
+            source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
+            target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
+            errors.append({
+                'index': index,
+                'targetId': target_id,
+                'error': f'Linking is disabled between {source_type} and {target_type}'
+            })
+            continue
+
+        if relation_type == 'auto':
+            relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
+
+        relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
+        if relation_scope_error:
+            errors.append({'index': index, 'targetId': target_id, 'error': relation_scope_error})
             continue
 
         target_id_full = normalize_id_full(target_object.id_full)

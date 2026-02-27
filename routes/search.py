@@ -38,6 +38,12 @@ def search():
             if query_lower in obj.auto_id.lower():
                 results.append(obj)
                 continue
+            if query_lower in str(obj.id_full or '').lower():
+                results.append(obj)
+                continue
+            if query_lower in str(obj.main_id or '').lower():
+                results.append(obj)
+                continue
             
             # Check object data
             for od in obj.object_data:

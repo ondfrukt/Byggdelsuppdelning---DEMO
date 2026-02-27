@@ -215,6 +215,7 @@ function updateDetailPanelHeader(object) {
         object?.data?.Name ||
         object?.data?.name ||
         object?.data?.title ||
+        object?.id_full ||
         object?.auto_id ||
         'Objektdetaljer';
 
@@ -370,6 +371,7 @@ function getObjectDisplayNameForDuplicate(obj) {
         obj.data?.namn ||
         obj.data?.Name ||
         obj.data?.name ||
+        obj.id_full ||
         obj.auto_id ||
         'Okänt objekt'
     );
@@ -413,7 +415,7 @@ function buildDuplicateRelationRows() {
             key: `existing-${relation.id}`,
             kind: 'existing',
             id: relation.id,
-            autoId: linkedObject.auto_id || linkedObject.id || '?',
+            autoId: linkedObject.id_full || linkedObject.auto_id || linkedObject.id || '?',
             type: linkedObject.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(linkedObject),
             description: linkedObject.data?.beskrivning || linkedObject.data?.description || '',
@@ -426,7 +428,7 @@ function buildDuplicateRelationRows() {
             key: `added-${obj.id}`,
             kind: 'added',
             id: obj.id,
-            autoId: obj.auto_id || obj.id || '?',
+            autoId: obj.id_full || obj.auto_id || obj.id || '?',
             type: obj.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(obj),
             description: obj.data?.beskrivning || obj.data?.description || '',
@@ -1583,7 +1585,6 @@ async function saveObject(event) {
         status: metadata.status || 'In work',
         data: objectData
     };
-    
     try {
         if (mode === 'create') {
             const createdObject = await ObjectsAPI.create(data);

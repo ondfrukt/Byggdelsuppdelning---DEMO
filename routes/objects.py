@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ViewConfiguration
-from utils.auto_id_generator import generate_auto_id
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration
+from utils.auto_id_generator import generate_auto_id, compose_full_id, normalize_version
 from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
@@ -26,10 +26,10 @@ def get_display_name(obj, object_type_name, view_config):
     
     Returns:
         Display name string
-        - If no config or field not specified: Returns auto_id
-        - If configured to use "ID": Returns auto_id
+        - If no config or field not specified: Returns ID
+        - If configured to use "ID": Returns ID
         - If field value exists: Returns field value as string
-        - If field is configured but value is empty: Returns "ID: {auto_id}" 
+        - If field is configured but value is empty: Returns "ID: {id_full}"
           (prefix helps distinguish from configured fields with actual values)
     """
     # Primary rule: always prefer canonical name fields for tree view.
@@ -49,7 +49,7 @@ def get_display_name(obj, object_type_name, view_config):
             return str(configured_value)
 
     # Final fallback.
-    return obj.auto_id
+    return obj.id_full or obj.auto_id
 
 
 def get_data_value_case_insensitive(data, field_name):
@@ -161,6 +161,7 @@ def build_tree_root_nodes(root_objects, view_config):
                 children_by_type[type_name].append({
                     'id': str(linked_object.id),
                     'auto_id': linked_object.auto_id,
+                    'id_full': linked_object.id_full,
                     'name': display_name,
                     'type': type_name,
                     'direction': direction,
@@ -186,6 +187,7 @@ def build_tree_root_nodes(root_objects, view_config):
         tree_nodes.append({
             'id': str(root_object.id),
             'auto_id': root_object.auto_id,
+            'id_full': root_object.id_full,
             'name': root_display_name,
             'type': root_type_name,
             'data': root_data,
@@ -257,6 +259,87 @@ def apply_connection_name_rules(object_type, object_data):
     object_data[name_field_name] = generated_name
 
     return True, [], object_data
+
+
+def get_required_overrides_map(object_id):
+    overrides = ObjectFieldOverride.query.filter_by(object_id=object_id).all()
+    return {
+        int(override.field_id): override.is_required_override
+        for override in overrides
+        if override.is_required_override is not None
+    }
+
+
+def get_effective_required_for_field(field, required_overrides=None):
+    required_overrides = required_overrides or {}
+    is_required = bool(field.is_required)
+    if bool(getattr(field, 'lock_required_setting', False)):
+        return is_required
+
+    if field.id in required_overrides and required_overrides[field.id] is not None:
+        return bool(required_overrides[field.id])
+    return is_required
+
+
+def enrich_object_type_fields_with_effective_required(obj_payload, required_overrides):
+    object_type = obj_payload.get('object_type') or {}
+    fields = object_type.get('fields') or []
+    for field_payload in fields:
+        field_id = field_payload.get('id')
+        default_required = bool(field_payload.get('is_required'))
+        lock_required_setting = bool(field_payload.get('lock_required_setting'))
+        override_value = required_overrides.get(field_id)
+        if lock_required_setting:
+            effective_required = default_required
+        elif override_value is None:
+            effective_required = default_required
+        else:
+            effective_required = bool(override_value)
+
+        field_payload['is_required_effective'] = bool(effective_required)
+        field_payload['is_required_override'] = override_value
+
+
+def set_object_data_value(record, field_type, value):
+    """Set typed ObjectData value and clear non-applicable typed columns."""
+    if value is None or value == '':
+        record.value_text = None
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = None
+        return
+
+    if field_type == 'number':
+        if isinstance(value, (int, float)):
+            record.value_number = Decimal(str(value))
+        else:
+            record.value_number = Decimal(value)
+        record.value_text = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = None
+    elif field_type == 'date':
+        if isinstance(value, str):
+            record.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
+        else:
+            record.value_date = value
+        record.value_text = None
+        record.value_number = None
+        record.value_boolean = None
+        record.value_json = None
+    elif field_type == 'boolean':
+        record.value_boolean = bool(value)
+        record.value_text = None
+        record.value_number = None
+        record.value_date = None
+        record.value_json = None
+    else:
+        record.value_text = str(value)
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = None
 
 
 def is_pdf_document(document):
@@ -382,6 +465,9 @@ def list_objects():
                 if search_lower in (obj.auto_id or '').lower():
                     filtered_objects.append(obj)
                     continue
+                if search_lower in (obj.id_full or '').lower():
+                    filtered_objects.append(obj)
+                    continue
 
                 for od in obj.object_data:
                     if od.value_text and search_lower in od.value_text.lower():
@@ -453,6 +539,15 @@ def get_object(id):
                 include_documents=True,
                 include_object_type_fields=True
             )
+            required_overrides = get_required_overrides_map(obj.id)
+            enrich_object_type_fields_with_effective_required(result, required_overrides)
+            result['field_overrides'] = [
+                {
+                    'field_id': field_id,
+                    'is_required_override': override_value
+                }
+                for field_id, override_value in required_overrides.items()
+            ]
             return jsonify(result), 200
         except Exception as serialize_error:
             logger.error(f"Error serializing object {id}: {str(serialize_error)}", exc_info=True)
@@ -464,6 +559,15 @@ def get_object(id):
                     include_documents=False,
                     include_object_type_fields=True
                 )
+                required_overrides = get_required_overrides_map(obj.id)
+                enrich_object_type_fields_with_effective_required(result, required_overrides)
+                result['field_overrides'] = [
+                    {
+                        'field_id': field_id,
+                        'is_required_override': override_value
+                    }
+                    for field_id, override_value in required_overrides.items()
+                ]
                 logger.warning(f"Returned object {id} with data only (excluded relations and documents) due to serialization error")
                 return jsonify(result), 200
             except Exception as fallback_error:
@@ -498,25 +602,18 @@ def create_object():
             return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
         
         # Validate object data against fields
-        is_valid, errors = validate_object_data(object_type.fields, object_data)
+        is_valid, errors = validate_object_data(object_type.fields, object_data, {})
         if not is_valid:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
         
         # Generate auto ID
         auto_id = generate_auto_id(object_type.name)
         
-        # Generate MainID and version for new objects
+        # Generate BaseID and version for new objects
         status = data.get('status', 'In work')
-        version = '001'
-        
-        # Generate MainID based on object type prefix
-        # NOTE: This approach has a potential race condition in concurrent environments.
-        # For production, consider using database sequences or unique constraints with retry logic.
-        type_prefix = object_type.id_prefix or object_type.name[:3].upper()
-        # Get the count of objects of this type to generate unique MainID
-        obj_count = Object.query.filter_by(object_type_id=object_type.id).count()
-        main_id = f"{type_prefix}-{obj_count + 1:03d}"
-        id_full = f"{main_id}.{version}"
+        version = normalize_version(data.get('version') or 'v1')
+        main_id = auto_id
+        id_full = compose_full_id(main_id, version)
         
         # Create object
         obj = Object(
@@ -536,31 +633,16 @@ def create_object():
         for field in object_type.fields:
             field_name = field.field_name
             value = object_data.get(field_name)
-            
-            if value is not None and value != '':
-                obj_data = ObjectData(
-                    object_id=obj.id,
-                    field_id=field.id
-                )
-                
-                # Set value based on field type
-                if field.field_type == 'number':
-                    # Handle both string and numeric input
-                    if isinstance(value, (int, float)):
-                        obj_data.value_number = Decimal(str(value))
-                    else:
-                        obj_data.value_number = Decimal(value)
-                elif field.field_type == 'date':
-                    if isinstance(value, str):
-                        obj_data.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
-                    else:
-                        obj_data.value_date = value
-                elif field.field_type == 'boolean':
-                    obj_data.value_boolean = bool(value)
-                else:
-                    obj_data.value_text = str(value)
-                
-                db.session.add(obj_data)
+            should_store = (value is not None and value != '') or bool(field.force_presence_on_all_objects)
+            if not should_store:
+                continue
+
+            obj_data = ObjectData(
+                object_id=obj.id,
+                field_id=field.id
+            )
+            set_object_data_value(obj_data, field.field_type, value)
+            db.session.add(obj_data)
         
         db.session.commit()
         
@@ -585,14 +667,48 @@ def update_object(id):
         
         # Get object data
         object_data = data.get('data', {})
+        field_overrides_payload = data.get('field_overrides')
 
         # Connection objects: always generate name from Del A + Del B (alphabetical order).
         is_connection_valid, connection_errors, object_data = apply_connection_name_rules(obj.object_type, object_data)
         if not is_connection_valid:
             return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
-        
-        # Validate object data against fields
-        is_valid, errors = validate_object_data(obj.object_type.fields, object_data)
+
+        # Compute pending required overrides (including payload changes) before validation.
+        required_overrides = get_required_overrides_map(obj.id)
+        pending_required_overrides = dict(required_overrides)
+        fields_by_id = {field.id: field for field in obj.object_type.fields}
+        normalized_override_payload = []
+
+        if field_overrides_payload is not None:
+            if not isinstance(field_overrides_payload, list):
+                return jsonify({'error': 'field_overrides must be a list'}), 400
+
+            for item in field_overrides_payload:
+                field_id = item.get('field_id')
+                override_value = item.get('is_required_override')
+
+                if not isinstance(field_id, int) or field_id not in fields_by_id:
+                    return jsonify({'error': f'Invalid field_id in field_overrides: {field_id}'}), 400
+
+                if override_value is not None and not isinstance(override_value, bool):
+                    return jsonify({'error': f'is_required_override for field {field_id} must be boolean or null'}), 400
+
+                field = fields_by_id[field_id]
+                if field.lock_required_setting and override_value is not None and bool(override_value) != bool(field.is_required):
+                    return jsonify({'error': f"Field '{field.field_name}' has locked required setting and cannot be overridden"}), 400
+
+                normalized_override_payload.append({
+                    'field_id': field_id,
+                    'is_required_override': override_value
+                })
+                if override_value is None:
+                    pending_required_overrides.pop(field_id, None)
+                else:
+                    pending_required_overrides[field_id] = bool(override_value)
+
+        # Validate object data against fields and pending overrides
+        is_valid, errors = validate_object_data(obj.object_type.fields, object_data, pending_required_overrides)
         if not is_valid:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
         
@@ -614,37 +730,38 @@ def update_object(id):
                         field_id=field.id
                     )
                     db.session.add(existing)
-                
-                # Update value based on field type
-                if field.field_type == 'number':
-                    existing.value_number = Decimal(str(value))
-                    existing.value_text = None
-                    existing.value_date = None
-                    existing.value_boolean = None
-                elif field.field_type == 'date':
-                    if isinstance(value, str):
-                        existing.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
-                    else:
-                        existing.value_date = value
-                    existing.value_text = None
-                    existing.value_number = None
-                    existing.value_boolean = None
-                elif field.field_type == 'boolean':
-                    existing.value_boolean = bool(value)
-                    existing.value_text = None
-                    existing.value_number = None
-                    existing.value_date = None
-                else:
-                    existing.value_text = str(value)
-                    existing.value_number = None
-                    existing.value_date = None
-                    existing.value_boolean = None
-                
+
+                set_object_data_value(existing, field.field_type, value)
+                existing.updated_at = datetime.utcnow()
+            elif field.force_presence_on_all_objects:
+                if not existing:
+                    existing = ObjectData(
+                        object_id=obj.id,
+                        field_id=field.id
+                    )
+                    db.session.add(existing)
+                set_object_data_value(existing, field.field_type, None)
                 existing.updated_at = datetime.utcnow()
             elif existing:
                 # Remove if value is empty
                 db.session.delete(existing)
-        
+
+        # Persist override updates (if provided) in same transaction as object update.
+        for item in normalized_override_payload:
+            field_id = item['field_id']
+            override_value = item['is_required_override']
+            existing_override = ObjectFieldOverride.query.filter_by(object_id=obj.id, field_id=field_id).first()
+
+            if override_value is None:
+                if existing_override:
+                    db.session.delete(existing_override)
+                continue
+
+            if not existing_override:
+                existing_override = ObjectFieldOverride(object_id=obj.id, field_id=field_id)
+                db.session.add(existing_override)
+            existing_override.is_required_override = bool(override_value)
+
         obj.updated_at = datetime.utcnow()
         db.session.commit()
         
@@ -654,6 +771,83 @@ def update_object(id):
         db.session.rollback()
         logger.error(f"Error updating object: {str(e)}")
         return jsonify({'error': 'Failed to update object', 'details': str(e)}), 500
+
+
+@bp.route('/<int:id>/field-overrides', methods=['GET'])
+def get_object_field_overrides(id):
+    """Get object-level field overrides for required settings."""
+    try:
+        obj = Object.query.get_or_404(id)
+        overrides = ObjectFieldOverride.query.filter_by(object_id=obj.id).all()
+        required_overrides = get_required_overrides_map(obj.id)
+
+        payload = []
+        for field in obj.object_type.fields:
+            override_entry = next((item for item in overrides if item.field_id == field.id), None)
+            payload.append({
+                'field_id': field.id,
+                'field_name': field.field_name,
+                'default_required': bool(field.is_required),
+                'lock_required_setting': bool(field.lock_required_setting),
+                'effective_required': get_effective_required_for_field(field, required_overrides),
+                'is_required_override': override_entry.is_required_override if override_entry else None
+            })
+
+        return jsonify(payload), 200
+    except Exception as e:
+        logger.error(f"Error getting field overrides for object {id}: {str(e)}")
+        return jsonify({'error': 'Failed to get field overrides'}), 500
+
+
+@bp.route('/<int:id>/field-overrides', methods=['PUT'])
+def update_object_field_overrides(id):
+    """Set object-level field required overrides."""
+    try:
+        obj = Object.query.get_or_404(id)
+        data = request.get_json() or {}
+        overrides_payload = data.get('overrides')
+        if not isinstance(overrides_payload, list):
+            return jsonify({'error': 'overrides must be a list'}), 400
+
+        fields_by_id = {field.id: field for field in obj.object_type.fields}
+        for item in overrides_payload:
+            field_id = item.get('field_id')
+            if not isinstance(field_id, int) or field_id not in fields_by_id:
+                return jsonify({'error': f'Invalid field_id: {field_id}'}), 400
+
+            override_value = item.get('is_required_override')
+            if override_value is not None and not isinstance(override_value, bool):
+                return jsonify({'error': f'is_required_override for field {field_id} must be boolean or null'}), 400
+
+            field = fields_by_id[field_id]
+            if field.lock_required_setting and override_value is not None and bool(override_value) != bool(field.is_required):
+                return jsonify({'error': f"Field '{field.field_name}' has locked required setting and cannot be overridden"}), 400
+
+            existing = ObjectFieldOverride.query.filter_by(object_id=obj.id, field_id=field_id).first()
+            if override_value is None:
+                if existing:
+                    db.session.delete(existing)
+                continue
+
+            if not existing:
+                existing = ObjectFieldOverride(object_id=obj.id, field_id=field_id)
+                db.session.add(existing)
+            existing.is_required_override = bool(override_value)
+
+        db.session.flush()
+
+        required_overrides = get_required_overrides_map(obj.id)
+        is_valid, errors = validate_object_data(obj.object_type.fields, obj.data or {}, required_overrides)
+        if not is_valid:
+            db.session.rollback()
+            return jsonify({'error': 'Override validation failed', 'details': errors}), 400
+
+        db.session.commit()
+        return jsonify({'message': 'Field overrides updated successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating field overrides for object {id}: {str(e)}")
+        return jsonify({'error': 'Failed to update field overrides'}), 500
 
 
 @bp.route('/<int:id>/duplicate', methods=['POST'])
@@ -672,7 +866,8 @@ def duplicate_object(id):
         if not is_connection_valid:
             return jsonify({'error': 'Validation failed', 'details': connection_errors}), 400
 
-        is_valid, errors = validate_object_data(object_type.fields, object_data)
+        source_required_overrides = get_required_overrides_map(source.id)
+        is_valid, errors = validate_object_data(object_type.fields, object_data, source_required_overrides)
         if not is_valid:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
 
@@ -699,13 +894,11 @@ def duplicate_object(id):
                 if str(target_id).isdigit()
             ]
 
-        # Generate fresh identifiers for the duplicated object.
+        # Generate fresh base ID and ID/version for the duplicated object.
         auto_id = generate_auto_id(object_type.name)
-        type_prefix = object_type.id_prefix or object_type.name[:3].upper()
-        obj_count = Object.query.filter_by(object_type_id=object_type.id).count()
-        main_id = f"{type_prefix}-{obj_count + 1:03d}"
-        version = '001'
-        id_full = f"{main_id}.{version}"
+        main_id = auto_id
+        version = normalize_version('v1')
+        id_full = compose_full_id(main_id, version)
 
         duplicate = Object(
             object_type_id=object_type.id,
@@ -723,27 +916,27 @@ def duplicate_object(id):
         # Copy dynamic field values as-is.
         for field in object_type.fields:
             value = object_data.get(field.field_name)
-            if value is None or value == '':
+            should_store = (value is not None and value != '') or bool(field.force_presence_on_all_objects)
+            if not should_store:
                 continue
 
             copied_data = ObjectData(
                 object_id=duplicate.id,
                 field_id=field.id
             )
-
-            if field.field_type == 'number':
-                copied_data.value_number = Decimal(str(value))
-            elif field.field_type == 'date':
-                if isinstance(value, str):
-                    copied_data.value_date = datetime.fromisoformat(value.replace('Z', '+00:00')).date()
-                elif isinstance(value, date):
-                    copied_data.value_date = value
-            elif field.field_type == 'boolean':
-                copied_data.value_boolean = bool(value)
-            else:
-                copied_data.value_text = str(value)
-
+            set_object_data_value(copied_data, field.field_type, value)
             db.session.add(copied_data)
+
+        source_overrides = ObjectFieldOverride.query.filter_by(object_id=source.id).all()
+        for override in source_overrides:
+            if override.is_required_override is None:
+                continue
+            duplicate_override = ObjectFieldOverride(
+                object_id=duplicate.id,
+                field_id=override.field_id,
+                is_required_override=override.is_required_override
+            )
+            db.session.add(duplicate_override)
 
         # Copy every relation where the source object participates,
         # replacing source object ID with duplicated object ID.

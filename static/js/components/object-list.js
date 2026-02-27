@@ -345,6 +345,7 @@ class ObjectListComponent {
             const term = this.searchTerm.toLowerCase();
             filteredObjects = this.objects.filter(obj => {
                 return obj.auto_id.toLowerCase().includes(term) ||
+                       String(obj.id_full || '').toLowerCase().includes(term) ||
                        (obj.data && Object.values(obj.data).some(val => 
                            String(val).toLowerCase().includes(term)
                        ));
@@ -383,7 +384,7 @@ class ObjectListComponent {
                         class="row-select-checkbox"
                         data-object-id="${obj.id}"
                         ${this.selectedObjectIds.has(Number(obj.id)) ? 'checked' : ''}
-                        aria-label="Markera objekt ${escapeHtml(obj.auto_id || String(obj.id))}">
+                        aria-label="Markera objekt ${escapeHtml(obj.id_full || obj.auto_id || String(obj.id))}">
                 </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
@@ -607,7 +608,7 @@ class ObjectListComponent {
     }
     
     getColumnValue(obj, fieldName) {
-        if (fieldName === 'auto_id') return obj.auto_id;
+        if (fieldName === 'auto_id') return obj.id_full || obj.auto_id;
         if (fieldName === 'object_type') return obj.object_type?.name || '';
         if (fieldName === 'files') return Array.isArray(obj.files) ? obj.files : [];
         if (fieldName === 'created_at') return obj.created_at;
@@ -622,7 +623,7 @@ class ObjectListComponent {
     }
     
     formatColumnValue(obj, fieldName, value, column = null) {
-        if (fieldName === 'auto_id') return `<strong>${value}</strong>`;
+        if (fieldName === 'auto_id') return `<strong>${obj.id_full || value}</strong>`;
         if (fieldName === 'object_type') {
             return `<span class="object-type-badge" style="background-color: ${getObjectTypeColor(value)}">
                 ${value || 'N/A'}
@@ -639,10 +640,10 @@ class ObjectListComponent {
         if (fieldName === 'actions') {
             return `
                 <div onclick="event.stopPropagation()" style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.auto_id}">
+                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.id_full || obj.auto_id}">
                         ✏️
                     </button>
-                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.auto_id}">
+                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.id_full || obj.auto_id}">
                         🗑️
                     </button>
                 </div>

@@ -143,9 +143,9 @@ def seed_data(app):
                 object_type_id=byggdel_type.id,
                 auto_id=generate_auto_id('Byggdel'),
                 status='Released',
-                version='001',
-                main_id='BYG-001',
-                id_full='BYG-001.001'
+                version='v1',
+                main_id='BYG-1',
+                id_full='BYG-1.v1'
             )
             db.session.add(byggdel_1)
             db.session.flush()
@@ -165,9 +165,9 @@ def seed_data(app):
                 object_type_id=byggdel_type.id,
                 auto_id=generate_auto_id('Byggdel'),
                 status='Released',
-                version='001',
-                main_id='BYG-002',
-                id_full='BYG-002.001'
+                version='v1',
+                main_id='BYG-2',
+                id_full='BYG-2.v1'
             )
             db.session.add(byggdel_2)
             db.session.flush()
@@ -187,9 +187,9 @@ def seed_data(app):
                 object_type_id=byggdel_type.id,
                 auto_id=generate_auto_id('Byggdel'),
                 status='Released',
-                version='001',
-                main_id='BYG-003',
-                id_full='BYG-003.001'
+                version='v1',
+                main_id='BYG-3',
+                id_full='BYG-3.v1'
             )
             db.session.add(byggdel_3)
             db.session.flush()
@@ -220,14 +220,14 @@ def seed_data(app):
             
             egenskap_objects = []
             for idx, eg_data in enumerate(egenskaper_data, start=1):
-                main_id = f'EGE-{idx:03d}'
+                main_id = f'EGE-{idx}'
                 eg = Object(
                     object_type_id=egenskap_type.id,
                     auto_id=generate_auto_id('Egenskap'),
                     status='Released',
-                    version='001',
+                    version='v1',
                     main_id=main_id,
-                    id_full=f'{main_id}.001'
+                    id_full=f'{main_id}.v1'
                 )
                 db.session.add(eg)
                 db.session.flush()
@@ -254,14 +254,14 @@ def seed_data(app):
             
             krav_objects = []
             for idx, kr_data in enumerate(krav_data, start=1):
-                main_id = f'KRA-{idx:03d}'
+                main_id = f'KRA-{idx}'
                 kr = Object(
                     object_type_id=krav_type.id,
                     auto_id=generate_auto_id('Kravställning'),
                     status='Released',
-                    version='001',
+                    version='v1',
                     main_id=main_id,
-                    id_full=f'{main_id}.001'
+                    id_full=f'{main_id}.v1'
                 )
                 db.session.add(kr)
                 db.session.flush()
@@ -289,14 +289,14 @@ def seed_data(app):
             
             produkt_objects = []
             for idx, pr_data in enumerate(produkter_data, start=1):
-                main_id = f'PROD-{idx:03d}'
+                main_id = f'PROD-{idx}'
                 pr = Object(
                     object_type_id=produkt_type.id,
                     auto_id=generate_auto_id('Produkt'),
                     status='Released',
-                    version='001',
+                    version='v1',
                     main_id=main_id,
-                    id_full=f'{main_id}.001'
+                    id_full=f'{main_id}.v1'
                 )
                 db.session.add(pr)
                 db.session.flush()
@@ -319,9 +319,9 @@ def seed_data(app):
                 object_type_id=anslutning_type.id,
                 auto_id=generate_auto_id('Anslutning'),
                 status='Released',
-                version='001',
-                main_id='ANS-001',
-                id_full='ANS-001.001'
+                version='v1',
+                main_id='ANS-1',
+                id_full='ANS-1.v1'
             )
             db.session.add(anslutning_1)
             db.session.flush()
@@ -341,9 +341,9 @@ def seed_data(app):
                 object_type_id=anslutning_type.id,
                 auto_id=generate_auto_id('Anslutning'),
                 status='Released',
-                version='001',
-                main_id='ANS-002',
-                id_full='ANS-002.001'
+                version='v1',
+                main_id='ANS-2',
+                id_full='ANS-2.v1'
             )
             db.session.add(anslutning_2)
             db.session.flush()
@@ -367,9 +367,9 @@ def seed_data(app):
                 object_type_id=anvisning_type.id,
                 auto_id=generate_auto_id('Anvisning'),
                 status='Released',
-                version='001',
-                main_id='ANV-001',
-                id_full='ANV-001.001'
+                version='v1',
+                main_id='ANV-1',
+                id_full='ANV-1.v1'
             )
             db.session.add(anvisning_1)
             db.session.flush()
@@ -389,9 +389,9 @@ def seed_data(app):
                 object_type_id=anvisning_type.id,
                 auto_id=generate_auto_id('Anvisning'),
                 status='Released',
-                version='001',
-                main_id='ANV-002',
-                id_full='ANV-002.001'
+                version='v1',
+                main_id='ANV-2',
+                id_full='ANV-2.v1'
             )
             db.session.add(anvisning_2)
             db.session.flush()

@@ -17,18 +17,67 @@ class SystemTable {
         this.onRowClick = typeof options.onRowClick === 'function' ? options.onRowClick : null;
         this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
         this.pendingFocusDescriptor = null;
+        this.persistState = options.persistState !== false;
 
         const firstSortable = this.columns.find(col => col.sortable !== false);
-        this.state = {
+        const defaultState = {
             search: '',
             columnSearches: Object.fromEntries(this.columns.map(col => [col.field, ''])),
             sortField: firstSortable ? firstSortable.field : null,
             sortDirection: 'asc'
         };
+        this.state = this.restorePersistedState(defaultState);
+        this.persistCurrentState();
+    }
+
+    getStateStorageKey() {
+        return this.tableId || this.containerId || '';
+    }
+
+    getStateStore() {
+        if (!window.__systemTableStateStore) {
+            window.__systemTableStateStore = {};
+        }
+        return window.__systemTableStateStore;
+    }
+
+    restorePersistedState(defaultState) {
+        if (!this.persistState) return defaultState;
+        const key = this.getStateStorageKey();
+        if (!key) return defaultState;
+
+        const saved = this.getStateStore()[key];
+        if (!saved || typeof saved !== 'object') return defaultState;
+
+        const columnSearches = {
+            ...defaultState.columnSearches,
+            ...(saved.columnSearches || {})
+        };
+        const hasValidSortField = this.columns.some(col => col.field === saved.sortField && col.sortable !== false);
+
+        return {
+            search: String(saved.search || ''),
+            columnSearches,
+            sortField: hasValidSortField ? saved.sortField : defaultState.sortField,
+            sortDirection: saved.sortDirection === 'desc' ? 'desc' : 'asc'
+        };
+    }
+
+    persistCurrentState() {
+        if (!this.persistState) return;
+        const key = this.getStateStorageKey();
+        if (!key) return;
+        this.getStateStore()[key] = {
+            search: this.state.search,
+            columnSearches: { ...(this.state.columnSearches || {}) },
+            sortField: this.state.sortField,
+            sortDirection: this.state.sortDirection
+        };
     }
 
     setRows(rows = []) {
         this.rows = Array.isArray(rows) ? rows : [];
+        this.persistCurrentState();
         this.render();
     }
 
@@ -40,6 +89,7 @@ class SystemTable {
             this.state.sortField = firstSortable ? firstSortable.field : null;
             this.state.sortDirection = 'asc';
         }
+        this.persistCurrentState();
         this.render();
     }
 
@@ -223,10 +273,12 @@ class SystemTable {
             const debouncedGlobalSearch = (typeof debounce === 'function')
                 ? debounce((value) => {
                     this.state.search = value;
+                    this.persistCurrentState();
                     this.render();
                 }, this.searchDebounceMs)
                 : ((value) => {
                     this.state.search = value;
+                    this.persistCurrentState();
                     this.render();
                 });
 
@@ -247,6 +299,7 @@ class SystemTable {
                     this.state.sortField = field;
                     this.state.sortDirection = 'asc';
                 }
+                this.persistCurrentState();
                 this.render();
             });
         });
@@ -256,10 +309,12 @@ class SystemTable {
             const debouncedColumnSearch = (typeof debounce === 'function')
                 ? debounce((value) => {
                     this.state.columnSearches[field] = value;
+                    this.persistCurrentState();
                     this.render();
                 }, this.searchDebounceMs)
                 : ((value) => {
                     this.state.columnSearches[field] = value;
+                    this.persistCurrentState();
                     this.render();
                 });
 

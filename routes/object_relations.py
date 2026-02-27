@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
+from routes.relation_type_rules import validate_relation_type_scope, infer_relation_type, is_relation_blocked
 import logging
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,18 @@ def create_relation(id):
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
+        if is_relation_blocked(source_object, target_object):
+            source_type = source_object.object_type.name if source_object.object_type else 'Unknown'
+            target_type = target_object.object_type.name if target_object.object_type else 'Unknown'
+            return jsonify({'error': f'Linking is disabled between {source_type} and {target_type}'}), 422
+
         relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
+        if relation_type == 'auto':
+            relation_type = infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_TYPE)
+
+        relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
+        if relation_scope_error:
+            return jsonify({'error': relation_scope_error}), 422
 
         target_id_full = normalize_id_full(target_object.id_full)
         if target_id_full and target_id_full in get_linked_id_fulls(id):

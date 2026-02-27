@@ -19,7 +19,7 @@ def run_migration(db):
             logger.info("Added 'status' column to objects table")
 
         if 'version' not in existing_columns:
-            db.session.execute(text("ALTER TABLE objects ADD COLUMN version VARCHAR(20) DEFAULT '001'"))
+            db.session.execute(text("ALTER TABLE objects ADD COLUMN version VARCHAR(20) DEFAULT 'v1'"))
             logger.info("Added 'version' column to objects table")
 
         if 'main_id' not in existing_columns:

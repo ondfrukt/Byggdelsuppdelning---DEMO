@@ -197,6 +197,17 @@ const ObjectsAPI = {
         });
     },
 
+    getFieldOverrides: (objectId) => {
+        return fetchAPI(`/objects/${objectId}/field-overrides`);
+    },
+
+    updateFieldOverrides: (objectId, overrides) => {
+        return fetchAPI(`/objects/${objectId}/field-overrides`, {
+            method: 'PUT',
+            body: JSON.stringify({ overrides }),
+        });
+    },
+
     // Documents
     getDocuments: (objectId) => {
         return fetchAPI(`/objects/${objectId}/documents`);
@@ -293,6 +304,32 @@ const ManagedListsAPI = {
     deleteItem: (listId, itemId) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'DELETE' })
 };
 
+const RelationTypeRulesAPI = {
+    getAll: () => {
+        return fetchAPI('/relation-type-rules');
+    },
+
+    upsert: (payload) => {
+        return fetchAPI('/relation-type-rules', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+        });
+    },
+
+    update: (id, payload) => {
+        return fetchAPI(`/relation-type-rules/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload),
+        });
+    },
+
+    delete: (id) => {
+        return fetchAPI(`/relation-type-rules/${id}`, {
+            method: 'DELETE',
+        });
+    }
+};
+
 // Building Part Categories API
 const BuildingPartCategoriesAPI = {
     getAll: (includeInactive = false) => {
@@ -316,6 +353,36 @@ const BuildingPartCategoriesAPI = {
 
     delete: (id) => {
         return fetchAPI(`/building-part-categories/${id}`, {
+            method: 'DELETE',
+        });
+    },
+};
+
+// Field Templates API
+const FieldTemplatesAPI = {
+    getAll: (includeInactive = false) => {
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        const query = params.toString();
+        return fetchAPI(`/field-templates${query ? '?' + query : ''}`);
+    },
+
+    create: (data) => {
+        return fetchAPI('/field-templates', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    update: (templateId, data) => {
+        return fetchAPI(`/field-templates/${templateId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    delete: (templateId) => {
+        return fetchAPI(`/field-templates/${templateId}`, {
             method: 'DELETE',
         });
     },

@@ -245,19 +245,61 @@
             </div>
             <form id="field-form" onsubmit="saveField(event)">
                 <div class="form-group">
-                    <label for="field-name">Fältnamn *</label>
-                    <input type="text" id="field-name" class="form-control" required 
-                           placeholder="t.ex. namn, beskrivning">
-                    <small class="form-help">Använd lowercase och understreck för mellanslag</small>
+                    <label for="field-template-select">Fältmall</label>
+                    <select id="field-template-select" class="form-control">
+                        <option value="">Välj mall...</option>
+                    </select>
+                    <small class="form-help">Välj en standardiserad mall. Egenskaperna hanteras i fältmallen.</small>
                 </div>
                 <div class="form-group">
-                    <label for="field-display-name">Visningsnamn</label>
-                    <input type="text" id="field-display-name" class="form-control" 
-                           placeholder="t.ex. Namn, Beskrivning">
+                    <label>
+                        <input type="checkbox" id="field-required">
+                        Obligatoriskt fält
+                    </label>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        Avbryt
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        Spara
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Field Template Modal (Admin) -->
+    <div id="field-template-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="field-template-modal-title">Skapa Fältmall</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="field-template-form" onsubmit="saveFieldTemplate(event)">
+                <div class="form-group">
+                    <label for="template-name">Mallnamn *</label>
+                    <input type="text" id="template-name" class="form-control" required placeholder="t.ex. Standard Beskrivning">
                 </div>
                 <div class="form-group">
-                    <label for="field-type">Fälttyp *</label>
-                    <select id="field-type" class="form-control" required>
+                    <label for="template-field-name">Fältnamn *</label>
+                    <input type="text" id="template-field-name" class="form-control" required placeholder="t.ex. beskrivning">
+                </div>
+                <div class="form-group">
+                    <label for="template-display-name">Visningsnamn (fallback)</label>
+                    <input type="text" id="template-display-name" class="form-control" placeholder="t.ex. Beskrivning">
+                </div>
+                <div class="form-group">
+                    <label for="template-display-name-sv">Visningsnamn (sv)</label>
+                    <input type="text" id="template-display-name-sv" class="form-control" placeholder="Svenska">
+                </div>
+                <div class="form-group">
+                    <label for="template-display-name-en">Visningsnamn (en)</label>
+                    <input type="text" id="template-display-name-en" class="form-control" placeholder="English">
+                </div>
+                <div class="form-group">
+                    <label for="template-field-type">Fälttyp *</label>
+                    <select id="template-field-type" class="form-control" required>
                         <option value="text">Text</option>
                         <option value="textarea">Textområde</option>
                         <option value="richtext">Formaterad text</option>
@@ -267,47 +309,51 @@
                         <option value="datetime">Datum & Tid</option>
                         <option value="boolean">Ja/Nej</option>
                         <option value="select">Val (dropdown)</option>
-                        <option value="building_part_category">Byggdelskategori (admin-lista)</option>
-                        <option value="managed_list">Admin-lista (egen lista)</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" id="field-required">
+                        <input type="checkbox" id="template-required">
                         Obligatoriskt fält
                     </label>
                 </div>
                 <div class="form-group">
                     <label>
-                        <input type="checkbox" id="field-table-visible" checked>
+                        <input type="checkbox" id="template-lock-required">
+                        Lås obligatorisk-inställning (kan ej override på objektnivå)
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="template-force-presence">
+                        Tvinga fält på alla befintliga och nya objekt
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="template-table-visible" checked>
                         Visbar i tabeller (objektvy/trädvy)
                     </label>
                 </div>
                 <div class="form-group">
-                    <label for="field-help-text">Hjälptext</label>
-                    <input type="text" id="field-help-text" class="form-control" 
-                           placeholder="Valfri hjälptext för användaren">
+                    <label for="template-help-text">Hjälptext (fallback)</label>
+                    <input type="text" id="template-help-text" class="form-control" placeholder="Valfri hjälptext">
                 </div>
                 <div class="form-group">
-                    <label for="field-options">Alternativ (för dropdown)</label>
-                    <input type="text" id="field-options" class="form-control" 
-                           placeholder="Alt1, Alt2, Alt3 eller JSON array">
-                    <small class="form-help">Komma-separerad lista eller JSON array. Ej relevant för byggdelskategori-fält.</small>
+                    <label for="template-help-text-sv">Hjälptext (sv)</label>
+                    <input type="text" id="template-help-text-sv" class="form-control" placeholder="Svenska">
                 </div>
-                <div class="form-group" id="managed-list-select-group" style="display:none;">
-                    <label for="managed-list-select">Välj admin-lista *</label>
-                    <select id="managed-list-select" class="form-control">
-                        <option value="">Välj lista...</option>
-                    </select>
-                    <small class="form-help">Listvärden hämtas från vald lista i fliken Listor.</small>
+                <div class="form-group">
+                    <label for="template-help-text-en">Hjälptext (en)</label>
+                    <input type="text" id="template-help-text-en" class="form-control" placeholder="English">
+                </div>
+                <div class="form-group">
+                    <label for="template-options">Alternativ (för dropdown)</label>
+                    <input type="text" id="template-options" class="form-control" placeholder="Alt1, Alt2 eller JSON">
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                        Avbryt
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        Spara
-                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Spara</button>
                 </div>
             </form>
         </div>

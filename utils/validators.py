@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-def validate_object_data(fields, data):
+def validate_object_data(fields, data, required_overrides=None):
     """
     Validate object data against field definitions.
     
@@ -14,10 +14,20 @@ def validate_object_data(fields, data):
     """
     errors = []
     
+    required_overrides = required_overrides or {}
+
     for field in fields:
         field_name = field.field_name
         field_type = field.field_type
-        is_required = field.is_required
+        field_id = getattr(field, 'id', None)
+        lock_required_setting = bool(getattr(field, 'lock_required_setting', False))
+        is_required = bool(field.is_required)
+
+        if not lock_required_setting:
+            if field_id in required_overrides and required_overrides[field_id] is not None:
+                is_required = bool(required_overrides[field_id])
+            elif field_name in required_overrides and required_overrides[field_name] is not None:
+                is_required = bool(required_overrides[field_name])
         value = data.get(field_name)
         
         # Check required fields
