@@ -15,6 +15,7 @@
             <nav class="nav">
                 <button class="nav-btn active" data-view="objects">Objekt</button>
                 <button class="nav-btn" data-view="file-objects">Filobjekt</button>
+                <button class="nav-btn" data-view="change-management">Change Management</button>
                 <button class="nav-btn" data-view="tree">Trädvy</button>
                 <button class="nav-btn" data-view="admin">Admin</button>
             </nav>
@@ -73,6 +74,23 @@
         <!-- Admin View - full width, outside container -->
         <div id="admin-view" class="view">
             <div id="admin-container"></div>
+        </div>
+
+        <!-- Change Management View -->
+        <div id="change-management-view" class="view">
+            <div class="view-header">
+                <h2>Change Management</h2>
+                <div class="view-header-actions">
+                    <button class="btn btn-primary" onclick="showCreateChangeItemModal()">
+                        Skapa Change
+                    </button>
+                </div>
+            </div>
+            <div id="change-management-container"></div>
+        </div>
+
+        <div id="change-management-detail-view" class="view">
+            <div id="change-management-detail-container"></div>
         </div>
     </main>
 
@@ -308,8 +326,16 @@
                         <option value="date">Datum</option>
                         <option value="datetime">Datum & Tid</option>
                         <option value="boolean">Ja/Nej</option>
-                        <option value="select">Val (dropdown)</option>
+                        <option value="select">Val (dropdown/lista)</option>
                     </select>
+                </div>
+                <div class="form-group" id="template-option-source-group" style="display: none;">
+                    <label for="template-option-source">Alternativkälla</label>
+                    <select id="template-option-source" class="form-control">
+                        <option value="custom">Egen lista (skriv alternativ)</option>
+                        <option value="managed_list">Färdig lista</option>
+                    </select>
+                    <small class="form-help">Välj hur dropdown-alternativen ska hämtas.</small>
                 </div>
                 <div class="form-group">
                     <label>
@@ -347,9 +373,53 @@
                     <label for="template-help-text-en">Hjälptext (en)</label>
                     <input type="text" id="template-help-text-en" class="form-control" placeholder="English">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="template-options-managed-group" style="display: none;">
+                    <label for="template-managed-list-select">Färdig lista</label>
+                    <select id="template-managed-list-select" class="form-control">
+                        <option value="">Välj lista...</option>
+                    </select>
+                    <small class="form-help">Listor hanteras under fliken "Listor".</small>
+                </div>
+                <div class="form-group" id="template-options-custom-group" style="display: none;">
                     <label for="template-options">Alternativ (för dropdown)</label>
                     <input type="text" id="template-options" class="form-control" placeholder="Alt1, Alt2 eller JSON">
+                    <small class="form-help">Ange kommaseparerade värden eller JSON.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Spara</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Change Management Modal -->
+    <div id="change-item-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="change-item-modal-title">Skapa Change</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="change-item-form" onsubmit="saveChangeItem(event)">
+                <div class="form-group">
+                    <label for="change-type">Typ *</label>
+                    <select id="change-type" class="form-control" required>
+                        <option value="CRQ">Change Request (CRQ)</option>
+                        <option value="CO">Change Order (CO)</option>
+                        <option value="RO">Release Order (RO)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="change-title">Titel *</label>
+                    <input type="text" id="change-title" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="change-description">Description</label>
+                    <textarea id="change-description" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="change-status">Status</label>
+                    <input type="text" id="change-status" class="form-control" value="Open">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
@@ -383,6 +453,7 @@
     <script src="{{ url_for('static', filename='js/components/object-detail-panel.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/table-sort.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin/object-type-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/change-management.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

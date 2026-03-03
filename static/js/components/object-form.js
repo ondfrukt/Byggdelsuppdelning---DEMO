@@ -8,7 +8,6 @@ class ObjectFormComponent {
         this.objectType = objectType;
         this.existingObject = existingObject;
         this.fields = [];
-        this.buildingPartCategories = [];
         this.managedListValues = {};
         this.richTextWindowState = null;
         this.richTextCopiedFormat = null;
@@ -37,29 +36,12 @@ class ObjectFormComponent {
     }
 
     async loadDynamicSelectOptions() {
-        const needsBuildingPartCategories = this.fields.some(field => {
-            if (field.field_type !== 'select') return false;
-            const options = this.normalizeFieldOptions(field.field_options || field.options);
-            return options?.source === 'building_part_categories';
-        });
-
         const managedListIds = this.fields
             .filter(field => field.field_type === 'select')
             .map(field => this.normalizeFieldOptions(field.field_options || field.options))
             .filter(options => options?.source === 'managed_list')
             .map(options => Number(options.list_id))
             .filter(listId => Number.isFinite(listId) && listId > 0);
-
-        if (!needsBuildingPartCategories) {
-            this.buildingPartCategories = [];
-        } else {
-            try {
-                this.buildingPartCategories = await BuildingPartCategoriesAPI.getAll();
-            } catch (error) {
-                console.error('Failed to load building part categories for object form:', error);
-                this.buildingPartCategories = [];
-            }
-        }
 
         this.managedListValues = {};
         if (managedListIds.length > 0) {
@@ -1190,9 +1172,6 @@ class ObjectFormComponent {
 
     getSelectOptions(field) {
         const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
-        if (normalizedOptions?.source === 'building_part_categories') {
-            return (this.buildingPartCategories || []).map(category => category.name).filter(Boolean);
-        }
         if (normalizedOptions?.source === 'managed_list') {
             const listId = Number(normalizedOptions?.list_id);
             if (!Number.isFinite(listId) || listId <= 0) return [];

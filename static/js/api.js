@@ -330,32 +330,46 @@ const RelationTypeRulesAPI = {
     }
 };
 
-// Building Part Categories API
-const BuildingPartCategoriesAPI = {
-    getAll: (includeInactive = false) => {
-        const params = includeInactive ? '?include_inactive=true' : '';
-        return fetchAPI(`/building-part-categories${params}`);
+const ChangeManagementAPI = {
+    getAll: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.type) params.append('type', filters.type);
+        if (filters.search) params.append('search', filters.search);
+        const query = params.toString();
+        return fetchAPI(`/change-management${query ? '?' + query : ''}`);
     },
 
-    create: (data) => {
-        return fetchAPI('/building-part-categories', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
-    },
+    getById: (id) => fetchAPI(`/change-management/${id}`),
 
-    update: (id, data) => {
-        return fetchAPI(`/building-part-categories/${id}`, {
-            method: 'PUT',
-            body: JSON.stringify(data),
-        });
-    },
+    create: (data) => fetchAPI('/change-management', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }),
 
-    delete: (id) => {
-        return fetchAPI(`/building-part-categories/${id}`, {
-            method: 'DELETE',
-        });
-    },
+    update: (id, data) => fetchAPI(`/change-management/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }),
+
+    delete: (id) => fetchAPI(`/change-management/${id}`, {
+        method: 'DELETE',
+    }),
+
+    getImpacts: (itemId) => fetchAPI(`/change-management/${itemId}/impacts`),
+
+    addImpact: (itemId, payload) => fetchAPI(`/change-management/${itemId}/impacts`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    }),
+
+    updateImpact: (itemId, impactId, payload) => fetchAPI(`/change-management/${itemId}/impacts/${impactId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+    }),
+
+    deleteImpact: (itemId, impactId) => fetchAPI(`/change-management/${itemId}/impacts/${impactId}`, {
+        method: 'DELETE',
+    }),
 };
 
 // Field Templates API

@@ -23,8 +23,7 @@ class TreeView {
         this.searchDebounceTimer = null;
         this.searchDebounceMs = 350;
         this.searchFocusState = null;
-        this.pendingToggleTimer = null;
-        this.pendingToggleDelayMs = 170;
+        this.hasLoadedData = false;
     }
     
     async loadData() {
@@ -35,6 +34,7 @@ class TreeView {
                 throw new Error('Failed to load tree data');
             }
             this.data = await response.json();
+            this.hasLoadedData = true;
         } catch (error) {
             console.error('Error loading tree:', error);
             throw error;
@@ -43,8 +43,10 @@ class TreeView {
     
     async render(options = {}) {
         if (!this.container) return;
-        
-        await this.loadData();
+
+        if (options.reloadData || !this.hasLoadedData) {
+            await this.loadData();
+        }
 
         const filteredData = this.getFilteredTreeData();
         this.renderedTreeData = filteredData;
@@ -202,7 +204,8 @@ class TreeView {
     }
 
     renderHeaderCell(column) {
-        const extraClass = column.paperclip ? ' class="col-paperclip"' : '';
+        const classNames = this.getTreeColumnClassNames(column);
+        const extraClass = classNames.length ? ` class="${classNames.join(' ')}"` : '';
         return `<th${extraClass}>${this.escapeHtml(column.label)}</th>`;
     }
 
@@ -213,7 +216,16 @@ class TreeView {
                 <input type="checkbox" class="tree-column-search-input tree-paperclip-filter" data-field="has_files" ${checked}>
             </th>`;
         }
-        return `<th><input type="text" class="tree-column-search-input" data-field="${column.id}" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches[column.id] || '')}"></th>`;
+        const classNames = this.getTreeColumnClassNames(column);
+        const extraClass = classNames.length ? ` class="${classNames.join(' ')}"` : '';
+        return `<th${extraClass}><input type="text" class="tree-column-search-input" data-field="${column.id}" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches[column.id] || '')}"></th>`;
+    }
+
+    getTreeColumnClassNames(column) {
+        const classes = [];
+        if (column?.paperclip) classes.push('col-paperclip');
+        if (column?.id) classes.push(`col-${column.id}`);
+        return classes;
     }
 
     renderColumnConfig() {
@@ -280,11 +292,13 @@ class TreeView {
         
         if (node.type === 'group') {
             const cellsHtml = visibleColumns.map((column, index) => {
+                const classNames = this.getTreeColumnClassNames(column);
+                const classAttr = classNames.length ? ` class="${classNames.join(' ')}"` : '';
                 if (index !== 0) {
-                    return `<td${column.paperclip ? ' class="col-paperclip"' : ''}></td>`;
+                    return `<td${classAttr}></td>`;
                 }
                 return `
-                    <td style="padding-left: ${indent}px">
+                    <td${classAttr} style="padding-left: ${indent}px">
                         ${hasChildren ? `
                             <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
                                 ${isExpanded ? '▼' : '▶'}
@@ -309,9 +323,11 @@ class TreeView {
             const isSelected = String(this.selectedObjectId ?? '') === String(node.id);
 
             const cellsHtml = visibleColumns.map(column => {
+                const classNames = this.getTreeColumnClassNames(column);
+                const classAttr = classNames.length ? ` class="${classNames.join(' ')}"` : '';
                 if (column.id === 'name') {
                     return `
-                        <td style="padding-left: ${indent}px">
+                        <td${classAttr} style="padding-left: ${indent}px">
                             ${hasChildren ? `
                                 <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
                                     ${isExpanded ? '▼' : '▶'}
@@ -323,24 +339,24 @@ class TreeView {
                 }
                 if (column.id === 'id') {
                     const displayId = node.id_full || node.auto_id || '';
-                    return `<td>${displayId ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(displayId, 'id')}</a>` : ''}</td>`;
+                    return `<td${classAttr}>${displayId ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(displayId, 'id')}</a>` : ''}</td>`;
                 }
                 if (column.id === 'type') {
-                    return `<td>${this.renderTypeBadge(node.type || '')}</td>`;
+                    return `<td${classAttr}>${this.renderTypeBadge(node.type || '')}</td>`;
                 }
                 if (column.id === 'kravtext') {
-                    return `<td>${kravtext}</td>`;
+                    return `<td${classAttr}>${kravtext}</td>`;
                 }
                 if (column.id === 'beskrivning') {
-                    return `<td>${beskrivning}</td>`;
+                    return `<td${classAttr}>${beskrivning}</td>`;
                 }
                 if (column.id === 'has_files') {
                     return `<td class="col-paperclip" data-value="${hasFiles ? files.length : 0}">${hasFiles ? `<span title="${files.length} fil(er) kopplade">📎</span>` : ''}</td>`;
                 }
                 if (column.id === 'files') {
-                    return `<td>${filesHtml}</td>`;
+                    return `<td${classAttr}>${filesHtml}</td>`;
                 }
-                return '<td></td>';
+                return `<td${classAttr}></td>`;
             }).join('');
 
             html += `
@@ -550,7 +566,7 @@ class TreeView {
                     this.viewMode = nextMode;
                     this.saveViewMode();
                     this.restoreModeState(nextMode);
-                    await this.render();
+                    await this.render({ reloadData: true });
                 });
             });
         }
@@ -604,118 +620,96 @@ class TreeView {
             });
         });
 
-        // Toggle expand/collapse on toggle icon click
-        const toggles = this.container.querySelectorAll('.tree-toggle');
-        toggles.forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
+        const treeTableBody = this.container.querySelector('#tree-table tbody');
+        if (!treeTableBody) return;
+
+        treeTableBody.addEventListener('mousedown', (e) => {
+            const node = e.target.closest('.tree-node');
+            if (!node) return;
+            if (node.dataset.hasChildren !== 'true') return;
+            if (e.detail < 2) return;
+            if (e.target.closest('a, button, input, textarea, select, label')) return;
+            e.preventDefault();
+        });
+
+        treeTableBody.addEventListener('click', (e) => {
+            const fileLink = e.target.closest('.tree-file-link');
+            if (fileLink) {
+                e.stopPropagation();
+                return;
+            }
+
+            const idLink = e.target.closest('.tree-id-link');
+            if (idLink) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const nodeId = parseInt(idLink.dataset.nodeId, 10);
+                const nodeType = idLink.dataset.nodeType;
+                this.setSelectedObjectId(nodeId);
+
+                if (this.onNodeClick) {
+                    this.onNodeClick(nodeId, nodeType);
+                }
+                return;
+            }
+
+            const toggle = e.target.closest('.tree-toggle');
+            if (toggle) {
                 e.stopPropagation();
                 const node = toggle.closest('.tree-node');
-                const nodeId = node.dataset.nodeId;
-                
-                if (this.expandedNodes.has(nodeId)) {
-                    this.expandedNodes.delete(nodeId);
-                } else {
-                    this.expandedNodes.add(nodeId);
-                }
-                this.persistCurrentModeState();
-                
-                this.render();
-            });
-        });
-        
-        // File link click - do not trigger row toggle
-        const fileLinks = this.container.querySelectorAll('.tree-file-link');
-        fileLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
+                if (!node) return;
+                this.toggleNodeExpansion(node.dataset.nodeId);
+                return;
+            }
+
+            const node = e.target.closest('.tree-node');
+            if (!node) return;
+            if (node.dataset.hasChildren !== 'true') return;
+            if (e.target.closest('a, button, input, textarea, select, label')) return;
+            if (e.detail > 1) return; // Double-click handled separately.
+            this.toggleNodeExpansion(node.dataset.nodeId);
         });
 
-        // ID link click - opens detail view
-        const idLinks = this.container.querySelectorAll('.tree-id-link');
-        idLinks.forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const nodeId = link.dataset.nodeId;
-                const nodeType = link.dataset.nodeType;
-                this.setSelectedObjectId(parseInt(nodeId, 10));
-                
-                if (this.onNodeClick) {
-                    this.onNodeClick(parseInt(nodeId), nodeType);
-                }
-            });
+        treeTableBody.addEventListener('dblclick', (e) => {
+            const node = e.target.closest('.tree-node');
+            if (!node) return;
+            if (node.dataset.hasChildren !== 'true') return;
+            if (e.target.closest('a, button, input, textarea, select, label')) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleSubtreeExpansion(node.dataset.nodeId);
         });
-        
-        // Row click - toggle expand/collapse for nodes with children
-        // Double-click toggles the whole subtree.
-        const nodes = this.container.querySelectorAll('.tree-node');
-        nodes.forEach(node => {
-            node.addEventListener('mousedown', (e) => {
-                const hasChildren = node.dataset.hasChildren === 'true';
-                if (!hasChildren) return;
-                if (e.detail < 2) return;
+    }
 
-                // Keep native behavior on explicit interactive controls.
-                if (e.target.closest('a, button, input, textarea, select, label')) return;
-                e.preventDefault();
-            });
+    toggleNodeExpansion(nodeId) {
+        if (!nodeId) return;
+        if (this.expandedNodes.has(nodeId)) {
+            this.expandedNodes.delete(nodeId);
+        } else {
+            this.expandedNodes.add(nodeId);
+        }
+        this.persistCurrentModeState();
+        this.render();
+    }
 
-            node.addEventListener('click', (e) => {
-                const hasChildren = node.dataset.hasChildren === 'true';
-                
-                // Only toggle if node has children
-                if (hasChildren) {
-                    const nodeId = node.dataset.nodeId;
+    toggleSubtreeExpansion(nodeId) {
+        if (!nodeId) return;
 
-                    if (this.pendingToggleTimer) {
-                        clearTimeout(this.pendingToggleTimer);
-                        this.pendingToggleTimer = null;
-                    }
+        const sourceTree = this.renderedTreeData || this.getFilteredTreeData();
+        const nodeData = this.findNodeById(sourceTree, nodeId);
+        const expandableIds = this.collectExpandableNodeIds(nodeData, []);
+        if (!expandableIds.length) return;
 
-                    this.pendingToggleTimer = setTimeout(() => {
-                        this.pendingToggleTimer = null;
-                        if (this.expandedNodes.has(nodeId)) {
-                            this.expandedNodes.delete(nodeId);
-                        } else {
-                            this.expandedNodes.add(nodeId);
-                        }
-                        this.persistCurrentModeState();
-                        this.render();
-                    }, this.pendingToggleDelayMs);
-                }
-            });
-
-            node.addEventListener('dblclick', (e) => {
-                const hasChildren = node.dataset.hasChildren === 'true';
-                if (!hasChildren) return;
-
-                e.preventDefault();
-                e.stopPropagation();
-
-                if (this.pendingToggleTimer) {
-                    clearTimeout(this.pendingToggleTimer);
-                    this.pendingToggleTimer = null;
-                }
-
-                const nodeId = node.dataset.nodeId;
-                const sourceTree = this.renderedTreeData || this.getFilteredTreeData();
-                const nodeData = this.findNodeById(sourceTree, nodeId);
-                const expandableIds = this.collectExpandableNodeIds(nodeData, []);
-                if (!expandableIds.length) return;
-
-                const allExpanded = expandableIds.every(id => this.expandedNodes.has(id));
-                if (allExpanded) {
-                    expandableIds.forEach(id => this.expandedNodes.delete(id));
-                } else {
-                    expandableIds.forEach(id => this.expandedNodes.add(id));
-                }
-                this.persistCurrentModeState();
-
-                this.render();
-            });
-        });
+        const allExpanded = expandableIds.every(id => this.expandedNodes.has(id));
+        if (allExpanded) {
+            expandableIds.forEach(id => this.expandedNodes.delete(id));
+        } else {
+            expandableIds.forEach(id => this.expandedNodes.add(id));
+        }
+        this.persistCurrentModeState();
+        this.render();
     }
     
     setNodeClickHandler(handler) {
@@ -752,6 +746,6 @@ class TreeView {
     }
     
     async refresh() {
-        await this.render();
+        await this.render({ reloadData: true });
     }
 }

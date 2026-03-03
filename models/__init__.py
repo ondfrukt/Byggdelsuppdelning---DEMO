@@ -13,11 +13,12 @@ from models.relation_type import RelationType
 from models.relation_type_rule import RelationTypeRule
 from models.document import Document
 from models.view_configuration import ViewConfiguration
-from models.building_part_category import BuildingPartCategory
 from models.managed_list import ManagedList
 from models.managed_list_item import ManagedListItem
 from models.field_template import FieldTemplate
 from models.object_field_override import ObjectFieldOverride
+from models.change_management_item import ChangeManagementItem
+from models.change_management_impact import ChangeManagementImpact
 
 __all__ = [
     'db',
@@ -30,9 +31,10 @@ __all__ = [
     'RelationTypeRule',
     'Document',
     'ViewConfiguration',
-    'BuildingPartCategory',
     'ManagedList',
     'ManagedListItem',
     'FieldTemplate',
-    'ObjectFieldOverride'
+    'ObjectFieldOverride',
+    'ChangeManagementItem',
+    'ChangeManagementImpact'
 ]

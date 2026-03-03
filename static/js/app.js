@@ -100,6 +100,12 @@ async function switchView(viewName) {
             closeDetailPanel();
             await loadAdminView();
             break;
+        case 'change-management':
+            showView('change-management-view');
+            closeDetailPanel();
+            window.currentChangeItemId = null;
+            await loadChangeManagementView();
+            break;
     }
 }
 

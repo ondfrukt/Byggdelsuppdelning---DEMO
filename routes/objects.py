@@ -72,19 +72,6 @@ def normalize_lookup_key(value):
     return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
 
 
-def parse_field_options(raw_options):
-    if isinstance(raw_options, dict):
-        return raw_options
-    if isinstance(raw_options, str):
-        try:
-            import json
-            parsed = json.loads(raw_options)
-            return parsed if isinstance(parsed, dict) else None
-        except Exception:
-            return None
-    return None
-
-
 def matches_tree_view_type(object_type_name, tree_view):
     normalized = normalize_lookup_key(object_type_name)
     if tree_view == 'byggdelar':
@@ -114,18 +101,6 @@ def get_tree_view_category_value(obj, tree_view):
         for key, value in object_data.items()
         if isinstance(key, str)
     }
-
-    if tree_view == 'byggdelar':
-        for field in object_fields:
-            if field.field_type != 'select':
-                continue
-            options = parse_field_options(field.field_options)
-            if isinstance(options, dict) and options.get('source') == 'building_part_categories':
-                value = object_data.get(field.field_name)
-                if value is None:
-                    value = normalized_data.get(normalize_lookup_key(field.field_name))
-                if value:
-                    return str(value).strip()
 
     aliases = get_tree_view_category_aliases(tree_view)
     for alias in aliases:

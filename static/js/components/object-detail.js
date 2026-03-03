@@ -127,9 +127,19 @@ class ObjectDetailComponent {
         // Dynamic fields from object data
         if (this.object.data) {
             const objectTypeFields = Array.isArray(this.object.object_type?.fields) ? this.object.object_type.fields : [];
-            const fieldTypeByName = new Map(objectTypeFields.map(field => [String(field.field_name || ''), field.field_type]));
+            const fieldConfigByName = new Map(
+                objectTypeFields.map(field => [
+                    String(field.field_name || '').trim().toLowerCase(),
+                    {
+                        fieldType: field.field_type,
+                        isDetailVisible: field.is_detail_visible !== false
+                    }
+                ])
+            );
             Object.entries(this.object.data).forEach(([key, value]) => {
-                const fieldType = fieldTypeByName.get(String(key)) || undefined;
+                const config = fieldConfigByName.get(String(key || '').trim().toLowerCase());
+                if (config && config.isDetailVisible === false) return;
+                const fieldType = config?.fieldType;
                 fields.push(`
                     <div class="detail-item">
                         <span class="detail-label">${this.formatFieldName(key)}</span>

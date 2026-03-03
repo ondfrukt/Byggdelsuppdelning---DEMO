@@ -873,6 +873,16 @@ body {
     margin-bottom: var(--spacing-sm);
 }
 
+.btn-link {
+    border: none;
+    background: transparent;
+    color: #0f62fe;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    text-decoration: underline;
+}
+
 .basket-item {
     display: flex;
     justify-content: space-between;
@@ -1792,6 +1802,12 @@ body {
 }
 
 .admin-fields-table .col-width {
+    width: 86px;
+    min-width: 86px;
+    text-align: center;
+}
+
+.admin-fields-table .col-detail-visible {
     width: 86px;
     min-width: 86px;
     text-align: center;

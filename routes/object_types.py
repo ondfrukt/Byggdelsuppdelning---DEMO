@@ -83,6 +83,7 @@ def apply_template_to_field(field, template):
     field.lock_required_setting = bool(template.lock_required_setting)
     field.force_presence_on_all_objects = bool(template.force_presence_on_all_objects)
     field.is_table_visible = bool(template.is_table_visible)
+    field.is_detail_visible = True
     field.help_text = template.help_text
 
 
@@ -168,6 +169,7 @@ def create_object_type():
             lock_required_setting=True,
             force_presence_on_all_objects=True,
             is_table_visible=True,
+            is_detail_visible=True,
             display_order=1
         )
         if name_template:
@@ -309,6 +311,7 @@ def add_field(id):
             object_type_id=id,
             field_name=REQUIRED_NAME_FIELD if is_name_field else field_name,
             is_required=True if is_name_field else bool(data.get('is_required', template.is_required)),
+            is_detail_visible=True,
             display_order=data.get('display_order'),
             detail_width=normalized_detail_width
         )
@@ -357,6 +360,9 @@ def _update_field_data(field, field_id, data):
         if data.get('detail_width') is not None and normalized_width is None:
             return {'error': "detail_width must be one of: full, half, third"}, 400
         field.detail_width = normalized_width
+
+    if 'is_detail_visible' in data:
+        field.is_detail_visible = bool(data.get('is_detail_visible'))
     
     return None, None
 
@@ -387,31 +393,6 @@ def update_field_with_type(type_id, field_id):
         db.session.commit()
         
         logger.info(f"Updated field {field.field_name} for object type {object_type.name}")
-        return jsonify(field.to_dict()), 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error updating field: {str(e)}")
-        return jsonify({'error': 'Failed to update field'}), 500
-
-
-@bp.route('/fields/<int:field_id>', methods=['PUT'])
-def update_field(field_id):
-    """Update a field (legacy route without type_id)"""
-    try:
-        field = ObjectField.query.get_or_404(field_id)
-        data = request.get_json()
-        
-        # Update field using helper function
-        error_response, status_code = _update_field_data(field, field_id, data)
-        if error_response:
-            return jsonify(error_response), status_code
-
-        if field.force_presence_on_all_objects:
-            ensure_field_presence_for_all_objects(field)
-        
-        db.session.commit()
-        
-        logger.info(f"Updated field {field.field_name}")
         return jsonify(field.to_dict()), 200
     except Exception as e:
         db.session.rollback()
@@ -453,30 +434,3 @@ def delete_field_with_type(type_id, field_id):
         logger.error(f"Error deleting field: {str(e)}")
         return jsonify({'error': 'Failed to delete field'}), 500
 
-
-@bp.route('/fields/<int:field_id>', methods=['DELETE'])
-def delete_field(field_id):
-    """Delete a field"""
-    try:
-        field = ObjectField.query.get_or_404(field_id)
-
-        if is_name_field_name(field.field_name):
-            return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
-        if field.force_presence_on_all_objects:
-            return jsonify({'error': 'Disable force_presence_on_all_objects before deleting this field'}), 400
-        
-        # Check if there are object data entries using this field
-        if has_meaningful_field_data(field):
-            return jsonify({'error': 'Cannot delete field that has data'}), 400
-        for row in list(field.object_data):
-            db.session.delete(row)
-        
-        db.session.delete(field)
-        db.session.commit()
-        
-        logger.info(f"Deleted field {field.field_name}")
-        return jsonify({'message': 'Field deleted successfully'}), 200
-    except Exception as e:
-        db.session.rollback()
-        logger.error(f"Error deleting field: {str(e)}")
-        return jsonify({'error': 'Failed to delete field'}), 500

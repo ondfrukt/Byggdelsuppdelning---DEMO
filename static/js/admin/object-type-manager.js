@@ -15,6 +15,7 @@ class ObjectTypeManager {
         this.availableRelationTypes = ['uses_object'];
         this.selectedManagedListId = null;
         this.fieldModalTypeListenerAttached = false;
+        this.fieldTemplateModalBehaviorAttached = false;
         this.relationRuleTableState = null;
     }
     
@@ -97,6 +98,7 @@ class ObjectTypeManager {
         `;
         
         this.setupFieldModalTypeBehavior();
+        this.setupFieldTemplateModalBehavior();
         await this.loadObjectTypes();
         await this.loadManagedLists();
         await this.loadFieldTemplates();
@@ -203,6 +205,7 @@ class ObjectTypeManager {
                                     <tr>
                                         <th class="col-name">Namn</th>
                                         <th class="col-status">Obligatorisk</th>
+                                        <th class="col-detail-visible">Detaljvy</th>
                                         <th class="col-width">Bredd</th>
                                         <th class="col-actions"></th>
                                     </tr>
@@ -248,6 +251,16 @@ class ObjectTypeManager {
                         title="${field.lock_required_setting ? 'Styrs av fältmall (låst)' : 'Ändra obligatoriskt på objekttyp'}"
                     >
                 </td>
+                <td class="col-detail-visible">
+                    <input
+                        type="checkbox"
+                        class="required-toggle"
+                        ${field.is_detail_visible !== false ? 'checked' : ''}
+                        onchange="adminManager.toggleFieldDetailVisible(${field.id}, this.checked)"
+                        aria-label="Visa i detaljvy för ${escapeHtml(nameLabel)}"
+                        title="Visa/dölj fält i detaljvy"
+                    >
+                </td>
                 <td class="col-width">
                     <select class="form-control detail-width-select" onchange="adminManager.updateFieldDetailWidth(${field.id}, this.value)">
                         <option value="full" ${(this.resolveFieldDetailWidth(field) === 'full') ? 'selected' : ''}>1/1</option>
@@ -286,9 +299,6 @@ class ObjectTypeManager {
 
     getFieldTypeLabel(field) {
         const options = this.normalizeFieldOptions(field.field_options);
-        if (field.field_type === 'select' && options?.source === 'building_part_categories') {
-            return 'byggdelskategori';
-        }
         if (field.field_type === 'select' && options?.source === 'managed_list') {
             const listId = Number(options?.list_id);
             const list = this.managedLists.find(item => item.id === listId);
@@ -317,6 +327,122 @@ class ObjectTypeManager {
         this.fieldModalTypeListenerAttached = true;
     }
 
+    setupFieldTemplateModalBehavior() {
+        if (this.fieldTemplateModalBehaviorAttached) return;
+
+        const fieldTypeSelect = document.getElementById('template-field-type');
+        const optionSourceSelect = document.getElementById('template-option-source');
+        if (fieldTypeSelect) {
+            fieldTypeSelect.addEventListener('change', () => this.updateFieldTemplateOptionInputs());
+        }
+        if (optionSourceSelect) {
+            optionSourceSelect.addEventListener('change', () => this.updateFieldTemplateOptionInputs());
+        }
+
+        this.fieldTemplateModalBehaviorAttached = true;
+        this.updateFieldTemplateOptionInputs();
+    }
+
+    renderFieldTemplateManagedListOptions(selectedListId = '') {
+        const select = document.getElementById('template-managed-list-select');
+        if (!select) return;
+
+        const currentValue = selectedListId || select.value || '';
+        select.innerHTML = '<option value="">Välj lista...</option>' +
+            this.managedLists
+                .filter(list => list.is_active !== false)
+                .map(list => `<option value="${list.id}">${escapeHtml(list.name)}</option>`)
+                .join('');
+
+        if (currentValue) {
+            select.value = String(currentValue);
+        }
+    }
+
+    updateFieldTemplateOptionInputs() {
+        const fieldTypeSelect = document.getElementById('template-field-type');
+        const sourceSelect = document.getElementById('template-option-source');
+        const sourceGroup = document.getElementById('template-option-source-group');
+        const customGroup = document.getElementById('template-options-custom-group');
+        const managedGroup = document.getElementById('template-options-managed-group');
+
+        if (!fieldTypeSelect || !sourceSelect) return;
+
+        const isSelectType = String(fieldTypeSelect.value || '').toLowerCase() === 'select';
+        const source = String(sourceSelect.value || 'custom').toLowerCase();
+
+        if (sourceGroup) sourceGroup.style.display = isSelectType ? '' : 'none';
+        if (customGroup) customGroup.style.display = (isSelectType && source === 'custom') ? '' : 'none';
+        if (managedGroup) managedGroup.style.display = (isSelectType && source === 'managed_list') ? '' : 'none';
+    }
+
+    setFieldTemplateOptionsFromTemplate(template) {
+        const fieldType = String(template?.field_type || 'text').toLowerCase();
+        const sourceSelect = document.getElementById('template-option-source');
+        const customOptionsInput = document.getElementById('template-options');
+        const managedListSelect = document.getElementById('template-managed-list-select');
+        if (!sourceSelect || !customOptionsInput) return;
+
+        const rawOptions = template?.field_options;
+        const normalizedOptions = this.normalizeFieldOptions(rawOptions);
+
+        sourceSelect.value = 'custom';
+        customOptionsInput.value = '';
+        if (managedListSelect) managedListSelect.value = '';
+
+        if (fieldType !== 'select') {
+            customOptionsInput.value = typeof rawOptions === 'string'
+                ? rawOptions
+                : (rawOptions ? JSON.stringify(rawOptions) : '');
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (normalizedOptions?.source === 'managed_list') {
+            sourceSelect.value = 'managed_list';
+            const listId = Number(normalizedOptions?.list_id);
+            this.renderFieldTemplateManagedListOptions(Number.isFinite(listId) && listId > 0 ? String(listId) : '');
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        customOptionsInput.value = typeof rawOptions === 'string'
+            ? rawOptions
+            : (rawOptions ? JSON.stringify(rawOptions) : '');
+        this.updateFieldTemplateOptionInputs();
+    }
+
+    buildFieldTemplateOptions(fieldTypeValue) {
+        const normalizedType = String(fieldTypeValue || '').trim().toLowerCase();
+        const sourceValue = String(document.getElementById('template-option-source')?.value || 'custom').trim().toLowerCase();
+        const rawOptions = document.getElementById('template-options')?.value || '';
+        const managedListIdRaw = document.getElementById('template-managed-list-select')?.value || '';
+
+        if (normalizedType === 'select') {
+            if (sourceValue === 'managed_list') {
+                const managedListId = Number(managedListIdRaw);
+                if (!Number.isFinite(managedListId) || managedListId <= 0) {
+                    return { error: 'Välj en färdig lista för dropdown-fältet' };
+                }
+                return { value: { source: 'managed_list', list_id: managedListId } };
+            }
+        }
+
+        if (typeof rawOptions === 'string') {
+            const trimmed = rawOptions.trim();
+            if (!trimmed) return { value: '' };
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                try {
+                    return { value: JSON.parse(trimmed) };
+                } catch (_error) {
+                    return { value: rawOptions };
+                }
+            }
+        }
+
+        return { value: rawOptions };
+    }
+
     async loadManagedLists() {
         try {
             this.managedLists = await ManagedListsAPI.getAll(true, true);
@@ -328,6 +454,8 @@ class ObjectTypeManager {
             }
             this.renderManagedLists();
             this.renderManagedListOptions();
+            this.renderFieldTemplateManagedListOptions();
+            this.updateFieldTemplateOptionInputs();
             if (this.selectedType) {
                 this.renderTypeDetails();
             }
@@ -831,6 +959,10 @@ class ObjectTypeManager {
 
         form.reset();
         document.getElementById('field-template-modal-title').textContent = 'Skapa Fältmall';
+        this.renderFieldTemplateManagedListOptions('');
+        const sourceSelect = document.getElementById('template-option-source');
+        if (sourceSelect) sourceSelect.value = 'custom';
+        this.updateFieldTemplateOptionInputs();
         modal.dataset.mode = 'create';
         delete modal.dataset.templateId;
         modal.style.display = 'block';
@@ -863,9 +995,8 @@ class ObjectTypeManager {
         document.getElementById('template-help-text').value = template.help_text || '';
         document.getElementById('template-help-text-sv').value = helpTranslations.sv || '';
         document.getElementById('template-help-text-en').value = helpTranslations.en || '';
-        document.getElementById('template-options').value = typeof template.field_options === 'string'
-            ? template.field_options
-            : (template.field_options ? JSON.stringify(template.field_options) : '');
+        this.renderFieldTemplateManagedListOptions('');
+        this.setFieldTemplateOptionsFromTemplate(template);
 
         modal.dataset.mode = 'edit';
         modal.dataset.templateId = String(template.id);
@@ -1413,6 +1544,23 @@ class ObjectTypeManager {
         }
     }
 
+    async toggleFieldDetailVisible(fieldId, isDetailVisible) {
+        if (!this.selectedType) return;
+        const field = (this.selectedType.fields || []).find(item => Number(item.id) === Number(fieldId));
+        if (!field) return;
+        const nextValue = Boolean(isDetailVisible);
+        if (field.is_detail_visible === nextValue) return;
+
+        try {
+            await ObjectTypesAPI.updateField(this.selectedType.id, fieldId, { is_detail_visible: nextValue });
+            field.is_detail_visible = nextValue;
+        } catch (error) {
+            console.error('Failed to update field detail visibility:', error);
+            showToast(error.message || 'Kunde inte uppdatera synlighet i detaljvy', 'error');
+            this.renderTypeDetails();
+        }
+    }
+
     attachFieldRowDragAndDrop() {
         const tbody = document.querySelector('#type-details-container .admin-fields-table tbody');
         if (!tbody) return;
@@ -1606,21 +1754,12 @@ async function saveFieldTemplate(event) {
     const templateId = Number(modal?.dataset?.templateId || 0);
 
     const fieldTypeValue = document.getElementById('template-field-type')?.value || 'text';
-    const rawOptions = document.getElementById('template-options')?.value || '';
-
-    let templateOptions = rawOptions;
-    if (typeof rawOptions === 'string') {
-        const trimmed = rawOptions.trim();
-        if (!trimmed) {
-            templateOptions = '';
-        } else if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-            try {
-                templateOptions = JSON.parse(trimmed);
-            } catch (_error) {
-                templateOptions = rawOptions;
-            }
-        }
+    const optionsResult = adminManager?.buildFieldTemplateOptions(fieldTypeValue);
+    if (optionsResult?.error) {
+        showToast(optionsResult.error, 'error');
+        return;
     }
+    const templateOptions = optionsResult?.value ?? '';
 
     const data = {
         template_name: document.getElementById('template-name').value,

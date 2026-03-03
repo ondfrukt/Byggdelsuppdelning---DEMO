@@ -994,14 +994,6 @@ class ObjectListComponent {
 
     async resolveSelectOptions(field) {
         const normalized = this.normalizeFieldOptions(field.field_options);
-        if (normalized?.source === 'building_part_categories') {
-            try {
-                const categories = await BuildingPartCategoriesAPI.getAll();
-                return categories.map(category => category.name).filter(Boolean);
-            } catch (_error) {
-                return [];
-            }
-        }
         if (normalized?.source === 'managed_list') {
             const listId = Number(normalized.list_id);
             if (!Number.isFinite(listId) || listId <= 0) return [];

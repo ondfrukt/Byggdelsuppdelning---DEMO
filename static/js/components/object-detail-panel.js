@@ -245,6 +245,9 @@ class ObjectDetailPanel {
             const normalizedName = this.normalizeFieldKey(fieldName);
             const entry = normalizedDataMap.get(normalizedName);
             renderedFieldKeys.add(normalizedName);
+            if (field?.is_detail_visible === false) {
+                continue;
+            }
 
             const key = entry?.key || fieldName;
             const value = entry?.value;
@@ -301,6 +304,7 @@ class ObjectDetailPanel {
 
             const field = fieldMap.get(String(key))
                 || normalizedFieldMap.get(normalizedKey);
+            if (field?.is_detail_visible === false) continue;
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);

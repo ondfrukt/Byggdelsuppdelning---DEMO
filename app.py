@@ -106,12 +106,6 @@ def create_app():
             logger.warning(f"Direct-link migration may have already run or has no data: {str(e)}")
 
         try:
-            from migrations.add_building_part_categories import run_migration as run_building_part_category_migration
-            run_building_part_category_migration(db)
-        except Exception as e:
-            logger.warning(f"Building part categories migration may have already run: {str(e)}")
-
-        try:
             from migrations.add_managed_lists import run_migration as run_managed_lists_migration
             run_managed_lists_migration(db)
         except Exception as e:
@@ -134,6 +128,12 @@ def create_app():
             run_table_visibility_migration(db)
         except Exception as e:
             logger.warning(f"Table visibility migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_detail_visibility_to_object_fields import run_migration as run_detail_visibility_migration
+            run_detail_visibility_migration(db)
+        except Exception as e:
+            logger.warning(f"Detail visibility migration may have already run: {str(e)}")
 
         try:
             from migrations.add_field_governance import run_migration as run_field_governance_migration
@@ -164,6 +164,12 @@ def create_app():
             run_connection_part_fields_migration(db)
         except Exception as e:
             logger.warning(f"Connection part fields migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_change_management_items import run_migration as run_change_management_migration
+            run_change_management_migration(db)
+        except Exception as e:
+            logger.warning(f"Change management migration may have already run: {str(e)}")
         
         seed_data(app)
 
@@ -181,34 +187,16 @@ def create_app():
             logger.warning(f"Connection part fields post-seed migration may have already run: {str(e)}")
 
         try:
-            from migrations.add_managed_lists import run_migration as run_managed_lists_migration
-            run_managed_lists_migration(db)
-        except Exception as e:
-            logger.warning(f"Managed lists post-seed migration may have already run: {str(e)}")
-
-        try:
             from migrations.normalize_object_identifiers import run_migration as run_identifier_migration
             run_identifier_migration(db)
         except Exception as e:
             logger.warning(f"Identifier normalization post-seed migration may have already run: {str(e)}")
 
         try:
-            from migrations.seed_relation_types import run_migration as run_seed_relation_types_migration
-            run_seed_relation_types_migration(db)
+            from migrations.sync_existing_relation_entity_types import run_migration as run_relation_entity_type_sync_migration
+            run_relation_entity_type_sync_migration(db)
         except Exception as e:
-            logger.warning(f"Relation types post-seed may have already run: {str(e)}")
-
-        try:
-            from migrations.seed_field_templates import run_migration as run_seed_field_templates_migration
-            run_seed_field_templates_migration(db)
-        except Exception as e:
-            logger.warning(f"Field templates post-seed may have already run: {str(e)}")
-
-        try:
-            from migrations.consolidate_object_fields_to_templates import run_migration as run_field_template_consolidation_migration
-            run_field_template_consolidation_migration(db)
-        except Exception as e:
-            logger.warning(f"Field template consolidation post-seed may have already run: {str(e)}")
+            logger.warning(f"Relation entity type sync migration may have already run: {str(e)}")
     
     # Register blueprints
     register_blueprints(app)
