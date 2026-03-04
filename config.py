@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 class Config:
     """Configuration for the PLM application"""
@@ -10,7 +11,9 @@ class Config:
     if branch_name == 'develop':
         database_url = os.environ.get('MAIN_DATABASE_URL', database_url)
     if not database_url:
-        database_url = 'postgresql://localhost/plm_demo'
+        repo_root = Path(__file__).resolve().parent
+        repository_db = repo_root / 'plm.db'
+        database_url = f"sqlite:///{repository_db}"
 
     # Handle both postgres:// and postgresql:// URLs (Render compatibility)
     if database_url.startswith('postgres://'):

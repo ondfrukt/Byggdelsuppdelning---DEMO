@@ -219,6 +219,12 @@ def create_app():
             logger.warning(f"Remove auto_id post-seed migration may have already run: {str(e)}")
 
         try:
+            from migrations.seed_relation_types import run_migration as run_seed_relation_types_migration
+            run_seed_relation_types_migration(db)
+        except Exception as e:
+            logger.warning(f"Relation defaults post-seed migration may have already run: {str(e)}")
+
+        try:
             from migrations.sync_existing_relation_entity_types import run_migration as run_relation_entity_type_sync_migration
             run_relation_entity_type_sync_migration(db)
         except Exception as e:

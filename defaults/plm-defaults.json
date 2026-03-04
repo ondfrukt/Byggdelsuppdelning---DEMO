@@ -1,0 +1,764 @@
+{
+  "version": 1,
+  "object_types": [
+    {
+      "name": "Anslutning",
+      "description": "Anslutningar mellan byggdelar",
+      "icon": "fa-link",
+      "id_prefix": null,
+      "color": "#f39c12",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "del_a",
+          "display_name": "Del A",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Används för att autogenerera namn på anslutningen",
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "del_b",
+          "display_name": "Del B",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Används för att autogenerera namn på anslutningen",
+          "display_order": 4,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Anvisning",
+      "description": "Anvisningar och instruktioner",
+      "icon": "fa-book",
+      "id_prefix": null,
+      "color": "#34495e",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 2,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Byggdel",
+      "description": "Byggnadsdel eller konstruktionselement",
+      "icon": "fa-building",
+      "id_prefix": null,
+      "color": "#3498db",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 2,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Egenskap",
+      "description": "Egenskaper och värden för byggdelar",
+      "icon": "fa-tag",
+      "id_prefix": null,
+      "color": "#1abc9c",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "egenskapstyp",
+          "display_name": "Egenskapstyp",
+          "field_type": "select",
+          "field_options": [
+            "Brand",
+            "Ljud",
+            "Köldbrygga",
+            "U-värde",
+            "Fuktsäkerhet",
+            "Hållfasthet"
+          ],
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "värde",
+          "display_name": "Värde",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "enhet",
+          "display_name": "Enhet",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 4,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Filobjekt",
+      "description": "Filer och dokument",
+      "icon": "fa-file-pdf",
+      "id_prefix": null,
+      "color": "#9b59b6",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "ritningsnummer",
+          "display_name": "Ritningsnummer",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "revision",
+          "display_name": "Revision",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 4,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Kravställning",
+      "description": "Krav och specifikationer",
+      "icon": "fa-clipboard-check",
+      "id_prefix": null,
+      "color": "#e74c3c",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "kravställningstyp",
+          "display_name": "Kravställningstyp",
+          "field_type": "select",
+          "field_options": [
+            "Infästning",
+            "Drevmån",
+            "Fall",
+            "Minimimått",
+            "Maximimått",
+            "Tolerans"
+          ],
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "värde",
+          "display_name": "Värde",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "enhet",
+          "display_name": "Enhet",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 4,
+          "detail_width": null
+        },
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 5,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Produkt",
+      "description": "Produkter och artiklar",
+      "icon": "fa-box",
+      "id_prefix": null,
+      "color": "#2ecc71",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Namn",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primärt namn för objektet.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "artikelnummer",
+          "display_name": "Artikelnummer",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "tillverkare",
+          "display_name": "Tillverkare",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "beskrivning",
+          "display_name": "Beskrivning",
+          "field_type": "richtext",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Formaterad beskrivning av objektet.",
+          "display_order": 4,
+          "detail_width": null
+        },
+        {
+          "field_name": "länk",
+          "display_name": "Länk",
+          "field_type": "text",
+          "field_options": null,
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": null,
+          "display_order": 5,
+          "detail_width": null
+        }
+      ]
+    }
+  ],
+  "relation_types": [
+    {
+      "key": "applies_to",
+      "display_name": "Gäller för",
+      "description": "Används när source representerar ett krav, regel, anvisning eller annan styrande information som ska tolkas som att den gäller för target. Source kan gälla flera target och target kan omfattas av flera krav eller anvisningar. Typiska exempel: Kravställning gäller för Byggdel, Anvisning gäller för Modul, Regel gäller för System.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "connects_to",
+      "display_name": "Ansluter till",
+      "description": "Används när två objekt är kopplade via en fysisk eller logisk anslutning eller gränssnitt. Relation beskriver ett nätverk eller graf snarare än en hierarki. Ingen part äger den andra genom denna relation. Typiska exempel: Byggdel ansluter till Byggdel, System ansluter till System, Objekt är kopplat till annat objekt via anslutning.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": false,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "contains",
+      "display_name": "Innehåller",
+      "description": "Används när target är en strukturell del av source och ingår i dess interna uppbyggnad. Detta beskriver en hierarkisk relation där target normalt inte existerar som del av flera olika parents samtidigt. Typiska exempel: Teknisk beskrivning innehåller Tekniskt kapittel, Filobjekt innehåller Fil.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "one_to_many",
+      "is_directed": true,
+      "is_composition": true,
+      "inverse_key": null
+    },
+    {
+      "key": "references_object",
+      "display_name": "Refererar till",
+      "description": "Används när source hänvisar till target som information, dokumentation, relaterad entitet eller klassificering, utan att target är en fysisk del av source. Relation innebär spårbarhet eller kontext, inte användning eller ägande. Typiska exempel: Produkt refererar till Filobjekt, Byggdel refererar till Dokument, Objekt refererar till System.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "uses_object",
+      "display_name": "Använder",
+      "description": "Används när source använder, innehåller, består av eller på annat sätt nyttjar target som en del av sin lösning. Target är återanvändbar och ägs inte av source. Target kan användas av flera olika objekt samtidigt. Typiska exempel: Byggdel använder Produkt, Modul använder Produkt, Anslutning använder Produkt.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    }
+  ],
+  "relation_type_rules": [
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Byggdel",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Egenskap",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Kravställning",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anslutning",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Anvisning",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Produkt",
+      "target_object_type": "Filobjekt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Byggdel",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Egenskap",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Kravställning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Anslutning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Anvisning",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Filobjekt",
+      "target_object_type": "Produkt",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    }
+  ]
+}
