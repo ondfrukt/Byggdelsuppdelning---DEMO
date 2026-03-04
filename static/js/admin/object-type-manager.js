@@ -127,7 +127,7 @@ class ObjectTypeManager {
         
         container.innerHTML = this.objectTypes.map(type => {
             const color = getObjectTypeColor(type.name);
-            const nextNumber = Number(type.auto_id_next_number) || 1;
+            const nextNumber = Number(type.next_base_id_number) || 1;
             return `
                 <div class="type-card ${this.selectedType?.id === type.id ? 'selected' : ''}" 
                      onclick="adminManager.selectType(${type.id})"
@@ -185,7 +185,7 @@ class ObjectTypeManager {
                     </div>
                     <div class="detail-item">
                         <span class="detail-label">Nästa ID-nummer</span>
-                        <span class="detail-value">${this.selectedType.auto_id_next_number || 1}</span>
+                        <span class="detail-value">${this.selectedType.next_base_id_number || 1}</span>
                     </div>
                 </div>
                 

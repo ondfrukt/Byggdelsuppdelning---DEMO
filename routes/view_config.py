@@ -7,7 +7,30 @@ bp = Blueprint('view_config', __name__, url_prefix='/api/view-config')
 
 # Constants
 DEFAULT_DISPLAY_ORDER = 999
-DEFAULT_COLUMNS = ['auto_id', 'object_type', 'created_at']  # Default columns for list view
+DEFAULT_COLUMNS = ['id_full', 'object_type', 'created_at']  # Default columns for list view
+
+
+def _normalize_identifier_field_name(field_name):
+    return 'id_full' if field_name == 'auto_id' else field_name
+
+
+def _normalize_visible_columns(columns):
+    if not isinstance(columns, list):
+        return columns
+    normalized = []
+    for column in columns:
+        if not isinstance(column, dict):
+            continue
+        item = dict(column)
+        item['field_name'] = _normalize_identifier_field_name(item.get('field_name'))
+        normalized.append(item)
+    return normalized
+
+
+def _normalize_column_order(column_order):
+    if not isinstance(column_order, list):
+        return column_order
+    return [_normalize_identifier_field_name(name) for name in column_order]
 
 
 @bp.route('/tree-display', methods=['GET'])
@@ -134,10 +157,11 @@ def get_list_view_config():
             
             # Build default visible columns if not configured
             visible_columns = config.visible_columns if config and config.visible_columns else None
+            visible_columns = _normalize_visible_columns(visible_columns)
             if not visible_columns:
                 # Default: show ID, first 3 metadata fields, and created_at
                 visible_columns = []
-                visible_columns.append({'field_name': 'auto_id', 'visible': True, 'width': 120})
+                visible_columns.append({'field_name': 'id_full', 'visible': True, 'width': 120})
                 for i, field in enumerate(available_fields[:3]):
                     visible_columns.append({
                         'field_name': field['field_name'],
@@ -147,9 +171,10 @@ def get_list_view_config():
                 visible_columns.append({'field_name': 'created_at', 'visible': True, 'width': 150})
             
             column_order = config.column_order if config and config.column_order else None
+            column_order = _normalize_column_order(column_order)
             if not column_order:
                 # Default order: ID, metadata fields, created_at
-                column_order = ['auto_id'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
+                column_order = ['id_full'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
             
             result[obj_type.name] = {
                 'object_type_id': obj_type.id,
@@ -183,6 +208,8 @@ def update_list_view_config():
             visible_columns = config_data.get('visible_columns')
             column_order = config_data.get('column_order')
             column_widths = config_data.get('column_widths')
+            visible_columns = _normalize_visible_columns(visible_columns)
+            column_order = _normalize_column_order(column_order)
             
             if not object_type_id:
                 continue
@@ -254,9 +281,10 @@ def get_list_view_config_by_type(object_type_id):
         
         # Build default visible columns if not configured
         visible_columns = config.visible_columns if config and config.visible_columns else None
+        visible_columns = _normalize_visible_columns(visible_columns)
         if not visible_columns:
             visible_columns = []
-            visible_columns.append({'field_name': 'auto_id', 'visible': True, 'width': 120})
+            visible_columns.append({'field_name': 'id_full', 'visible': True, 'width': 120})
             for i, field in enumerate(available_fields[:3]):
                 visible_columns.append({
                     'field_name': field['field_name'],
@@ -266,8 +294,9 @@ def get_list_view_config_by_type(object_type_id):
             visible_columns.append({'field_name': 'created_at', 'visible': True, 'width': 150})
         
         column_order = config.column_order if config and config.column_order else None
+        column_order = _normalize_column_order(column_order)
         if not column_order:
-            column_order = ['auto_id'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
+            column_order = ['id_full'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
         
         result = {
             'object_type_id': object_type.id,

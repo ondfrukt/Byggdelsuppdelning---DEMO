@@ -1073,7 +1073,7 @@ class ObjectFormComponent {
     renderMetadataFields() {
         const statusValue = this.existingObject?.status || 'In work';
         const versionValue = this.existingObject?.version || 'v1';
-        const baseIdValue = this.existingObject?.main_id || this.existingObject?.auto_id || '';
+        const baseIdValue = this.existingObject?.main_id || this.existingObject?.id_full || '';
         const isEditLikeMode = Boolean(this.existingObject?.id);
         
         return `

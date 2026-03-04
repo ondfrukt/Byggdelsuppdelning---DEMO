@@ -16,7 +16,7 @@ class FileObjectsViewComponent {
     }
 
     getDisplayName(obj) {
-        return obj?.data?.Namn || obj?.data?.namn || obj?.data?.Name || obj?.data?.name || obj?.auto_id || 'Namnlöst objekt';
+        return obj?.data?.Namn || obj?.data?.namn || obj?.data?.Name || obj?.data?.name || obj?.id_full || 'Namnlöst objekt';
     }
 
     async loadRows() {
@@ -43,7 +43,7 @@ class FileObjectsViewComponent {
 
             return {
                 id: obj.id,
-                autoId: obj.auto_id || 'N/A',
+                autoId: obj.id_full || 'N/A',
                 displayName: this.getDisplayName(obj),
                 typeName: obj.object_type?.name || 'N/A',
                 documentsCount,

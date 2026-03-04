@@ -134,8 +134,8 @@ class RelationManagerComponent {
                 relation_id: Number(relation.id),
                 owner_object_id: relationOwnerObjectId,
                 linked_object_id: Number(linkedObject?.id),
-                auto_id: linkedObject?.id_full || linkedObject?.auto_id || 'N/A',
-                name: linkedObject?.data?.namn || linkedObject?.data?.Namn || linkedObject?.data?.name || linkedObject?.id_full || linkedObject?.auto_id || 'Okänt objekt',
+                id_full: linkedObject?.id_full || linkedObject?.id_full || 'N/A',
+                name: linkedObject?.data?.namn || linkedObject?.data?.Namn || linkedObject?.data?.name || linkedObject?.id_full || linkedObject?.id_full || 'Okänt objekt',
                 type: linkedObject?.object_type?.name || 'N/A',
                 description: relation.description || linkedObject?.data?.beskrivning || linkedObject?.data?.description || ''
             };
@@ -149,10 +149,10 @@ class RelationManagerComponent {
             globalSearch: false,
             columns: [
                 {
-                    field: 'auto_id',
+                    field: 'id_full',
                     label: 'ID',
                     className: 'col-id',
-                    render: (row, table) => `<a href="#" class="relation-link" data-object-id="${row.linked_object_id}">${table.highlightText(row.auto_id, 'auto_id')}</a>`
+                    render: (row, table) => `<a href="#" class="relation-link" data-object-id="${row.linked_object_id}">${table.highlightText(row.id_full, 'id_full')}</a>`
                 },
                 {
                     field: 'type',
@@ -214,8 +214,8 @@ class RelationManagerComponent {
             const typeCompare = aType.localeCompare(bType, 'sv', { sensitivity: 'base' });
             if (typeCompare !== 0) return typeCompare;
 
-            const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.id_full || aObj?.auto_id || '');
-            const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.id_full || bObj?.auto_id || '');
+            const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.id_full || aObj?.id_full || '');
+            const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.id_full || bObj?.id_full || '');
             return aName.localeCompare(bName, 'sv', { sensitivity: 'base' });
         });
 
@@ -250,8 +250,8 @@ class RelationManagerComponent {
 
     renderRelationRow(relation) {
         const linkedObject = this.getLinkedObject(relation);
-        const displayName = linkedObject.data?.namn || linkedObject.data?.Namn || linkedObject.data?.name || linkedObject.id_full || linkedObject.auto_id || 'Okänt objekt';
-        const autoId = linkedObject.id_full || linkedObject.auto_id || 'N/A';
+        const displayName = linkedObject.data?.namn || linkedObject.data?.Namn || linkedObject.data?.name || linkedObject.id_full || linkedObject.id_full || 'Okänt objekt';
+        const autoId = linkedObject.id_full || linkedObject.id_full || 'N/A';
         const typeName = linkedObject.object_type?.name || 'N/A';
         const relationOwnerObjectId = relation.direction === 'incoming' ? parseInt(relation.target_object_id, 10) : parseInt(relation.source_object_id, 10);
 
@@ -293,7 +293,7 @@ function setRelationModalFeedback(message = '', type = 'error') {
 }
 
 function getObjectDisplayName(obj) {
-    return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.id_full || obj?.auto_id || 'Okänt objekt';
+    return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.id_full || obj?.id_full || 'Okänt objekt';
 }
 
 function isFileObjectType(typeName) {
@@ -345,7 +345,7 @@ function renderRelationModalSourceContext() {
     const sourceIds = Array.isArray(relationModalState.sourceIds) ? relationModalState.sourceIds : [];
     if (sourceIds.length > 1) {
         const labels = relationModalState.sourceObjects
-            .map(sourceObject => `${sourceObject.id_full || sourceObject.auto_id || sourceObject.id} • ${getObjectDisplayName(sourceObject)}`)
+            .map(sourceObject => `${sourceObject.id_full || sourceObject.id_full || sourceObject.id} • ${getObjectDisplayName(sourceObject)}`)
             .slice(0, 3);
         const summary = labels.length ? labels.join(', ') : sourceIds.map(id => `ID ${id}`).slice(0, 3).join(', ');
         const extraCount = Math.max(sourceIds.length - 3, 0);
@@ -361,7 +361,7 @@ function renderRelationModalSourceContext() {
     }
 
     const sourceObject = relationModalState.sourceObject;
-    const autoId = sourceObject.id_full || sourceObject.auto_id || relationModalState.sourceId;
+    const autoId = sourceObject.id_full || sourceObject.id_full || relationModalState.sourceId;
     const displayName = getObjectDisplayName(sourceObject);
     sourceElement.textContent = `Källobjekt: ${autoId} • ${displayName}`;
 }
@@ -454,7 +454,7 @@ function applyRelationTableFilters() {
 
         const searchableValues = [
             getObjectDisplayName(item),
-            item.id_full || item.auto_id || '',
+            item.id_full || item.id_full || '',
             item.object_type?.name || '',
             item.data?.namn || '',
             item.data?.name || '',

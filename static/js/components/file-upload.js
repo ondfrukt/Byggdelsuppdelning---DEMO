@@ -463,8 +463,8 @@ class FileUploadComponent {
                             ...doc,
                             relationId: item.relationId,
                             linkedObjectId: linkedObject.id,
-                            linkedObjectAutoId: linkedObject.auto_id,
-                            linkedObjectName: linkedObject.data?.Namn || linkedObject.data?.namn || linkedObject.data?.name || linkedObject.auto_id || 'Filobjekt'
+                            linkedObjectAutoId: linkedObject.id_full,
+                            linkedObjectName: linkedObject.data?.Namn || linkedObject.data?.namn || linkedObject.data?.name || linkedObject.id_full || 'Filobjekt'
                         }));
                     } catch (error) {
                         console.error('Failed to load documents for linked file object:', linkedObject.id, error);
@@ -540,13 +540,13 @@ class FileUploadComponent {
 
         container.innerHTML = this.linkedDocumentObjects.map(item => {
             const obj = item.linkedObject || {};
-            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id || 'Okänt objekt';
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.id_full || 'Okänt objekt';
             return `
                 <div class="document-item ${this.compactMode ? 'compact' : ''}">
                     <div class="document-icon">🔗</div>
                     <div class="document-info">
                         <strong>${escapeHtml(displayName)}</strong>
-                        <small>${escapeHtml(obj.auto_id || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
+                        <small>${escapeHtml(obj.id_full || 'N/A')} • ${escapeHtml(obj.object_type?.name || 'Okänd typ')}</small>
                     </div>
                     <div class="document-actions">
                         <button class="btn btn-sm btn-secondary" onclick="viewObjectDetail(${parseInt(obj.id || 0, 10)})" title="Öppna objekt">${this.compactMode ? '↗' : 'Öppna'}</button>
@@ -788,19 +788,19 @@ class FileUploadComponent {
 
         const normalizedSearch = (searchTerm || '').toLowerCase();
         const filteredObjects = this.availableDocumentObjects.filter(obj => {
-            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id || '';
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.id_full || '';
             const metadata = this.buildMetadataSummary(obj.data);
             const metadataFullSearch = this.getMetadataSearchText(obj.data);
             const passesGlobal = !normalizedSearch || (
                 String(displayName).toLowerCase().includes(normalizedSearch) ||
-                String(obj.auto_id || '').toLowerCase().includes(normalizedSearch) ||
+                String(obj.id_full || '').toLowerCase().includes(normalizedSearch) ||
                 String(obj.object_type?.name || '').toLowerCase().includes(normalizedSearch) ||
                 String(metadata).toLowerCase().includes(normalizedSearch) ||
                 metadataFullSearch.includes(normalizedSearch)
             );
 
             const passesId = !this.existingDocumentColumnSearches.id ||
-                String(obj.auto_id || '').toLowerCase().includes(this.existingDocumentColumnSearches.id);
+                String(obj.id_full || '').toLowerCase().includes(this.existingDocumentColumnSearches.id);
             const passesName = !this.existingDocumentColumnSearches.name ||
                 String(displayName).toLowerCase().includes(this.existingDocumentColumnSearches.name);
             const passesType = !this.existingDocumentColumnSearches.type ||
@@ -820,12 +820,12 @@ class FileUploadComponent {
         }
 
         list.innerHTML = filteredObjects.map(obj => {
-            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.auto_id;
+            const displayName = obj.data?.Namn || obj.data?.namn || obj.data?.name || obj.id_full;
             const metadata = this.buildMetadataSummary(obj.data);
             return `
                 <tr>
                     <td class="col-actions"><input type="checkbox" value="${obj.id}" data-file-object-checkbox="true"></td>
-                    <td class="col-id" data-value="${escapeHtml(obj.auto_id || 'N/A')}"><strong>${escapeHtml(obj.auto_id || 'N/A')}</strong></td>
+                    <td class="col-id" data-value="${escapeHtml(obj.id_full || 'N/A')}"><strong>${escapeHtml(obj.id_full || 'N/A')}</strong></td>
                     <td class="col-name" data-value="${escapeHtml(displayName || '')}">${escapeHtml(displayName || 'Namnlöst objekt')}</td>
                     <td class="col-type" data-value="${escapeHtml(obj.object_type?.name || '')}">${escapeHtml(obj.object_type?.name || 'Okänd typ')}</td>
                     <td class="col-number" data-value="${parseInt(obj.documents_count || 0, 10)}">${parseInt(obj.documents_count || 0, 10)}</td>

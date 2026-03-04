@@ -338,7 +338,7 @@ class TreeView {
                     `;
                 }
                 if (column.id === 'id') {
-                    const displayId = node.id_full || node.auto_id || '';
+                    const displayId = node.id_full || node.id_full || '';
                     return `<td${classAttr}>${displayId ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(displayId, 'id')}</a>` : ''}</td>`;
                 }
                 if (column.id === 'type') {
@@ -467,7 +467,7 @@ class TreeView {
 
     getNodeSearchValue(node, field) {
         if (field === 'name') return node?.name || '';
-        if (field === 'id') return `${node?.id_full || ''} ${node?.auto_id || ''}`.trim();
+        if (field === 'id') return `${node?.id_full || ''} ${node?.id_full || ''}`.trim();
         if (field === 'type') return node?.type || '';
         if (field === 'kravtext') return node?.kravtext || '';
         if (field === 'beskrivning') return node?.beskrivning || '';

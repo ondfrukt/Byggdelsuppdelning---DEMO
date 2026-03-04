@@ -162,7 +162,7 @@ class ObjectListComponent {
                 fieldName !== preferredNameField && fieldName !== 'files'
             );
             const baseVisibleColumns = [
-                { field_name: 'auto_id', visible: true, width: 120 },
+                { field_name: 'id_full', visible: true, width: 120 },
                 { field_name: 'object_type', visible: true, width: 160 }
             ];
 
@@ -185,7 +185,7 @@ class ObjectListComponent {
                 available_fields,
                 visible_columns: baseVisibleColumns,
                 column_order: [
-                    'auto_id',
+                    'id_full',
                     'object_type',
                     ...(preferredNameField ? [preferredNameField] : []),
                     'files',
@@ -344,7 +344,7 @@ class ObjectListComponent {
         if (this.searchTerm) {
             const term = this.searchTerm.toLowerCase();
             filteredObjects = this.objects.filter(obj => {
-                return obj.auto_id.toLowerCase().includes(term) ||
+                return obj.id_full.toLowerCase().includes(term) ||
                        String(obj.id_full || '').toLowerCase().includes(term) ||
                        (obj.data && Object.values(obj.data).some(val => 
                            String(val).toLowerCase().includes(term)
@@ -384,7 +384,7 @@ class ObjectListComponent {
                         class="row-select-checkbox"
                         data-object-id="${obj.id}"
                         ${this.selectedObjectIds.has(Number(obj.id)) ? 'checked' : ''}
-                        aria-label="Markera objekt ${escapeHtml(obj.id_full || obj.auto_id || String(obj.id))}">
+                        aria-label="Markera objekt ${escapeHtml(obj.id_full || obj.id_full || String(obj.id))}">
                 </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
@@ -437,7 +437,7 @@ class ObjectListComponent {
     
     getVisibleColumns() {
         const lockedColumns = [
-            { field_name: 'auto_id', display_name: 'ID' },
+            { field_name: 'id_full', display_name: 'ID' },
             { field_name: 'object_type', display_name: 'Typ' }
         ];
 
@@ -504,7 +504,7 @@ class ObjectListComponent {
         
         // Mappning från fältnamn till CSS-klass
         const classMap = {
-            'auto_id': 'col-id',
+            'id_full': 'col-id',
             'created_at': 'col-date',
             'updated_at': 'col-date',
             'status': 'col-status',
@@ -608,7 +608,7 @@ class ObjectListComponent {
     }
     
     getColumnValue(obj, fieldName) {
-        if (fieldName === 'auto_id') return obj.id_full || obj.auto_id;
+        if (fieldName === 'id_full') return obj.id_full || obj.id_full;
         if (fieldName === 'object_type') return obj.object_type?.name || '';
         if (fieldName === 'files') return Array.isArray(obj.files) ? obj.files : [];
         if (fieldName === 'created_at') return obj.created_at;
@@ -623,7 +623,7 @@ class ObjectListComponent {
     }
     
     formatColumnValue(obj, fieldName, value, column = null) {
-        if (fieldName === 'auto_id') return `<strong>${obj.id_full || value}</strong>`;
+        if (fieldName === 'id_full') return `<strong>${obj.id_full || value}</strong>`;
         if (fieldName === 'object_type') {
             return `<span class="object-type-badge" style="background-color: ${getObjectTypeColor(value)}">
                 ${value || 'N/A'}
@@ -640,10 +640,10 @@ class ObjectListComponent {
         if (fieldName === 'actions') {
             return `
                 <div onclick="event.stopPropagation()" style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.id_full || obj.auto_id}">
+                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.id_full || obj.id_full}">
                         ✏️
                     </button>
-                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.id_full || obj.auto_id}">
+                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.id_full || obj.id_full}">
                         🗑️
                     </button>
                 </div>
@@ -853,7 +853,7 @@ class ObjectListComponent {
             return window.ObjectListDisplayName.resolveObjectDisplayName(obj, this.typeDisplayFieldMap);
         }
 
-        return obj?.data?.name || obj?.data?.title || obj?.data?.label || obj?.auto_id || '';
+        return obj?.data?.name || obj?.data?.title || obj?.data?.label || obj?.id_full || '';
     }
 
     normalizeTypeName(typeName) {
@@ -882,12 +882,12 @@ class ObjectListComponent {
         
         // Build list of all possible columns
         const allColumns = [
-            { field_name: 'auto_id', display_name: 'ID' },
+            { field_name: 'id_full', display_name: 'ID' },
             { field_name: 'object_type', display_name: 'Typ' },
             ...available_fields.map(f => ({ field_name: f.field_name, display_name: f.display_name })),
             { field_name: 'created_at', display_name: 'Skapad' }
         ];
-        const lockedFieldNames = new Set(['auto_id', 'object_type']);
+        const lockedFieldNames = new Set(['id_full', 'object_type']);
         
         container.innerHTML = allColumns.map(col => {
             const colConfig = visible_columns.find(c => c.field_name === col.field_name);
@@ -915,7 +915,7 @@ class ObjectListComponent {
     
     toggleColumnVisibility(fieldName, visible) {
         if (!this.viewConfig) return;
-        if (fieldName === 'auto_id' || fieldName === 'object_type') return;
+        if (fieldName === 'id_full' || fieldName === 'object_type') return;
         
         const visible_columns = this.viewConfig.visible_columns || [];
         const column_order = this.viewConfig.column_order || [];
@@ -1289,7 +1289,7 @@ class ObjectListComponent {
                     updatedCount += 1;
                 } catch (error) {
                     console.error(`Failed to update object ${obj.id}:`, error);
-                    errors.push(obj.auto_id || String(obj.id));
+                    errors.push(obj.id_full || String(obj.id));
                 }
             }
 

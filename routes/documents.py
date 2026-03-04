@@ -188,7 +188,7 @@ def upload_document(id):
         db.session.add(document)
         db.session.commit()
 
-        logger.info(f"Uploaded document {filename} for object {obj.auto_id}")
+        logger.info(f"Uploaded document {filename} for object {obj.id_full}")
         return jsonify(document.to_dict()), 201
     except HTTPException:
         raise

@@ -2,7 +2,7 @@
  * Main Application - Object-based Byggdelssystem
  */
 
-let currentView = 'objects';
+let currentView = 'tree';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     restoreDetailHistory();
     ensureDetailHistoryControls();
     updateDetailHistoryButtons();
-    await loadObjectsView();
+    await switchView('tree');
 });
 
 // Initialize navigation
@@ -63,12 +63,7 @@ function ensureTreeNavButton() {
     treeBtn.dataset.view = 'tree';
     treeBtn.textContent = 'Trädvy';
 
-    const adminBtn = nav.querySelector('.nav-btn[data-view="admin"]');
-    if (adminBtn) {
-        nav.insertBefore(treeBtn, adminBtn);
-    } else {
-        nav.appendChild(treeBtn);
-    }
+    nav.insertBefore(treeBtn, nav.firstChild);
 }
 
 // Switch between views
@@ -222,7 +217,7 @@ function updateDetailPanelHeader(object) {
         object?.data?.name ||
         object?.data?.title ||
         object?.id_full ||
-        object?.auto_id ||
+        object?.id_full ||
         'Objektdetaljer';
 
     if (panelTitle) {
@@ -378,7 +373,7 @@ function getObjectDisplayNameForDuplicate(obj) {
         obj.data?.Name ||
         obj.data?.name ||
         obj.id_full ||
-        obj.auto_id ||
+        obj.id_full ||
         'Okänt objekt'
     );
 }
@@ -401,7 +396,7 @@ function getDuplicateSortIndicator(field) {
 }
 
 function getDuplicateRowFieldValue(row, field) {
-    if (field === 'auto_id') return String(row.autoId || '');
+    if (field === 'id_full') return String(row.autoId || '');
     if (field === 'type') return String(row.type || '');
     if (field === 'name') return String(row.name || '');
     if (field === 'description') return String(getDuplicateRelationRowDescription(row) || '');
@@ -421,7 +416,7 @@ function buildDuplicateRelationRows() {
             key: `existing-${relation.id}`,
             kind: 'existing',
             id: relation.id,
-            autoId: linkedObject.id_full || linkedObject.auto_id || linkedObject.id || '?',
+            autoId: linkedObject.id_full || linkedObject.id_full || linkedObject.id || '?',
             type: linkedObject.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(linkedObject),
             description: linkedObject.data?.beskrivning || linkedObject.data?.description || '',
@@ -434,7 +429,7 @@ function buildDuplicateRelationRows() {
             key: `added-${obj.id}`,
             kind: 'added',
             id: obj.id,
-            autoId: obj.id_full || obj.auto_id || obj.id || '?',
+            autoId: obj.id_full || obj.id_full || obj.id || '?',
             type: obj.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(obj),
             description: obj.data?.beskrivning || obj.data?.description || '',
@@ -526,14 +521,14 @@ function renderDuplicateSelectionSection() {
                 <table class="data-table duplicate-relations-table">
                     <thead>
                         <tr>
-                            <th class="col-id" data-sortable="true" data-field="auto_id" style="cursor:pointer;">ID <span class="sort-indicator">${getDuplicateSortIndicator('auto_id')}</span></th>
+                            <th class="col-id" data-sortable="true" data-field="id_full" style="cursor:pointer;">ID <span class="sort-indicator">${getDuplicateSortIndicator('id_full')}</span></th>
                             <th class="col-type" data-sortable="true" data-field="type" style="cursor:pointer;">Typ <span class="sort-indicator">${getDuplicateSortIndicator('type')}</span></th>
                             <th class="col-name" data-sortable="true" data-field="name" style="cursor:pointer;">Namn <span class="sort-indicator">${getDuplicateSortIndicator('name')}</span></th>
                             <th class="col-description" data-sortable="true" data-field="description" style="cursor:pointer;">Beskrivning <span class="sort-indicator">${getDuplicateSortIndicator('description')}</span></th>
                             <th class="col-actions"></th>
                         </tr>
                         <tr class="column-search-row">
-                            <th class="col-id"><input type="text" class="column-search-input duplicate-column-search-input" data-field="auto_id" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.auto_id || ''))}"></th>
+                            <th class="col-id"><input type="text" class="column-search-input duplicate-column-search-input" data-field="id_full" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.id_full || ''))}"></th>
                             <th class="col-type"><input type="text" class="column-search-input duplicate-column-search-input" data-field="type" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.type || ''))}"></th>
                             <th class="col-name"><input type="text" class="column-search-input duplicate-column-search-input" data-field="name" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.name || ''))}"></th>
                             <th class="col-description"><input type="text" class="column-search-input duplicate-column-search-input" data-field="description" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.description || ''))}"></th>
@@ -791,7 +786,7 @@ async function showDuplicateObjectModal(objectId) {
         additionalObjects: new Map(),
         search: '',
         columnSearches: {
-            auto_id: '',
+            id_full: '',
             type: '',
             name: '',
             description: ''
@@ -1049,7 +1044,7 @@ function setCreateObjectRelationsVisible(visible) {
 }
 
 function getCreateObjectRelationLabel(item) {
-    const autoId = String(item?.auto_id || '').trim();
+    const autoId = String(item?.id_full || '').trim();
     const typeName = String(item?.type_name || '').trim();
     const name = String(item?.display_name || '').trim();
     if (autoId && typeName && name) return `${autoId} • ${typeName} • ${name}`;
@@ -1101,7 +1096,7 @@ async function openCreateObjectRelationPicker() {
                 const normalized = (Array.isArray(selectedItems) ? selectedItems : [])
                     .map(item => ({
                         id: Number(item?.id),
-                        auto_id: item?.auto_id || '',
+                        id_full: item?.id_full || '',
                         type_name: item?.object_type?.name || '',
                         display_name: getObjectDisplayName(item)
                     }))
@@ -1603,7 +1598,10 @@ async function saveObject(event) {
                 try {
                     const result = await ObjectsAPI.addRelationsBatch({
                         sourceId: createdObjectId,
-                        relations: selectedRelations.map(item => ({ targetId: item.id }))
+                        relations: selectedRelations.map(item => ({
+                            targetId: item.id,
+                            relationType: 'auto'
+                        }))
                     });
                     const createdCount = Number(result?.summary?.created || 0);
                     const failedCount = Number(result?.summary?.failed || 0);

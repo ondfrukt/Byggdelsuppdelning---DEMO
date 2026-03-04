@@ -1,6 +1,12 @@
 from flask import Blueprint, request, jsonify
 from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration
-from utils.auto_id_generator import generate_auto_id, compose_full_id, normalize_version
+from utils.auto_id_generator import (
+    generate_base_id,
+    compose_full_id,
+    normalize_version,
+    normalize_base_id,
+    get_next_version_for_base_id
+)
 from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
@@ -49,7 +55,7 @@ def get_display_name(obj, object_type_name, view_config):
             return str(configured_value)
 
     # Final fallback.
-    return obj.id_full or obj.auto_id
+    return obj.id_full
 
 
 def get_data_value_case_insensitive(data, field_name):
@@ -135,7 +141,6 @@ def build_tree_root_nodes(root_objects, view_config):
 
                 children_by_type[type_name].append({
                     'id': str(linked_object.id),
-                    'auto_id': linked_object.auto_id,
                     'id_full': linked_object.id_full,
                     'name': display_name,
                     'type': type_name,
@@ -161,7 +166,6 @@ def build_tree_root_nodes(root_objects, view_config):
 
         tree_nodes.append({
             'id': str(root_object.id),
-            'auto_id': root_object.auto_id,
             'id_full': root_object.id_full,
             'name': root_display_name,
             'type': root_type_name,
@@ -437,9 +441,6 @@ def list_objects():
             search_lower = search.lower()
             filtered_objects = []
             for obj in objects:
-                if search_lower in (obj.auto_id or '').lower():
-                    filtered_objects.append(obj)
-                    continue
                 if search_lower in (obj.id_full or '').lower():
                     filtered_objects.append(obj)
                     continue
@@ -454,7 +455,6 @@ def list_objects():
             data = obj.to_dict(include_data=True).get('data', {})
             payload = {
                 'id': obj.id,
-                'auto_id': obj.auto_id,
                 'id_full': obj.id_full,
                 'object_type': {
                     'id': obj.object_type.id if obj.object_type else None,
@@ -581,19 +581,26 @@ def create_object():
         if not is_valid:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
         
-        # Generate auto ID
-        auto_id = generate_auto_id(object_type.name)
-        
-        # Generate BaseID and version for new objects
-        status = data.get('status', 'In work')
-        version = normalize_version(data.get('version') or 'v1')
-        main_id = auto_id
+        # Generate BaseID + version. If main_id is provided, create a version in that series.
+        requested_main_id = normalize_base_id(data.get('main_id'))
+        if requested_main_id:
+            main_id = requested_main_id
+            requested_version = data.get('version')
+            version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
+        else:
+            main_id = generate_base_id(object_type.name)
+            version = normalize_version(data.get('version') or 'v1')
+
         id_full = compose_full_id(main_id, version)
+
+        if Object.query.filter_by(id_full=id_full).first():
+            return jsonify({'error': f'Object with ID {id_full} already exists'}), 409
+
+        status = data.get('status', 'In work')
         
         # Create object
         obj = Object(
             object_type_id=object_type.id,
-            auto_id=auto_id,
             created_by=data.get('created_by'),
             status=status,
             version=version,
@@ -621,7 +628,7 @@ def create_object():
         
         db.session.commit()
         
-        logger.info(f"Created object: {obj.auto_id}")
+        logger.info(f"Created object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 201
     except Exception as e:
         db.session.rollback()
@@ -740,7 +747,7 @@ def update_object(id):
         obj.updated_at = datetime.utcnow()
         db.session.commit()
         
-        logger.info(f"Updated object: {obj.auto_id}")
+        logger.info(f"Updated object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 200
     except Exception as e:
         db.session.rollback()
@@ -869,15 +876,18 @@ def duplicate_object(id):
                 if str(target_id).isdigit()
             ]
 
-        # Generate fresh base ID and ID/version for the duplicated object.
-        auto_id = generate_auto_id(object_type.name)
-        main_id = auto_id
-        version = normalize_version('v1')
+        # Create a new version on the same BaseID by default.
+        source_base_id = normalize_base_id(source.main_id or source.id_full)
+        main_id = normalize_base_id(payload.get('main_id')) or source_base_id
+        requested_version = payload.get('version')
+        version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
         id_full = compose_full_id(main_id, version)
+
+        if Object.query.filter_by(id_full=id_full).first():
+            return jsonify({'error': f'Object with ID {id_full} already exists'}), 409
 
         duplicate = Object(
             object_type_id=object_type.id,
-            auto_id=auto_id,
             created_by=source.created_by,
             status=status,
             version=version,
@@ -961,7 +971,7 @@ def duplicate_object(id):
 
         db.session.commit()
 
-        logger.info(f"Duplicated object {source.auto_id} -> {duplicate.auto_id}")
+        logger.info(f"Duplicated object {source.id_full} -> {duplicate.id_full}")
         return jsonify(duplicate.to_dict(include_data=True, include_relations=True)), 201
     except Exception as e:
         db.session.rollback()
@@ -974,7 +984,7 @@ def delete_object(id):
     """Delete an object"""
     try:
         obj = Object.query.get_or_404(id)
-        auto_id = obj.auto_id
+        object_id_full = obj.id_full
 
         removed_paths = []
         for document in list(obj.documents):
@@ -986,7 +996,7 @@ def delete_object(id):
         db.session.delete(obj)
         db.session.commit()
         
-        logger.info(f"Deleted object: {auto_id}; removed_files={removed_paths}")
+        logger.info(f"Deleted object: {object_id_full}; removed_files={removed_paths}")
         return jsonify({'message': 'Object deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()

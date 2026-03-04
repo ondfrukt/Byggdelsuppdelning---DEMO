@@ -1,5 +1,4 @@
 from models import db, ObjectType, ObjectField, Object, ObjectData, ObjectRelation, Document
-from utils.auto_id_generator import generate_auto_id
 from datetime import datetime, date
 import logging
 
@@ -141,7 +140,6 @@ def seed_data(app):
             
             byggdel_1 = Object(
                 object_type_id=byggdel_type.id,
-                auto_id=generate_auto_id('Byggdel'),
                 status='Released',
                 version='v1',
                 main_id='BYG-1',
@@ -163,7 +161,6 @@ def seed_data(app):
             
             byggdel_2 = Object(
                 object_type_id=byggdel_type.id,
-                auto_id=generate_auto_id('Byggdel'),
                 status='Released',
                 version='v1',
                 main_id='BYG-2',
@@ -185,7 +182,6 @@ def seed_data(app):
             
             byggdel_3 = Object(
                 object_type_id=byggdel_type.id,
-                auto_id=generate_auto_id('Byggdel'),
                 status='Released',
                 version='v1',
                 main_id='BYG-3',
@@ -223,7 +219,6 @@ def seed_data(app):
                 main_id = f'EGE-{idx}'
                 eg = Object(
                     object_type_id=egenskap_type.id,
-                    auto_id=generate_auto_id('Egenskap'),
                     status='Released',
                     version='v1',
                     main_id=main_id,
@@ -257,7 +252,6 @@ def seed_data(app):
                 main_id = f'KRA-{idx}'
                 kr = Object(
                     object_type_id=krav_type.id,
-                    auto_id=generate_auto_id('Kravställning'),
                     status='Released',
                     version='v1',
                     main_id=main_id,
@@ -292,7 +286,6 @@ def seed_data(app):
                 main_id = f'PROD-{idx}'
                 pr = Object(
                     object_type_id=produkt_type.id,
-                    auto_id=generate_auto_id('Produkt'),
                     status='Released',
                     version='v1',
                     main_id=main_id,
@@ -317,7 +310,6 @@ def seed_data(app):
             
             anslutning_1 = Object(
                 object_type_id=anslutning_type.id,
-                auto_id=generate_auto_id('Anslutning'),
                 status='Released',
                 version='v1',
                 main_id='ANS-1',
@@ -339,7 +331,6 @@ def seed_data(app):
             
             anslutning_2 = Object(
                 object_type_id=anslutning_type.id,
-                auto_id=generate_auto_id('Anslutning'),
                 status='Released',
                 version='v1',
                 main_id='ANS-2',
@@ -365,7 +356,6 @@ def seed_data(app):
             
             anvisning_1 = Object(
                 object_type_id=anvisning_type.id,
-                auto_id=generate_auto_id('Anvisning'),
                 status='Released',
                 version='v1',
                 main_id='ANV-1',
@@ -387,7 +377,6 @@ def seed_data(app):
             
             anvisning_2 = Object(
                 object_type_id=anvisning_type.id,
-                auto_id=generate_auto_id('Anvisning'),
                 status='Released',
                 version='v1',
                 main_id='ANV-2',

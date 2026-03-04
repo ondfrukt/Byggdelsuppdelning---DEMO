@@ -51,7 +51,7 @@ class ObjectDetailPanel {
         }
         
         const obj = this.objectData;
-        const displayName = obj.data?.Namn || obj.data?.namn || obj.auto_id;
+        const displayName = obj.data?.Namn || obj.data?.namn || obj.id_full;
         
         // Determine CSS class based on layout
         const panelClass = this.options.layout === 'detail' ? 'detail-panel-content-inner' : 'side-panel';
@@ -124,7 +124,7 @@ class ObjectDetailPanel {
                 <div class="side-panel-header">
                     <div>
                         <h3>${displayName}</h3>
-                        <p class="side-panel-subtitle">${obj.id_full || obj.auto_id} • ${obj.object_type?.name || 'Objekt'}</p>
+                        <p class="side-panel-subtitle">${obj.id_full || obj.id_full} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
                     <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
                 </div>
@@ -203,7 +203,7 @@ class ObjectDetailPanel {
                 <div class="detail-list-header">
                     <div class="detail-header-item">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value"><strong>${obj.id_full || obj.auto_id}</strong></span>
+                        <span class="detail-value"><strong>${obj.id_full || obj.id_full}</strong></span>
                     </div>
                     <div class="detail-header-item">
                         <span class="detail-label">Typ</span>
@@ -229,7 +229,7 @@ class ObjectDetailPanel {
                     </div>
                     <div class="detail-header-item">
                         <span class="detail-label">BaseID</span>
-                        <span class="detail-value">${obj.main_id || obj.auto_id || 'N/A'}</span>
+                        <span class="detail-value">${obj.main_id || obj.id_full || 'N/A'}</span>
                     </div>
                 </div>
             `;

@@ -2,7 +2,7 @@
 Migration: Normalize object identifiers to baseID/version/full ID format.
 
 Target format:
-- baseID (stored in auto_id and main_id): PREFIX-<number> without zero padding
+- baseID (stored in main_id): PREFIX-<number> without zero padding
 - version: v<number> without zero padding
 - full ID (id_full): <baseID>.<version>
 """
@@ -10,6 +10,7 @@ import logging
 import re
 from models import Object
 from utils.auto_id_generator import compose_full_id, normalize_version, get_object_type_prefix
+from sqlalchemy import text
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,8 @@ def _extract_numeric_suffix(identifier, expected_prefix=None):
     return int(generic.group(2))
 
 
-def _normalize_base_id(auto_id, main_id, fallback_prefix):
-    source = str(auto_id or main_id or '').strip()
+def _normalize_base_id(main_id, id_full, fallback_prefix):
+    source = str(main_id or id_full or '').strip()
     if not source:
         return f"{fallback_prefix}-1"
 
@@ -61,45 +62,19 @@ def run_migration(db):
             logger.info("No objects found for identifier normalization migration")
             return 0
 
-        max_numbers_by_prefix = {}
-        for obj in objects:
-            candidate = obj.auto_id or obj.main_id
-            if not candidate:
-                continue
-            match = re.match(r'^([A-Za-z0-9_]+)-(\d+)$', str(candidate).split('.')[0].strip(), flags=re.IGNORECASE)
-            if not match:
-                continue
-            prefix = match.group(1).upper()
-            number = int(match.group(2))
-            max_numbers_by_prefix[prefix] = max(max_numbers_by_prefix.get(prefix, 0), number)
-
-        used_base_ids = set()
         updated = 0
 
         for obj in objects:
             fallback_prefix = get_object_type_prefix(obj.object_type.name if obj.object_type else '')
-            normalized_base = _normalize_base_id(obj.auto_id, obj.main_id, fallback_prefix)
+            normalized_base = _normalize_base_id(obj.main_id, obj.id_full, fallback_prefix)
             normalized_version = normalize_version(obj.version)
-
-            # Guarantee uniqueness of base IDs after removing zero padding.
-            if normalized_base in used_base_ids:
-                prefix = normalized_base.split('-')[0].upper()
-                next_number = max_numbers_by_prefix.get(prefix, 0) + 1
-                while f"{prefix}-{next_number}" in used_base_ids:
-                    next_number += 1
-                normalized_base = f"{prefix}-{next_number}"
-                max_numbers_by_prefix[prefix] = next_number
-
-            used_base_ids.add(normalized_base)
             normalized_full = compose_full_id(normalized_base, normalized_version)
 
             if (
-                obj.auto_id != normalized_base
-                or obj.main_id != normalized_base
+                obj.main_id != normalized_base
                 or obj.version != normalized_version
                 or obj.id_full != normalized_full
             ):
-                obj.auto_id = normalized_base
                 obj.main_id = normalized_base
                 obj.version = normalized_version
                 obj.id_full = normalized_full
@@ -109,6 +84,33 @@ def run_migration(db):
             db.session.commit()
         else:
             db.session.rollback()
+
+        duplicates = db.session.execute(text("""
+            SELECT id_full, COUNT(*) AS c
+            FROM objects
+            GROUP BY id_full
+            HAVING c > 1
+        """)).fetchall()
+        if duplicates:
+            logger.warning("Skipped unique index on objects.id_full due to duplicate values")
+            return updated
+
+        indexes = db.session.execute(text("PRAGMA index_list('objects')")).fetchall()
+        has_unique_id_full_index = False
+        for index in indexes:
+            index_name = index[1]
+            is_unique = bool(index[2])
+            if not is_unique:
+                continue
+            index_info = db.session.execute(text(f"PRAGMA index_info('{index_name}')")).fetchall()
+            columns = [item[2] for item in index_info]
+            if columns == ['id_full']:
+                has_unique_id_full_index = True
+                break
+
+        if not has_unique_id_full_index:
+            db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_objects_id_full ON objects(id_full)"))
+            db.session.commit()
 
         logger.info(f"Identifier normalization migration completed; updated={updated}")
         return updated

@@ -34,10 +34,6 @@ def search():
         query_lower = query_string.lower()
         
         for obj in objects:
-            # Check auto_id
-            if query_lower in obj.auto_id.lower():
-                results.append(obj)
-                continue
             if query_lower in str(obj.id_full or '').lower():
                 results.append(obj)
                 continue

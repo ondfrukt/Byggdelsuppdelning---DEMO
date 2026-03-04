@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, abort, render_template
 from flask_cors import CORS
 from config import Config
 from models import db
@@ -6,6 +6,7 @@ from new_database import init_db, seed_data
 from routes import register_blueprints
 import logging
 import os
+from urllib.parse import urlparse
 
 # Configure logging
 logging.basicConfig(
@@ -13,6 +14,19 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
+def sanitize_database_uri(uri):
+    """Return DB URI without credentials for safe display in templates."""
+    if not uri:
+        return "okänd"
+    parsed = urlparse(uri)
+    if not parsed.scheme:
+        return uri
+    host = parsed.hostname or "okänd-host"
+    port = f":{parsed.port}" if parsed.port else ""
+    db_name = (parsed.path or "/").lstrip("/") or "okänd-databas"
+    return f"{parsed.scheme}://{host}{port}/{db_name}"
 
 def create_app():
     """Application factory pattern"""
@@ -97,6 +111,12 @@ def create_app():
             run_identifier_migration(db)
         except Exception as e:
             logger.warning(f"Identifier normalization migration may have already run: {str(e)}")
+
+        try:
+            from migrations.remove_auto_id_from_objects import run_migration as run_remove_auto_id_migration
+            run_remove_auto_id_migration(db)
+        except Exception as e:
+            logger.warning(f"Remove auto_id migration may have already run: {str(e)}")
 
         try:
             from migrations.migrate_direct_links_to_relations import run_migration as run_relation_migration
@@ -193,6 +213,12 @@ def create_app():
             logger.warning(f"Identifier normalization post-seed migration may have already run: {str(e)}")
 
         try:
+            from migrations.remove_auto_id_from_objects import run_migration as run_remove_auto_id_migration
+            run_remove_auto_id_migration(db)
+        except Exception as e:
+            logger.warning(f"Remove auto_id post-seed migration may have already run: {str(e)}")
+
+        try:
             from migrations.sync_existing_relation_entity_types import run_migration as run_relation_entity_type_sync_migration
             run_relation_entity_type_sync_migration(db)
         except Exception as e:
@@ -205,6 +231,23 @@ def create_app():
     @app.route('/')
     def index():
         return render_template('index.html')
+
+    @app.route('/testsida')
+    def testsida():
+        branch_name = (
+            os.environ.get('RENDER_GIT_BRANCH')
+            or os.environ.get('BRANCH_NAME')
+            or 'lokal'
+        )
+        if branch_name.lower() not in {'develop', 'lokal', 'local'}:
+            abort(404)
+        using_main_database = branch_name.lower() == 'develop' and bool(os.environ.get('MAIN_DATABASE_URL'))
+        return render_template(
+            'testsida.html',
+            branch_name=branch_name,
+            database_uri=sanitize_database_uri(app.config.get('SQLALCHEMY_DATABASE_URI')),
+            using_main_database=using_main_database,
+        )
     
     @app.route('/health')
     def health():
