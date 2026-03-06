@@ -281,20 +281,22 @@ function getManagedListLocaleParam() {
 }
 
 const ManagedListsAPI = {
-    getAll: (includeInactive = false, includeItems = false) => {
+    getAll: (includeInactive = false, includeItems = false, includeLinks = false) => {
         const params = new URLSearchParams();
         if (includeInactive) params.append('include_inactive', 'true');
         if (includeItems) params.append('include_items', 'true');
+        if (includeLinks) params.append('include_links', 'true');
         const locale = getManagedListLocaleParam();
         if (locale) params.append('locale', locale);
         const query = params.toString();
         return fetchAPI(`/managed-lists${query ? '?' + query : ''}`);
     },
 
-    getById: (id, includeItems = true, includeInactiveItems = false) => {
+    getById: (id, includeItems = true, includeInactiveItems = false, includeLinks = false) => {
         const params = new URLSearchParams();
         if (includeItems) params.append('include_items', 'true');
         if (includeInactiveItems) params.append('include_inactive_items', 'true');
+        if (includeLinks) params.append('include_links', 'true');
         const locale = getManagedListLocaleParam();
         if (locale) params.append('locale', locale);
         const query = params.toString();
@@ -305,9 +307,20 @@ const ManagedListsAPI = {
     update: (id, data) => fetchAPI(`/managed-lists/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     delete: (id) => fetchAPI(`/managed-lists/${id}`, { method: 'DELETE' }),
 
-    getItems: (listId, includeInactive = false) => {
+    getItems: (listId, includeInactive = false, filters = {}) => {
         const params = new URLSearchParams();
         if (includeInactive) params.append('include_inactive', 'true');
+        if (filters.parent_item_id) params.append('parent_item_id', String(filters.parent_item_id));
+        if (filters.parent_list_id) params.append('parent_list_id', String(filters.parent_list_id));
+        if (filters.list_link_id) params.append('list_link_id', String(filters.list_link_id));
+        if (Object.prototype.hasOwnProperty.call(filters, 'tree_parent_item_id')) {
+            const raw = filters.tree_parent_item_id;
+            if (raw === null || raw === '' || raw === undefined) {
+                params.append('tree_parent_item_id', 'null');
+            } else {
+                params.append('tree_parent_item_id', String(raw));
+            }
+        }
         const locale = getManagedListLocaleParam();
         if (locale) params.append('locale', locale);
         const query = params.toString();
@@ -315,7 +328,91 @@ const ManagedListsAPI = {
     },
     addItem: (listId, data) => fetchAPI(`/managed-lists/${listId}/items`, { method: 'POST', body: JSON.stringify(data) }),
     updateItem: (listId, itemId, data) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),
-    deleteItem: (listId, itemId) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'DELETE' })
+    deleteItem: (listId, itemId) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'DELETE' }),
+    getLinks: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.include_inactive) params.append('include_inactive', 'true');
+        if (filters.parent_list_id) params.append('parent_list_id', String(filters.parent_list_id));
+        if (filters.child_list_id) params.append('child_list_id', String(filters.child_list_id));
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/links${query ? '?' + query : ''}`);
+    },
+    addLink: (data) => fetchAPI('/managed-lists/links', { method: 'POST', body: JSON.stringify(data) }),
+    deleteLink: (linkId) => fetchAPI(`/managed-lists/links/${linkId}`, { method: 'DELETE' }),
+    getItemLinks: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.include_inactive) params.append('include_inactive', 'true');
+        if (filters.list_link_id) params.append('list_link_id', String(filters.list_link_id));
+        if (filters.parent_item_id) params.append('parent_item_id', String(filters.parent_item_id));
+        if (filters.child_item_id) params.append('child_item_id', String(filters.child_item_id));
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/item-links${query ? '?' + query : ''}`);
+    },
+    addItemLink: (data) => fetchAPI('/managed-lists/item-links', { method: 'POST', body: JSON.stringify(data) }),
+    deleteItemLink: (itemLinkId) => fetchAPI(`/managed-lists/item-links/${itemLinkId}`, { method: 'DELETE' }),
+    getChildren: (listId, includeInactive = false) => {
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/${listId}/children${query ? '?' + query : ''}`);
+    },
+    getParents: (listId, includeInactive = false) => {
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/${listId}/parents${query ? '?' + query : ''}`);
+    }
+};
+
+const ListsAPI = {
+    getAll: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.include_inactive) params.append('include_inactive', 'true');
+        if (filters.search) params.append('search', String(filters.search));
+        const query = params.toString();
+        return fetchAPI(`/lists${query ? '?' + query : ''}`);
+    },
+    getById: (listId, includeItems = true, includeInactiveItems = true) => {
+        const params = new URLSearchParams();
+        if (includeItems) params.append('include_items', 'true');
+        if (includeInactiveItems) params.append('include_inactive_items', 'true');
+        const query = params.toString();
+        return fetchAPI(`/lists/${listId}${query ? '?' + query : ''}`);
+    },
+    create: (data) => fetchAPI('/lists', { method: 'POST', body: JSON.stringify(data) }),
+    update: (listId, data) => fetchAPI(`/lists/${listId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (listId) => fetchAPI(`/lists/${listId}`, { method: 'DELETE' }),
+    getTree: (listId, includeInactive = true) => {
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        const query = params.toString();
+        return fetchAPI(`/lists/${listId}/tree${query ? '?' + query : ''}`);
+    },
+    addItem: (listId, data) => fetchAPI(`/lists/${listId}/items`, { method: 'POST', body: JSON.stringify(data) }),
+    updateItem: (itemId, data) => fetchAPI(`/list-items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteItem: (itemId) => fetchAPI(`/list-items/${itemId}`, { method: 'DELETE' }),
+    moveItem: (itemId, data) => fetchAPI(`/list-items/${itemId}/move`, { method: 'POST', body: JSON.stringify(data) }),
+    export: (listId, format = 'json') => {
+        const safeFormat = String(format || 'json').toLowerCase();
+        window.open(`${API_BASE_URL}/lists/${listId}/export?format=${encodeURIComponent(safeFormat)}`, '_blank');
+    },
+    importJson: (listId, payload) => fetchAPI(`/lists/${listId}/import`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    })
+};
+
+const FieldBindingsAPI = {
+    getAll: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.list_id) params.append('list_id', String(filters.list_id));
+        if (filters.object_type) params.append('object_type', String(filters.object_type));
+        const query = params.toString();
+        return fetchAPI(`/field-bindings${query ? '?' + query : ''}`);
+    },
+    create: (data) => fetchAPI('/field-bindings', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id, data) => fetchAPI(`/field-bindings/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    delete: (id) => fetchAPI(`/field-bindings/${id}`, { method: 'DELETE' })
 };
 
 const RelationTypeRulesAPI = {

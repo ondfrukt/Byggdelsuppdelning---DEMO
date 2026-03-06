@@ -131,6 +131,7 @@ class ObjectDetailComponent {
                 objectTypeFields.map(field => [
                     String(field.field_name || '').trim().toLowerCase(),
                     {
+                        displayName: String(field.display_name || field.field_name || '').trim(),
                         fieldType: field.field_type,
                         isDetailVisible: field.is_detail_visible !== false
                     }
@@ -140,9 +141,10 @@ class ObjectDetailComponent {
                 const config = fieldConfigByName.get(String(key || '').trim().toLowerCase());
                 if (config && config.isDetailVisible === false) return;
                 const fieldType = config?.fieldType;
+                const label = config?.displayName || this.formatFieldName(key);
                 fields.push(`
                     <div class="detail-item">
-                        <span class="detail-label">${this.formatFieldName(key)}</span>
+                        <span class="detail-label">${escapeHtml(label)}</span>
                         <span class="detail-value">${this.formatValue(value, fieldType)}</span>
                     </div>
                 `);
@@ -168,7 +170,9 @@ class ObjectDetailComponent {
     }
     
     formatFieldName(name) {
-        return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ');
+        const normalized = String(name || '').trim();
+        if (!normalized) return 'Okänt fält';
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1).replace(/_/g, ' ');
     }
     
     formatValue(value, fieldType = undefined) {

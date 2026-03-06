@@ -9,6 +9,8 @@ class ObjectFormComponent {
         this.existingObject = existingObject;
         this.fields = [];
         this.managedListValues = {};
+        this.managedListItemsByListId = {};
+        this.managedListDependencyRequestTokens = {};
         this.richTextWindowState = null;
         this.richTextCopiedFormat = null;
         this.richTextApplyButtonApis = new Set();
@@ -44,21 +46,32 @@ class ObjectFormComponent {
             .filter(listId => Number.isFinite(listId) && listId > 0);
 
         this.managedListValues = {};
+        this.managedListItemsByListId = {};
         if (managedListIds.length > 0) {
             const uniqueIds = Array.from(new Set(managedListIds));
             await Promise.all(uniqueIds.map(async (listId) => {
                 try {
                     const managedList = await ManagedListsAPI.getById(listId, true, false);
-                    this.managedListValues[listId] = (managedList?.items || [])
+                    const items = (managedList?.items || [])
                         .filter(item => item.is_active !== false)
-                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                    this.managedListItemsByListId[listId] = items.map(item => ({
+                        id: Number(item.id),
+                        value: String(item.value || item.label || '').trim(),
+                        label: String(item.display_value || item.label || item.value || '').trim(),
+                        parent_item_id: Number(item.parent_item_id || 0) || null,
+                        is_selectable: item.is_selectable !== false
+                    })).filter(item => Number.isFinite(item.id));
+                    this.managedListValues[listId] = this.managedListItemsByListId[listId]
+                        .filter(item => item.is_selectable !== false)
                         .map(item => ({
-                            value: String(item.value || '').trim(),
-                            label: String(item.display_value || item.value || '').trim()
+                            value: String(item.id),
+                            label: item.label
                         }))
-                        .filter(item => item.value);
+                        .filter(item => item.value && item.label);
                 } catch (error) {
                     console.error(`Failed to load managed list ${listId} for object form:`, error);
+                    this.managedListItemsByListId[listId] = [];
                     this.managedListValues[listId] = [];
                 }
             }));
@@ -85,8 +98,128 @@ class ObjectFormComponent {
             </div>
         `;
 
+        this.setupManagedListDependencies(container);
         await this.initializeRichTextEditors(container);
         this.applyConnectionNameRules();
+    }
+
+    getManagedListFieldOptions(field) {
+        if (!field || String(field.field_type || '').toLowerCase() !== 'select') return null;
+        const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
+        if (normalizedOptions?.source !== 'managed_list') return null;
+        const listId = Number(normalizedOptions?.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return null;
+        return normalizedOptions;
+    }
+
+    getManagedListItemIdByValue(listId, value) {
+        const normalized = String(value || '').trim();
+        if (!normalized) return null;
+        const asInt = Number(normalized);
+        if (Number.isFinite(asInt) && asInt > 0) {
+            return asInt;
+        }
+        const items = this.managedListItemsByListId[Number(listId)] || [];
+        const found = items.find(item => String(item.value) === normalized);
+        return found ? Number(found.id) : null;
+    }
+
+    getManagedListSelectSelectedValue(listId, rawValue) {
+        const normalized = String(rawValue || '').trim();
+        if (!normalized) return '';
+        const asInt = Number(normalized);
+        if (Number.isFinite(asInt) && asInt > 0) return String(asInt);
+        const itemId = this.getManagedListItemIdByValue(listId, normalized);
+        return itemId ? String(itemId) : '';
+    }
+
+    renderSelectElementOptions(selectEl, options, selectedValue = '') {
+        if (!selectEl) return;
+        const safeSelected = String(selectedValue || '');
+        const optionsHtml = (options || []).map(opt => `
+            <option value="${escapeHtml(opt.value)}" ${String(opt.value) === safeSelected ? 'selected' : ''}>${escapeHtml(opt.label)}</option>
+        `).join('');
+        selectEl.innerHTML = `
+            <option value="">Välj...</option>
+            ${optionsHtml}
+        `;
+        if (safeSelected && !(options || []).some(opt => String(opt.value) === safeSelected)) {
+            selectEl.value = '';
+        }
+    }
+
+    async refreshDependentManagedListField(field, form) {
+        const options = this.getManagedListFieldOptions(field);
+        if (!options || !options.parent_field_name) return;
+
+        const childSelect = form?.elements?.[field.field_name];
+        const parentSelect = form?.elements?.[options.parent_field_name];
+        if (!childSelect || !parentSelect) return;
+
+        const childListId = Number(options.list_id);
+        const parentField = (this.fields || []).find(item => String(item.field_name) === String(options.parent_field_name));
+        const parentOptions = this.getManagedListFieldOptions(parentField);
+        const parentListId = Number(options.parent_list_id || parentOptions?.list_id || 0);
+        const parentItemId = this.getManagedListItemIdByValue(parentListId, parentSelect.value);
+        const requestKey = `${field.field_name}`;
+        const token = (this.managedListDependencyRequestTokens[requestKey] || 0) + 1;
+        this.managedListDependencyRequestTokens[requestKey] = token;
+
+        const currentSelected = String(childSelect.value || this.existingObject?.data?.[field.field_name] || '');
+
+        if (!parentItemId) {
+            this.renderSelectElementOptions(childSelect, [], currentSelected);
+            return;
+        }
+
+        try {
+            const filteredItems = await ManagedListsAPI.getItems(childListId, false, {
+                parent_item_id: parentItemId,
+                parent_list_id: parentListId > 0 ? parentListId : undefined,
+                list_link_id: Number(options.list_link_id || 0) || undefined
+            });
+            if (this.managedListDependencyRequestTokens[requestKey] !== token) return;
+
+            const mapped = (Array.isArray(filteredItems) ? filteredItems : [])
+                .filter(item => item && item.is_active !== false)
+                .map(item => ({
+                    value: String(item.id || '').trim(),
+                    label: String(item.display_value || item.label || item.value || '').trim(),
+                    is_selectable: item.is_selectable !== false
+                }))
+                .filter(item => item.value && item.is_selectable !== false);
+            const normalizedSelected = this.getManagedListSelectSelectedValue(childListId, currentSelected);
+            this.renderSelectElementOptions(childSelect, mapped, normalizedSelected);
+        } catch (error) {
+            console.error(`Failed to refresh dependent options for ${field.field_name}:`, error);
+            if (this.managedListDependencyRequestTokens[requestKey] !== token) return;
+            this.renderSelectElementOptions(childSelect, [], '');
+        }
+    }
+
+    setupManagedListDependencies(container) {
+        const form = document.getElementById('object-main-form');
+        if (!form || !container) return;
+
+        const dependentFields = (this.fields || []).filter(field => {
+            const options = this.getManagedListFieldOptions(field);
+            return options?.parent_field_name;
+        });
+        if (!dependentFields.length) return;
+
+        dependentFields.forEach((field) => {
+            const options = this.getManagedListFieldOptions(field);
+            if (!options) return;
+            const parentSelect = form.elements[options.parent_field_name];
+            if (!parentSelect) return;
+
+            const handler = () => {
+                this.refreshDependentManagedListField(field, form);
+            };
+            parentSelect.addEventListener('change', handler);
+            parentSelect.addEventListener('input', handler);
+            handler();
+        });
     }
 
     normalizeFieldKey(value) {
@@ -280,8 +413,12 @@ class ObjectFormComponent {
                 
             case 'select':
                 const options = this.getSelectOptions(field);
+                const managedOptions = this.getManagedListFieldOptions(field);
+                const selectedValue = managedOptions
+                    ? this.getManagedListSelectSelectedValue(Number(managedOptions.list_id), value)
+                    : String(value || '');
                 const optionsHtml = options.map(opt => 
-                    `<option value="${escapeHtml(opt.value)}" ${(String(value) === String(opt.value) || String(value) === String(opt.label)) ? 'selected' : ''}>
+                    `<option value="${escapeHtml(opt.value)}" ${(String(selectedValue) === String(opt.value)) ? 'selected' : ''}>
                         ${escapeHtml(opt.label)}
                     </option>`
                 ).join('');
@@ -1174,11 +1311,14 @@ class ObjectFormComponent {
     }
 
     getSelectOptions(field) {
-        const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
-        if (normalizedOptions?.source === 'managed_list') {
+        const normalizedOptions = this.getManagedListFieldOptions(field);
+        if (normalizedOptions) {
             const listId = Number(normalizedOptions?.list_id);
             if (!Number.isFinite(listId) || listId <= 0) return [];
-            return this.managedListValues[listId] || [];
+            if (normalizedOptions.parent_field_name) {
+                return [];
+            }
+            return (this.managedListValues[listId] || []).filter(item => item && item.value);
         }
         return this.parseOptions(field.field_options || field.options)
             .map(option => ({

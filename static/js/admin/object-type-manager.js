@@ -17,6 +17,21 @@ class ObjectTypeManager {
         this.fieldModalTypeListenerAttached = false;
         this.fieldTemplateModalBehaviorAttached = false;
         this.relationRuleTableState = null;
+        this.managedListLanguageUpdatePromise = Promise.resolve();
+        this.managedListLinks = [];
+        this.managedListItemLinks = [];
+        this.selectedManagedListTreeNodeId = null;
+        this.selectedManagedListTreeNodeIds = new Set();
+        this.managedListTreeSelectionAnchorId = null;
+        this.managedListVisibleNodeOrder = [];
+        this.managedListTreeExpandedNodeIds = new Set();
+        this.managedListInlineCreateParentId = null;
+        this.selectedManagedListDetail = null;
+        this.fieldListBindings = [];
+        this.managedListsOverviewTable = null;
+        this.fieldBindingsTable = null;
+        this.managedListWorkspaceOpen = false;
+        this.managedListDraggedNodeIds = [];
     }
     
     async render() {
@@ -36,7 +51,7 @@ class ObjectTypeManager {
                         Listor
                     </button>
                     <button class="admin-tab" data-tab="field-templates" onclick="adminManager.switchTab('field-templates')">
-                        Fältmallar
+                        Fält
                     </button>
                     <button class="admin-tab" data-tab="relation-type-rules" onclick="adminManager.switchTab('relation-type-rules')">
                         Relationsregler
@@ -75,7 +90,7 @@ class ObjectTypeManager {
 
                     <div id="field-templates-tab" class="admin-tab-panel">
                         <div class="admin-panel-header">
-                            <h3>Fältmallar</h3>
+                            <h3>Fält</h3>
                             <button class="btn btn-primary" onclick="adminManager.showCreateFieldTemplateModal()">
                                 Skapa Fältmall
                             </button>
@@ -207,6 +222,7 @@ class ObjectTypeManager {
                                         <th class="col-status">Obligatorisk</th>
                                         <th class="col-detail-visible">Detaljvy</th>
                                         <th class="col-width">Bredd</th>
+                                        <th class="col-dependency">Beroende av fält</th>
                                         <th class="col-actions"></th>
                                     </tr>
                                 </thead>
@@ -268,6 +284,9 @@ class ObjectTypeManager {
                         <option value="third" ${(this.resolveFieldDetailWidth(field) === 'third') ? 'selected' : ''}>1/3</option>
                     </select>
                 </td>
+                <td class="col-dependency">
+                    ${this.renderFieldDependencyControl(field)}
+                </td>
                 <td class="col-actions">
                     <button
                         class="btn-icon btn-danger"
@@ -305,6 +324,89 @@ class ObjectTypeManager {
             return list ? `lista: ${list.name}` : 'admin-lista';
         }
         return field.field_type;
+    }
+
+    isManagedListSelectField(field) {
+        if (!field || String(field.field_type || '').toLowerCase() !== 'select') return false;
+        const options = this.normalizeFieldOptions(field.field_options);
+        return options?.source === 'managed_list' && Number.isFinite(Number(options?.list_id));
+    }
+
+    renderFieldDependencyControl(field) {
+        if (!this.selectedType || !this.isManagedListSelectField(field)) return '-';
+        const options = this.normalizeFieldOptions(field.field_options) || {};
+        const currentParentField = String(options.parent_field_name || '');
+        const candidates = (this.selectedType.fields || [])
+            .filter(candidate => Number(candidate.id) !== Number(field.id))
+            .filter(candidate => this.isManagedListSelectField(candidate));
+
+        if (!candidates.length) {
+            return '<span class="managed-list-link-empty">Inga kandidater</span>';
+        }
+
+        return `
+            <select class="form-control detail-width-select" onchange="adminManager.updateFieldManagedListDependency(${field.id}, this.value)">
+                <option value="">Ingen</option>
+                ${candidates.map(candidate => {
+                    const selected = String(candidate.field_name) === currentParentField ? 'selected' : '';
+                    const label = escapeHtml(candidate.display_name || candidate.field_name);
+                    return `<option value="${escapeHtml(String(candidate.field_name))}" ${selected}>${label}</option>`;
+                }).join('')}
+            </select>
+        `;
+    }
+
+    async updateFieldManagedListDependency(fieldId, parentFieldName) {
+        if (!this.selectedType) return;
+        const field = (this.selectedType.fields || []).find(item => Number(item.id) === Number(fieldId));
+        if (!field || !this.isManagedListSelectField(field)) return;
+
+        const rawOptions = this.normalizeFieldOptions(field.field_options) || {};
+        const nextOptions = {
+            source: 'managed_list',
+            list_id: Number(rawOptions.list_id)
+        };
+
+        const normalizedParentFieldName = String(parentFieldName || '').trim();
+        if (normalizedParentFieldName) {
+            const parentField = (this.selectedType.fields || []).find(
+                item => String(item.field_name || '') === normalizedParentFieldName && this.isManagedListSelectField(item)
+            );
+            if (!parentField) {
+                showToast('Ogiltigt parent-fält', 'error');
+                this.renderTypeDetails();
+                return;
+            }
+
+            const parentOptions = this.normalizeFieldOptions(parentField.field_options) || {};
+            const parentListId = Number(parentOptions.list_id);
+            const childListId = Number(rawOptions.list_id);
+
+            nextOptions.parent_field_name = normalizedParentFieldName;
+            if (Number.isFinite(parentListId) && parentListId > 0) {
+                nextOptions.parent_list_id = parentListId;
+            }
+
+            const link = (this.managedListLinks || []).find(candidate =>
+                Number(candidate.parent_list_id) === parentListId &&
+                Number(candidate.child_list_id) === childListId &&
+                candidate.is_active !== false
+            );
+            if (link && Number.isFinite(Number(link.id))) {
+                nextOptions.list_link_id = Number(link.id);
+            }
+        }
+
+        try {
+            await ObjectTypesAPI.updateField(this.selectedType.id, fieldId, { field_options: nextOptions });
+            field.field_options = nextOptions;
+            showToast('Fältberoende uppdaterat', 'success');
+            this.renderTypeDetails();
+        } catch (error) {
+            console.error('Failed to update field managed-list dependency:', error);
+            showToast(error.message || 'Kunde inte uppdatera fältberoende', 'error');
+            this.renderTypeDetails();
+        }
     }
 
     normalizeFieldOptions(rawOptions) {
@@ -445,14 +547,53 @@ class ObjectTypeManager {
 
     async loadManagedLists() {
         try {
-            this.managedLists = await ManagedListsAPI.getAll(true, true);
+            const [managedLists, fieldBindings] = await Promise.all([
+                ListsAPI.getAll({ include_inactive: true }),
+                FieldBindingsAPI.getAll(),
+            ]);
+            this.managedLists = Array.isArray(managedLists) ? managedLists : [];
+            this.fieldListBindings = Array.isArray(fieldBindings) ? fieldBindings : [];
             if (!this.selectedManagedListId && this.managedLists.length) {
                 this.selectedManagedListId = this.managedLists[0].id;
             }
             if (this.selectedManagedListId && !this.managedLists.some(list => list.id === this.selectedManagedListId)) {
                 this.selectedManagedListId = this.managedLists.length ? this.managedLists[0].id : null;
             }
+            if (this.selectedManagedListId) {
+                this.selectedManagedListDetail = await ListsAPI.getById(this.selectedManagedListId, true, true);
+            } else {
+                this.selectedManagedListDetail = null;
+            }
+            if (this.selectedManagedListId) {
+                const selectedList = this.selectedManagedListDetail;
+                const hasSelectedNode = (selectedList?.items || []).some(
+                    item => Number(item.id) === Number(this.selectedManagedListTreeNodeId)
+                );
+                const validNodeIds = new Set((selectedList?.items || []).map(item => Number(item.id)));
+                this.managedListTreeExpandedNodeIds = new Set(
+                    Array.from(this.managedListTreeExpandedNodeIds || []).filter(id => validNodeIds.has(Number(id)))
+                );
+                this.selectedManagedListTreeNodeIds = new Set(
+                    Array.from(this.selectedManagedListTreeNodeIds || []).filter(id => validNodeIds.has(Number(id)))
+                );
+                if (!hasSelectedNode) {
+                    this.selectedManagedListTreeNodeId = null;
+                }
+                if (this.selectedManagedListTreeNodeId && !this.selectedManagedListTreeNodeIds.has(Number(this.selectedManagedListTreeNodeId))) {
+                    this.selectedManagedListTreeNodeIds.add(Number(this.selectedManagedListTreeNodeId));
+                }
+            } else {
+                this.selectedManagedListTreeNodeId = null;
+                this.selectedManagedListTreeNodeIds = new Set();
+                this.managedListTreeSelectionAnchorId = null;
+                this.managedListTreeExpandedNodeIds = new Set();
+            }
             this.renderManagedLists();
+            if (this.managedListWorkspaceOpen && this.selectedManagedListDetail) {
+                this.renderManagedListWorkspaceOverlay(this.selectedManagedListDetail);
+            } else if (!this.managedListWorkspaceOpen) {
+                this.closeManagedListWorkspace();
+            }
             this.renderManagedListOptions();
             this.renderFieldTemplateManagedListOptions();
             this.updateFieldTemplateOptionInputs();
@@ -1023,37 +1164,66 @@ class ObjectTypeManager {
         const container = document.getElementById('managed-lists-container');
         if (!container) return;
 
-        const selected = this.managedLists.find(list => list.id === this.selectedManagedListId) || null;
-
         container.innerHTML = `
-            <div class="admin-content managed-lists-admin-content">
-                <div class="types-list managed-lists-types-panel">
-                    <h4>Listor (${this.managedLists.length})</h4>
-                    <div class="category-toolbar managed-lists-toolbar">
-                        <input id="new-managed-list-name" type="text" class="form-control" placeholder="Ny lista...">
-                        <button class="btn btn-primary" onclick="adminManager.createManagedList()">Lägg till</button>
+            <div class="managed-lists-page">
+                <div class="fields-section">
+                    <div class="section-header">
+                        <h4>Lista över listor</h4>
                     </div>
-                    <div class="category-list managed-lists-type-list">
-                        ${this.managedLists.length === 0
-                            ? '<p class="empty-state">Inga listor ännu</p>'
-                            : this.managedLists.map(list => `
-                                <div class="category-item managed-list-type-item ${list.id === this.selectedManagedListId ? 'selected' : ''}" onclick="adminManager.selectManagedList(${list.id})">
-                                    <span class="managed-list-type-name">${escapeHtml(list.name)}</span>
-                                    <span class="managed-list-type-count">${Array.isArray(list.items) ? list.items.length : 0}</span>
-                                    <div class="category-actions">
-                                        <button class="btn-icon" onclick="event.stopPropagation(); adminManager.editManagedList(${list.id})" title="Redigera lista" aria-label="Redigera lista ${escapeHtml(list.name)}">✏️</button>
-                                        <button class="btn-icon btn-danger" onclick="event.stopPropagation(); adminManager.deleteManagedList(${list.id})" title="Ta bort lista" aria-label="Ta bort lista ${escapeHtml(list.name)}">🗑️</button>
-                                    </div>
-                                </div>
-                            `).join('')
-                        }
+                    <div class="managed-lists-create-inline">
+                        <input id="new-managed-list-name" type="text" class="form-control" placeholder="Namn">
+                        <input id="new-managed-list-code" type="text" class="form-control" placeholder="Kod (valfritt)">
+                        <button class="btn btn-primary" onclick="adminManager.createManagedList()">Skapa lista</button>
                     </div>
-                </div>
-                <div class="type-details managed-lists-detail-panel">
-                    ${selected ? this.renderManagedListDetails(selected) : '<p class="empty-state">Välj en lista</p>'}
+                    <div id="managed-lists-overview-table"></div>
                 </div>
             </div>
         `;
+
+        const tableRows = (this.managedLists || []).map(list => ({
+            id: Number(list.id),
+            name: list.name || '',
+            code: list.code || '',
+            item_count: Number(list.item_count || 0),
+            active: list.is_active ? 'Aktiv' : 'Inaktiv',
+            used_by_fields: Number(list.used_by_fields_count || 0),
+            actions: ''
+        }));
+
+        if (typeof SystemTable === 'function') {
+            this.managedListsOverviewTable = new SystemTable({
+                containerId: 'managed-lists-overview-table',
+                tableId: 'managed-lists-overview-table',
+                columns: [
+                    { field: 'name', label: 'Namn', className: 'col-name' },
+                    { field: 'code', label: 'Kod', className: 'col-id' },
+                    { field: 'item_count', label: 'Antal värden', className: 'col-type' },
+                    { field: 'active', label: 'Status', className: 'col-type' },
+                    { field: 'used_by_fields', label: 'Används av fält', className: 'col-type' },
+                    {
+                        field: 'actions',
+                        label: 'Actions',
+                        className: 'col-actions',
+                        sortable: false,
+                        searchable: false,
+                        render: (row) => `
+                            <div class="category-actions">
+                                <button class="btn-icon" title="Öppna lista" onclick="event.stopPropagation(); adminManager.openManagedListWorkspace(${row.id})">👁️</button>
+                                <button class="btn-icon" title="Redigera lista" onclick="event.stopPropagation(); adminManager.editManagedList(${row.id})">✏️</button>
+                                <button class="btn-icon btn-danger" title="Ta bort lista" onclick="event.stopPropagation(); adminManager.deleteManagedList(${row.id})">🗑️</button>
+                                <button class="btn-icon" title="Export JSON" onclick="event.stopPropagation(); ListsAPI.export(${row.id}, 'json')">⤓</button>
+                            </div>
+                        `
+                    }
+                ],
+                rows: tableRows,
+                emptyText: 'Inga listor ännu',
+                onRowClick: (row) => {
+                    this.openManagedListWorkspace(row.id);
+                }
+            });
+            this.managedListsOverviewTable.render();
+        }
 
         const newListInput = document.getElementById('new-managed-list-name');
         if (newListInput) {
@@ -1063,14 +1233,161 @@ class ObjectTypeManager {
                 this.createManagedList();
             });
         }
+    }
 
-        const newItemInputEn = document.getElementById('new-managed-list-item-value-en');
-        if (newItemInputEn) {
-            newItemInputEn.addEventListener('keydown', (event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                this.createManagedListItem();
+    async openManagedListWorkspace(listId) {
+        const normalizedId = Number(listId || 0);
+        if (!normalizedId) return;
+        this.selectedManagedListId = normalizedId;
+        this.selectedManagedListTreeNodeId = null;
+        this.selectedManagedListTreeNodeIds = new Set();
+        this.managedListTreeSelectionAnchorId = null;
+        this.managedListInlineCreateParentId = null;
+        this.managedListTreeExpandedNodeIds = new Set();
+        this.managedListWorkspaceOpen = true;
+        try {
+            this.selectedManagedListDetail = await ListsAPI.getById(normalizedId, true, true);
+            this.renderManagedListWorkspaceOverlay(this.selectedManagedListDetail);
+        } catch (error) {
+            console.error('Failed to open managed list workspace:', error);
+            showToast(error.message || 'Kunde inte öppna lista', 'error');
+        }
+    }
+
+    renderManagedListWorkspaceOverlay(list) {
+        if (!list) return;
+        let overlay = document.getElementById('managed-list-workspace-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'managed-list-workspace-overlay';
+            overlay.className = 'managed-list-workspace-overlay';
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div class="managed-list-workspace-shell">
+                <div class="managed-list-workspace-content">
+                    ${this.renderManagedListDetails(list)}
+                </div>
+            </div>
+        `;
+    }
+
+    renderManagedListCurrentSurface() {
+        if (this.managedListWorkspaceOpen && this.selectedManagedListDetail) {
+            this.renderManagedListWorkspaceOverlay(this.selectedManagedListDetail);
+            return;
+        }
+        this.renderManagedLists();
+    }
+
+    closeManagedListWorkspace() {
+        this.managedListWorkspaceOpen = false;
+        const overlay = document.getElementById('managed-list-workspace-overlay');
+        if (overlay) {
+            overlay.remove();
+        }
+    }
+
+    renderFieldBindingSection() {
+        const host = document.querySelector('.managed-list-workspace-content') || document.querySelector('.managed-lists-detail-host');
+        if (!host || !this.selectedManagedListDetail) return;
+        const selectedListId = Number(this.selectedManagedListDetail.id);
+        const sectionId = 'field-binding-table-host';
+        const existing = host.querySelector('.field-binding-section');
+        if (existing) existing.remove();
+        host.insertAdjacentHTML('beforeend', `
+            <div class="fields-section field-binding-section">
+                <div class="section-header"><h4>Koppla lista till fält</h4></div>
+                <div class="managed-list-binding-form">
+                    <input id="binding-object-type" class="form-control" placeholder="Objekttyp (t.ex. Product)">
+                    <input id="binding-field-name" class="form-control" placeholder="Fältnamn (t.ex. category)">
+                    <select id="binding-selection-mode" class="form-control">
+                        <option value="single">single</option>
+                        <option value="multi">multi</option>
+                    </select>
+                    <label><input type="checkbox" id="binding-only-leaf"> Endast bladnoder</label>
+                    <label><input type="checkbox" id="binding-required"> Obligatoriskt</label>
+                    <button class="btn btn-primary" onclick="adminManager.createFieldBindingForSelectedList()">Koppla</button>
+                </div>
+                <div id="${sectionId}"></div>
+            </div>
+        `);
+        const rows = (this.fieldListBindings || [])
+            .filter(row => Number(row.list_id) === selectedListId)
+            .map(row => ({
+                id: Number(row.id),
+                object_type: row.object_type || '',
+                field_name: row.field_name || '',
+                selection_mode: row.selection_mode || 'single',
+                only_leaf: row.allow_only_leaf_selection ? 'Ja' : 'Nej',
+                required: row.is_required ? 'Ja' : 'Nej',
+                actions: ''
+            }));
+        if (typeof SystemTable === 'function') {
+            this.fieldBindingsTable = new SystemTable({
+                containerId: sectionId,
+                tableId: sectionId,
+                columns: [
+                    { field: 'object_type', label: 'Objekttyp', className: 'col-type' },
+                    { field: 'field_name', label: 'Fältnamn', className: 'col-name' },
+                    { field: 'selection_mode', label: 'Mode', className: 'col-type' },
+                    { field: 'only_leaf', label: 'Endast blad', className: 'col-type' },
+                    { field: 'required', label: 'Obligatoriskt', className: 'col-type' },
+                    {
+                        field: 'actions',
+                        label: 'Actions',
+                        sortable: false,
+                        searchable: false,
+                        className: 'col-actions',
+                        render: (row) => `<button class="btn-icon btn-danger" title="Ta bort koppling" onclick="adminManager.deleteFieldBinding(${row.id})">🗑️</button>`
+                    }
+                ],
+                rows,
+                emptyText: 'Inga fältkopplingar'
             });
+            this.fieldBindingsTable.render();
+        }
+    }
+
+    async createFieldBindingForSelectedList() {
+        const listId = Number(this.selectedManagedListId || 0);
+        if (!listId) return;
+        const objectType = String(document.getElementById('binding-object-type')?.value || '').trim();
+        const fieldName = String(document.getElementById('binding-field-name')?.value || '').trim();
+        const selectionMode = String(document.getElementById('binding-selection-mode')?.value || 'single').trim().toLowerCase();
+        const onlyLeaf = Boolean(document.getElementById('binding-only-leaf')?.checked);
+        const required = Boolean(document.getElementById('binding-required')?.checked);
+        if (!objectType || !fieldName) {
+            showToast('Ange objekttyp och fältnamn', 'error');
+            return;
+        }
+        try {
+            await FieldBindingsAPI.create({
+                object_type: objectType,
+                field_name: fieldName,
+                list_id: listId,
+                selection_mode: selectionMode,
+                allow_only_leaf_selection: onlyLeaf,
+                is_required: required
+            });
+            showToast('Fältkoppling skapad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create field binding:', error);
+            showToast(error.message || 'Kunde inte skapa fältkoppling', 'error');
+        }
+    }
+
+    async deleteFieldBinding(bindingId) {
+        if (!confirm('Ta bort fältkoppling?')) return;
+        try {
+            await FieldBindingsAPI.delete(bindingId);
+            showToast('Fältkoppling borttagen', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to delete field binding:', error);
+            showToast(error.message || 'Kunde inte ta bort fältkoppling', 'error');
         }
     }
 
@@ -1086,11 +1403,16 @@ class ObjectTypeManager {
             codes.push(code);
         });
 
-        if (!codes.length) {
-            const fallback = this.sanitizeLanguageCode(list?.fallback_language_code) || 'en';
-            codes.push(fallback);
+        if (!seen.has('en')) {
+            codes.unshift('en');
+            seen.add('en');
         }
-        return codes;
+
+        if (!codes.length) {
+            codes.push('en');
+        }
+
+        return Array.from(new Set(codes)).slice(0, 10);
     }
 
     sanitizeLanguageCode(code) {
@@ -1116,11 +1438,8 @@ class ObjectTypeManager {
         const codes = Array.isArray(languageCodes) && languageCodes.length
             ? languageCodes
             : this.getManagedListLanguageCodes(list);
-        const preferredFallback = this.sanitizeLanguageCode(list?.fallback_language_code);
-        if (preferredFallback && codes.includes(preferredFallback)) {
-            return preferredFallback;
-        }
-        return this.sanitizeLanguageCode(codes[0]) || 'en';
+        if (codes.includes('en')) return 'en';
+        return 'en';
     }
 
     getManagedListLanguageCatalog() {
@@ -1174,23 +1493,32 @@ class ObjectTypeManager {
 
     async persistManagedListLanguages(list, nextLanguageCodes, fallbackLanguageCode = '') {
         const normalizedCodes = this.getNormalizedLanguageCodes(nextLanguageCodes);
-        const fallback = this.sanitizeLanguageCode(fallbackLanguageCode) || normalizedCodes[0];
-        const orderedCodes = [fallback, ...normalizedCodes.filter(code => code !== fallback)];
-        const additionalLanguageCode = orderedCodes.find(code => code !== fallback) || fallback;
+        const withoutEn = normalizedCodes.filter(code => code !== 'en');
+        const orderedCodes = ['en', ...withoutEn];
+        const additionalLanguageCode = orderedCodes.find(code => code !== 'en') || 'en';
 
-        try {
-            await ManagedListsAPI.update(this.selectedManagedListId, {
-                language_codes: orderedCodes,
-                additional_language_code: additionalLanguageCode
-            });
-            list.language_codes = orderedCodes;
-            list.fallback_language_code = fallback;
-            list.additional_language_code = additionalLanguageCode;
-            await this.loadManagedLists();
-        } catch (error) {
-            console.error('Failed to update managed list languages:', error);
-            showToast(error.message || 'Kunde inte uppdatera språk', 'error');
-        }
+        const runUpdate = async () => {
+            try {
+                await ManagedListsAPI.update(this.selectedManagedListId, {
+                    language_codes: orderedCodes,
+                    fallback_language_code: 'en',
+                    additional_language_code: additionalLanguageCode
+                });
+                list.language_codes = orderedCodes;
+                list.fallback_language_code = 'en';
+                list.additional_language_code = additionalLanguageCode;
+                await this.loadManagedLists();
+            } catch (error) {
+                console.error('Failed to update managed list languages:', error);
+                showToast(error.message || 'Kunde inte uppdatera språk', 'error');
+            }
+        };
+
+        this.managedListLanguageUpdatePromise = this.managedListLanguageUpdatePromise
+            .catch(() => {})
+            .then(runUpdate);
+
+        await this.managedListLanguageUpdatePromise;
     }
 
     async addManagedListLanguageColumn() {
@@ -1204,11 +1532,26 @@ class ObjectTypeManager {
             return;
         }
 
-        const nextCode = this.getSuggestedLanguageCode(languageCodes.length, new Set(languageCodes));
+        const rawCode = prompt('Ange språk-kod (t.ex. sv, fi, de):', this.getSuggestedLanguageCode(languageCodes.length, new Set(languageCodes)));
+        if (rawCode === null) return;
+        const nextCode = this.sanitizeLanguageCode(rawCode);
+        if (!nextCode) {
+            showToast('Ogiltig språk-kod', 'error');
+            return;
+        }
+        if (nextCode === 'en') {
+            showToast('EN är alltid fallback och finns redan', 'error');
+            return;
+        }
+        if (languageCodes.includes(nextCode)) {
+            showToast(`${nextCode.toUpperCase()} finns redan`, 'error');
+            return;
+        }
+
         await this.persistManagedListLanguages(
             list,
             [...languageCodes, nextCode],
-            this.getManagedListFallbackLanguageCode(list, languageCodes)
+            'en'
         );
     }
 
@@ -1218,12 +1561,11 @@ class ObjectTypeManager {
         if (!list) return;
 
         const languageCodes = this.getManagedListLanguageCodes(list);
-        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
         const codeToRemove = this.sanitizeLanguageCode(languageCodes[index]);
 
         if (!codeToRemove) return;
-        if (codeToRemove === fallbackCode) {
-            showToast('Fallback-kolumnen kan inte tas bort', 'error');
+        if (codeToRemove === 'en') {
+            showToast('EN är obligatorisk fallback och kan inte tas bort', 'error');
             return;
         }
         if (languageCodes.length <= 1) {
@@ -1232,44 +1574,27 @@ class ObjectTypeManager {
         }
 
         const nextCodes = languageCodes.filter((_, itemIndex) => itemIndex !== index);
-        await this.persistManagedListLanguages(list, nextCodes, fallbackCode);
+        await this.persistManagedListLanguages(list, nextCodes, 'en');
+    }
+
+    async removeManagedListLanguageColumnByCode(languageCode) {
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        if (!list) return;
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const index = languageCodes.findIndex(code => code === this.sanitizeLanguageCode(languageCode));
+        if (index < 0) return;
+        await this.removeManagedListLanguageColumn(index);
     }
 
     async updateManagedListColumnLanguage(index, value) {
-        if (!this.selectedManagedListId) return;
-        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
-        if (!list) return;
-
-        const languageCodes = this.getManagedListLanguageCodes(list);
-        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
-        const nextCode = this.sanitizeLanguageCode(value);
-        if (!nextCode) {
-            showToast('Välj ett giltigt språk', 'error');
-            return;
-        }
-
-        const isDuplicate = languageCodes.some((code, itemIndex) => itemIndex !== index && this.sanitizeLanguageCode(code) === nextCode);
-        if (isDuplicate) {
-            showToast(`Språket ${nextCode.toUpperCase()} finns redan`, 'error');
-            return;
-        }
-
-        const nextCodes = [...languageCodes];
-        nextCodes[index] = nextCode;
-        const nextFallback = this.sanitizeLanguageCode(languageCodes[index]) === fallbackCode ? nextCode : fallbackCode;
-        await this.persistManagedListLanguages(list, nextCodes, nextFallback);
+        // Renaming language columns is intentionally disabled.
+        void index;
+        void value;
     }
 
     async setManagedListFallbackLanguage(value) {
-        if (!this.selectedManagedListId) return;
-        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
-        if (!list) return;
-
-        const languageCodes = this.getManagedListLanguageCodes(list);
-        const fallbackCode = this.sanitizeLanguageCode(value);
-        if (!fallbackCode || !languageCodes.includes(fallbackCode)) return;
-
-        await this.persistManagedListLanguages(list, languageCodes, fallbackCode);
+        // Fallback is fixed to EN.
+        void value;
     }
 
     getManagedListItemTranslations(item) {
@@ -1277,144 +1602,874 @@ class ObjectTypeManager {
         return raw;
     }
 
-    renderManagedListDetails(list) {
-        const items = Array.isArray(list.items) ? list.items : [];
-        const languageCodes = this.getManagedListLanguageCodes(list);
-        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
-        const columnCount = Math.max(1, languageCodes.length);
-        const gridTemplate = `repeat(${columnCount}, minmax(120px, 1fr)) auto`;
+    getManagedListNodeLanguageCodes() {
+        return ['en', 'sv', 'fi', 'no'];
+    }
+
+    getManagedListById(listId) {
+        return (this.managedLists || []).find(item => Number(item.id) === Number(listId)) || null;
+    }
+
+    getManagedListNameById(listId) {
+        const id = Number(listId);
+        const list = this.getManagedListById(id);
+        if (!list) return `Lista #${id}`;
+        return list.name || `Lista #${id}`;
+    }
+
+    renderManagedListLinkBadges(links = [], direction = 'parents') {
+        const normalized = Array.isArray(links) ? links : [];
+        if (!normalized.length) return '<span class="managed-list-link-empty">-</span>';
+
+        return normalized.map(link => {
+            const parentName = escapeHtml(this.getManagedListNameById(link.parent_list_id));
+            const childName = escapeHtml(this.getManagedListNameById(link.child_list_id));
+            const relationKey = escapeHtml(link.relation_key || 'depends_on');
+            const label = `${parentName} -> ${childName}`;
+            return `<span class="managed-list-link-badge" title="${relationKey}">${label}</span>`;
+        }).join('');
+    }
+
+    getManagedListItemLabel(listId, itemId) {
+        const list = this.getManagedListById(listId);
+        const item = (list?.items || []).find(entry => Number(entry.id) === Number(itemId));
+        if (!item) return `Item #${itemId}`;
+        return item.display_value || item.value || `Item #${itemId}`;
+    }
+
+    renderManagedListRelationshipAdmin(list) {
+        const listId = Number(list?.id);
+        if (!Number.isFinite(listId)) return '';
+
+        const childLinks = (this.managedListLinks || []).filter(
+            link => Number(link.parent_list_id) === listId && link.is_active !== false
+        );
+        const parentLinks = (this.managedListLinks || []).filter(
+            link => Number(link.child_list_id) === listId && link.is_active !== false
+        );
+
+        const childIds = new Set(childLinks.map(link => Number(link.child_list_id)));
+        const parentIds = new Set(parentLinks.map(link => Number(link.parent_list_id)));
+
+        const childCandidates = this.managedLists
+            .filter(candidate => Number(candidate.id) !== listId && !childIds.has(Number(candidate.id)))
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'sv', { sensitivity: 'base' }));
+
+        const parentCandidates = this.managedLists
+            .filter(candidate => Number(candidate.id) !== listId && !parentIds.has(Number(candidate.id)))
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'sv', { sensitivity: 'base' }));
+
         return `
-            <div class="type-detail-view managed-list-detail-view">
-                <div class="detail-header">
-                    <h3>${escapeHtml(list.name)}</h3>
-                    <span class="managed-list-type-count">${items.length} rader</span>
+            <div class="managed-list-relation-admin">
+                <div class="managed-list-relation-row">
+                    <label for="managed-list-add-child-${listId}">Koppla barnlista</label>
+                    <div class="managed-list-relation-inputs">
+                        <select id="managed-list-add-child-${listId}" class="form-control">
+                            <option value="">Välj barnlista...</option>
+                            ${childCandidates.map(candidate => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="adminManager.createManagedListChildLink(${listId})">Koppla</button>
+                    </div>
                 </div>
-                <div class="managed-list-summary">
-                    <span><strong>Status:</strong> ${list.is_active ? 'Aktiv' : 'Inaktiv'}</span>
-                    <span><strong>Beskrivning:</strong></span>
-                    <div class="managed-list-description-editor">
-                        <input
-                            id="managed-list-description-input"
-                            type="text"
-                            class="form-control"
-                            value="${escapeHtml(list.description || '')}"
-                            placeholder="Ingen beskrivning"
-                            onkeydown="if(event.key === 'Enter'){ event.preventDefault(); adminManager.updateManagedListDescription(); }"
-                        >
-                        <button class="btn btn-sm btn-secondary" onclick="adminManager.updateManagedListDescription()">Spara</button>
+                <div class="managed-list-relation-row">
+                    <label for="managed-list-add-parent-${listId}">Koppla förälder</label>
+                    <div class="managed-list-relation-inputs">
+                        <select id="managed-list-add-parent-${listId}" class="form-control">
+                            <option value="">Välj föräldralista...</option>
+                            ${parentCandidates.map(candidate => `<option value="${candidate.id}">${escapeHtml(candidate.name)}</option>`).join('')}
+                        </select>
+                        <button class="btn btn-sm btn-primary" onclick="adminManager.createManagedListParentLink(${listId})">Koppla</button>
                     </div>
-                    <span><strong>Språk:</strong></span>
-                    <span>${escapeHtml(fallbackCode.toUpperCase())} är fallback</span>
                 </div>
-                <div class="fields-section managed-list-items-section">
-                    <div class="section-header">
-                        <h4>Rader</h4>
-                    </div>
-                    <div class="managed-list-grid-row managed-list-language-header" style="grid-template-columns: ${gridTemplate};">
-                        ${languageCodes.map((code, index) => {
-                            const options = this.renderManagedListLanguageSelectOptions(languageCodes, index, code);
-                            const isFallback = code === fallbackCode;
-                            return `
-                                <div class="managed-list-language-cell">
-                                    <select
-                                        class="form-control managed-list-column-language-select"
-                                        onchange="adminManager.updateManagedListColumnLanguage(${index}, this.value)"
-                                    >
-                                        ${options}
-                                    </select>
-                                    <label class="managed-list-fallback-toggle">
-                                        <input
-                                            type="radio"
-                                            name="managed-list-fallback-${list.id}"
-                                            value="${escapeHtml(code)}"
-                                            ${isFallback ? 'checked' : ''}
-                                            onchange="adminManager.setManagedListFallbackLanguage(this.value)"
-                                        >
-                                        Fallback
-                                    </label>
-                                    <button
-                                        class="btn-icon btn-danger"
-                                        title="Ta bort kolumn"
-                                        aria-label="Ta bort kolumn ${escapeHtml(code)}"
-                                        onclick="adminManager.removeManagedListLanguageColumn(${index})"
-                                        ${isFallback ? 'disabled' : ''}
-                                    >-</button>
+                <div class="managed-list-relation-existing">
+                    <div class="managed-list-relation-col">
+                        <strong>Barnkopplingar</strong>
+                        ${childLinks.length
+                            ? childLinks.map(link => `
+                                <div class="managed-list-relation-chip-row">
+                                    <span class="managed-list-link-badge">${escapeHtml(this.getManagedListNameById(link.parent_list_id))} -> ${escapeHtml(this.getManagedListNameById(link.child_list_id))}</span>
+                                    <button class="btn-icon btn-danger" title="Ta bort koppling" onclick="adminManager.deleteManagedListLink(${Number(link.id)})">🗑️</button>
                                 </div>
-                            `;
-                        }).join('')}
-                        <div class="managed-list-column-actions">
-                            <button
-                                class="btn btn-sm btn-secondary managed-list-add-column-btn"
-                                title="Lägg till språk-kolumn"
-                                onclick="adminManager.addManagedListLanguageColumn()"
-                            >+</button>
-                        </div>
+                            `).join('')
+                            : '<span class="managed-list-link-empty">Inga barnkopplingar</span>'}
                     </div>
-                    <div class="managed-list-grid-row managed-list-new-row" style="grid-template-columns: ${gridTemplate};">
-                        ${languageCodes.map((code, index) => {
-                            const inputId = this.buildLocaleInputId('new-managed-list-item-value', code, index);
-                            const placeholder = code === fallbackCode ? `${code} (fallback) *` : code;
-                            return `<input id="${inputId}" type="text" class="form-control" placeholder="${escapeHtml(placeholder)}">`;
-                        }).join('')}
-                        <button class="btn btn-primary managed-list-add-row-btn" onclick="adminManager.createManagedListItem()">Lägg till rad</button>
-                    </div>
-                    ${items.length === 0
-                        ? '<p class="empty-state">Inga rader ännu</p>'
-                        : `<div class="category-list managed-list-items-list">
-                            ${items.map(item => `
-                                <div
-                                    class="category-item managed-list-item-row managed-list-grid-row"
-                                    id="managed-list-item-row-${item.id}"
-                                    data-item-id="${item.id}"
-                                    style="grid-template-columns: ${gridTemplate};"
-                                >
-                                    ${languageCodes.map((code, index) => {
-                                        const translations = this.getManagedListItemTranslations(item);
-                                        const currentValue = code === fallbackCode
-                                            ? String(item.value || '')
-                                            : String(translations[code] || '');
-                                        const placeholder = code === fallbackCode ? `${code} (fallback) *` : code;
-                                        return `
-                                            <input
-                                                type="text"
-                                                class="form-control managed-list-item-input"
-                                                value="${escapeHtml(currentValue)}"
-                                                data-locale="${escapeHtml(code)}"
-                                                data-original-value="${escapeHtml(currentValue)}"
-                                                placeholder="${escapeHtml(placeholder)}"
-                                                onkeydown="if(event.key === 'Enter'){ event.preventDefault(); adminManager.updateManagedListItemInline(${item.id}); }"
-                                            >
-                                        `;
-                                    }).join('')}
-                                    <div class="category-actions">
-                                        <button class="btn-icon" onclick="adminManager.updateManagedListItemInline(${item.id})" title="Spara rad" aria-label="Spara rad ${escapeHtml(String(item.value || ''))}">💾</button>
-                                        <button class="btn-icon btn-danger" onclick="adminManager.deleteManagedListItem(${item.id})" title="Ta bort rad" aria-label="Ta bort rad ${escapeHtml(item.value)}">🗑️</button>
-                                    </div>
+                    <div class="managed-list-relation-col">
+                        <strong>Föräldrakopplingar</strong>
+                        ${parentLinks.length
+                            ? parentLinks.map(link => `
+                                <div class="managed-list-relation-chip-row">
+                                    <span class="managed-list-link-badge">${escapeHtml(this.getManagedListNameById(link.parent_list_id))} -> ${escapeHtml(this.getManagedListNameById(link.child_list_id))}</span>
+                                    <button class="btn-icon btn-danger" title="Ta bort koppling" onclick="adminManager.deleteManagedListLink(${Number(link.id)})">🗑️</button>
                                 </div>
-                            `).join('')}
-                        </div>`}
+                            `).join('')
+                            : '<span class="managed-list-link-empty">Inga föräldrakopplingar</span>'}
+                    </div>
+                </div>
+                ${childLinks.map(link => this.renderManagedListItemLinkAdmin(listId, link)).join('')}
+            </div>
+        `;
+    }
+
+    renderManagedListItemLinkAdmin(parentListId, link) {
+        const linkId = Number(link.id);
+        const childListId = Number(link.child_list_id);
+        const parentList = this.getManagedListById(parentListId);
+        const childList = this.getManagedListById(childListId);
+        if (!parentList || !childList) return '';
+
+        const parentItems = (parentList.items || []).filter(item => item.is_active !== false);
+        const childItems = (childList.items || []).filter(item => item.is_active !== false);
+        const itemLinks = (this.managedListItemLinks || []).filter(
+            itemLink => Number(itemLink.list_link_id) === linkId && itemLink.is_active !== false
+        );
+
+        return `
+            <div class="managed-list-item-link-admin">
+                <h5>Koppla värden: ${escapeHtml(parentList.name)} -> ${escapeHtml(childList.name)}</h5>
+                <div class="managed-list-item-link-controls">
+                    <select id="managed-list-item-link-parent-${linkId}" class="form-control">
+                        <option value="">Välj parent-värde...</option>
+                        ${parentItems.map(item => `<option value="${item.id}">${escapeHtml(item.display_value || item.value || '')}</option>`).join('')}
+                    </select>
+                    <select id="managed-list-item-link-child-${linkId}" class="form-control">
+                        <option value="">Välj child-värde...</option>
+                        ${childItems.map(item => `<option value="${item.id}">${escapeHtml(item.display_value || item.value || '')}</option>`).join('')}
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="adminManager.createManagedListItemLink(${linkId})">Länka värden</button>
+                </div>
+                <div class="managed-list-item-link-table">
+                    ${itemLinks.length
+                        ? itemLinks.map(itemLink => `
+                            <div class="managed-list-relation-chip-row">
+                                <span class="managed-list-link-badge">${escapeHtml(this.getManagedListItemLabel(parentListId, itemLink.parent_item_id))} -> ${escapeHtml(this.getManagedListItemLabel(childListId, itemLink.child_item_id))}</span>
+                                <button class="btn-icon btn-danger" title="Ta bort item-koppling" onclick="adminManager.deleteManagedListItemLink(${Number(itemLink.id)})">🗑️</button>
+                            </div>
+                        `).join('')
+                        : '<span class="managed-list-link-empty">Inga värdekopplingar</span>'}
                 </div>
             </div>
         `;
     }
 
-    selectManagedList(listId) {
+    buildManagedListTreeData(list) {
+        const items = Array.isArray(list?.items) ? list.items : [];
+        const activeItems = items.filter(item => item && item.is_active !== false);
+        const byId = new Map(activeItems.map(item => [Number(item.id), item]));
+        const childrenByParent = new Map();
+
+        activeItems.forEach((item) => {
+            const ownId = Number(item.id);
+            const parentId = Number(item.parent_item_id);
+            const normalizedParentId = Number.isFinite(parentId) && byId.has(parentId) && parentId !== ownId
+                ? parentId
+                : 0;
+            if (!childrenByParent.has(normalizedParentId)) {
+                childrenByParent.set(normalizedParentId, []);
+            }
+            childrenByParent.get(normalizedParentId).push(item);
+        });
+
+        childrenByParent.forEach((entries) => {
+            entries.sort((a, b) => {
+                const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+                if (orderDiff !== 0) return orderDiff;
+                return String(a.display_value || a.value || '').localeCompare(
+                    String(b.display_value || b.value || ''),
+                    'sv',
+                    { sensitivity: 'base' }
+                );
+            });
+        });
+
+        return { byId, childrenByParent };
+    }
+
+    renderManagedListInlineCreateRow(parentItemId, fallbackCode, depth = 0) {
+        const normalizedParent = Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0
+            ? Number(parentItemId)
+            : null;
+        if (normalizedParent === null) {
+            return '';
+        }
+        if (this.managedListInlineCreateParentId !== normalizedParent) {
+            return '';
+        }
+        return `
+            <div class="managed-list-tree-inline-create" style="padding-left: ${8 + (depth * 16)}px;">
+                <input
+                    id="managed-list-inline-create-value"
+                    type="text"
+                    class="form-control"
+                    placeholder="${fallbackCode.toUpperCase()} label"
+                    onkeydown="if(event.key==='Enter'){event.preventDefault();adminManager.submitManagedListInlineCreate()} if(event.key==='Escape'){event.preventDefault();adminManager.cancelManagedListInlineCreate()}"
+                >
+                <button type="button" class="btn btn-sm btn-primary" onclick="adminManager.submitManagedListInlineCreate()">Spara</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="adminManager.cancelManagedListInlineCreate()">Avbryt</button>
+            </div>
+        `;
+    }
+
+    renderManagedListTreeNodes(childrenByParent, parentId = 0, depth = 0, fallbackCode = 'en') {
+        const nodes = childrenByParent.get(Number(parentId)) || [];
+        if (!nodes.length) {
+            return this.renderManagedListInlineCreateRow(parentId || null, fallbackCode, depth);
+        }
+
+        const renderedNodes = nodes.map((node) => {
+            const nodeId = Number(node.id);
+            const label = escapeHtml(String(node.label || node.display_value || node.value || `Rad ${nodeId}`));
+            const isSelected = this.selectedManagedListTreeNodeIds.has(nodeId);
+            const children = childrenByParent.get(nodeId) || [];
+            const hasChildren = children.length > 0;
+            const isExpanded = this.managedListTreeExpandedNodeIds.has(String(nodeId));
+            const nested = isExpanded
+                ? this.renderManagedListTreeNodes(childrenByParent, nodeId, depth + 1, fallbackCode)
+                : '';
+            const isInactive = node.is_active === false;
+            const nonSelectable = node.is_selectable === false;
+
+            return `
+                <div class="managed-list-tree-row">
+                    <div
+                        class="managed-list-tree-node-row ${isSelected ? 'selected' : ''} ${isInactive ? 'inactive' : ''}"
+                        style="padding-left: ${8 + (depth * 16)}px;"
+                        draggable="true"
+                        ondragstart="adminManager.onManagedListTreeDragStart(event, ${nodeId})"
+                        ondragend="adminManager.onManagedListTreeDragEnd()"
+                        ondragenter="adminManager.onManagedListTreeDragEnter(event, ${nodeId})"
+                        ondragleave="adminManager.onManagedListTreeDragLeave(event)"
+                        ondragover="adminManager.onManagedListTreeDragOver(event)"
+                        ondrop="adminManager.onManagedListTreeDrop(event, ${nodeId})"
+                    >
+                        <span class="tree-expander-slot">
+                            ${hasChildren
+                                ? `<button type="button" draggable="false" class="tree-toggle ${isExpanded ? 'expanded' : ''}" onclick="event.stopPropagation(); adminManager.toggleManagedListTreeNode(${nodeId})">${isExpanded ? '▾' : '▸'}</button>`
+                                : '<span class="tree-spacer"></span>'}
+                        </span>
+                        <button
+                            type="button"
+                            draggable="false"
+                            class="managed-list-tree-node"
+                            onclick="adminManager.selectManagedListTreeNode(${nodeId}, event)"
+                        >
+                            <span class="managed-list-tree-node-label">${label}</span>
+                            ${isInactive ? '<span class="managed-list-node-flag">Inaktiv</span>' : ''}
+                            ${nonSelectable ? '<span class="managed-list-node-flag">Ej valbar</span>' : ''}
+                            ${hasChildren ? `<span class="managed-list-tree-node-count">${children.length}</span>` : ''}
+                        </button>
+                        <button type="button" draggable="false" class="btn btn-sm btn-secondary managed-list-tree-add-child-btn" title="Lägg till undernod" onclick="event.stopPropagation(); adminManager.openManagedListInlineCreate(${nodeId})">+</button>
+                        <button type="button" draggable="false" class="btn btn-sm btn-danger managed-list-tree-delete-btn" title="Ta bort nod" onclick="event.stopPropagation(); adminManager.deleteManagedListItem(${nodeId})">-</button>
+                    </div>
+                    ${nested}
+                </div>
+            `;
+        }).join('');
+
+        const inlineCreateRow = this.renderManagedListInlineCreateRow(parentId || null, fallbackCode, depth);
+        return `${renderedNodes}${inlineCreateRow}`;
+    }
+
+    getManagedListSelectedTreeNode(list) {
+        const items = Array.isArray(list?.items) ? list.items : [];
+        return items.find(item => Number(item.id) === Number(this.selectedManagedListTreeNodeId)) || null;
+    }
+
+    collectManagedListVisibleNodeOrder(childrenByParent, parentId = 0, order = []) {
+        const nodes = childrenByParent.get(Number(parentId)) || [];
+        nodes.forEach((node) => {
+            const nodeId = Number(node.id);
+            order.push(nodeId);
+            if (this.managedListTreeExpandedNodeIds.has(String(nodeId))) {
+                this.collectManagedListVisibleNodeOrder(childrenByParent, nodeId, order);
+            }
+        });
+        return order;
+    }
+
+    renderManagedListNodeEditor(list, selectedNode, _languageCodes, _fallbackCode, treeData) {
+        if (!selectedNode) {
+            return `
+                <div class="managed-list-node-empty">
+                    <p>Välj en nod i trädet till vänster.</p>
+                    <p>Använd drag/drop för att bygga om strukturen.</p>
+                </div>
+            `;
+        }
+
+        void list;
+        void treeData;
+        const fallbackCode = 'en';
+        const localeLabels = {
+            en: 'English',
+            sv: 'Svenska',
+            fi: 'Finska',
+            no: 'Norska'
+        };
+        const translations = this.getManagedListItemTranslations(selectedNode) || {};
+        const languageCodes = this.getManagedListNodeLanguageCodes();
+        const fallbackLabelValue = String(
+            translations[fallbackCode]
+            || selectedNode.label
+            || selectedNode.display_value
+            || selectedNode.value
+            || ''
+        );
+
+        return `
+            <div class="managed-list-node-editor managed-list-node-editor-compact">
+                <div class="managed-list-node-editor-header">
+                    <h5>Vald post: ${escapeHtml(String(selectedNode.label || selectedNode.display_value || selectedNode.value || `Rad ${selectedNode.id}`))}</h5>
+                </div>
+                <div class="managed-list-node-language-grid managed-list-node-language-grid-compact">
+                    ${languageCodes.map((code) => {
+                        const languageValue = code === fallbackCode
+                            ? fallbackLabelValue
+                            : String(translations[code] || '');
+                        const isFallback = code === fallbackCode;
+                        const labelSuffix = isFallback ? ' (fallback)' : '';
+                        return `
+                            <label>
+                                <span>${escapeHtml(localeLabels[code] || code.toUpperCase())}${labelSuffix}</span>
+                                <input
+                                    type="text"
+                                    class="form-control managed-list-node-translation-input"
+                                    data-locale="${escapeHtml(code)}"
+                                    value="${escapeHtml(languageValue)}"
+                                >
+                            </label>
+                        `;
+                    }).join('')}
+                    <label style="grid-column: 1 / -1;">
+                        <span>Beskrivning</span>
+                        <textarea class="form-control" id="managed-list-node-description">${escapeHtml(String(selectedNode.description || ''))}</textarea>
+                    </label>
+                    <label>
+                        <span>Sort order</span>
+                        <input type="number" class="form-control" id="managed-list-node-sort-order" value="${Number(selectedNode.sort_order || 0)}">
+                    </label>
+                    <label class="managed-list-node-checkbox">
+                        <input type="checkbox" id="managed-list-node-active" ${selectedNode.is_active !== false ? 'checked' : ''}>
+                        Aktiv
+                    </label>
+                    <label class="managed-list-node-checkbox">
+                        <input type="checkbox" id="managed-list-node-selectable" ${selectedNode.is_selectable !== false ? 'checked' : ''}>
+                        Valbar i formulär
+                    </label>
+                </div>
+                <div class="managed-list-node-editor-footer">
+                    <button class="btn btn-primary" onclick="adminManager.saveManagedListTreeNode()">Uppdatera</button>
+                </div>
+            </div>
+        `;
+    }
+
+    renderManagedListDetails(list) {
+        const items = Array.isArray(list.items) ? list.items : [];
+        const treeData = this.buildManagedListTreeData(list);
+        this.managedListVisibleNodeOrder = this.collectManagedListVisibleNodeOrder(treeData.childrenByParent);
+        const selectedNode = this.getManagedListSelectedTreeNode(list);
+        const treeHtml = this.renderManagedListTreeNodes(treeData.childrenByParent, 0, 0, 'en');
+
+        return `
+            <div class="type-detail-view managed-list-detail-view">
+                <div class="detail-header">
+                    <div class="managed-list-detail-title">
+                        <h3>${escapeHtml(list.name)}</h3>
+                        <button class="btn-icon" title="Byt namn" onclick="adminManager.editManagedList(${Number(list.id)})">✏️</button>
+                    </div>
+                    <div class="managed-list-detail-actions">
+                        <span class="managed-list-type-count">${items.length} rader</span>
+                        <button class="btn btn-sm btn-secondary" onclick="adminManager.openManagedListJsonImport(${Number(list.id)})">Import JSON</button>
+                        <button class="btn btn-sm btn-secondary" onclick="ListsAPI.export(${Number(list.id)}, 'json')">Export JSON</button>
+                        <button class="btn btn-sm btn-danger" onclick="adminManager.closeManagedListWorkspace()">Stäng</button>
+                        <input type="file" id="managed-list-json-import-input" accept=".json,application/json" style="display:none" onchange="adminManager.importManagedListJsonFile(event, ${Number(list.id)})">
+                    </div>
+                </div>
+
+                <div class="managed-list-summary">
+                    <span><strong>Kod:</strong> ${escapeHtml(String(list.code || '-'))}</span>
+                    <span><strong>Status:</strong> ${list.is_active ? 'Aktiv' : 'Inaktiv'}</span>
+                    <span><strong>Multival:</strong> ${list.allow_multiselect ? 'Ja' : 'Nej'}</span>
+                </div>
+
+                <div class="managed-list-tree-editor-layout">
+                    <div class="managed-list-tree-panel">
+                        <div class="section-header">
+                            <h4>Träd</h4>
+                        </div>
+                        <div
+                            class="managed-list-root-dropzone"
+                            ondragenter="adminManager.onManagedListTreeDragEnter(event, null)"
+                            ondragleave="adminManager.onManagedListTreeDragLeave(event)"
+                            ondragover="adminManager.onManagedListTreeDragOver(event)"
+                            ondrop="adminManager.onManagedListTreeDrop(event, null)"
+                        >
+                            Dra hit för top-level
+                        </div>
+                        <div class="managed-list-tree-scroll">
+                            ${treeHtml || '<p class="empty-state">Inga noder ännu</p>'}
+                        </div>
+                    </div>
+                    <div class="managed-list-editor-panel">
+                        <div class="section-header">
+                            <h4>Noddata</h4>
+                        </div>
+                        ${this.renderManagedListNodeEditor(list, selectedNode, [], 'en', treeData)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    openManagedListJsonImport(_listId) {
+        const input = document.getElementById('managed-list-json-import-input');
+        if (!input) return;
+        input.value = '';
+        input.click();
+    }
+
+    async importManagedListJsonFile(event, listId) {
+        const file = event?.target?.files?.[0];
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            const payload = Array.isArray(parsed)
+                ? { items: parsed }
+                : (parsed && Array.isArray(parsed.items) ? { items: parsed.items } : null);
+            if (!payload) {
+                showToast('JSON måste innehålla en array eller { items: [...] }', 'error');
+                return;
+            }
+            await ListsAPI.importJson(listId, payload);
+            showToast('Import genomförd', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to import managed list JSON:', error);
+            showToast(error.message || 'Kunde inte importera JSON', 'error');
+        }
+    }
+
+    toggleManagedListTreeNode(nodeId) {
+        const normalized = String(nodeId);
+        if (!normalized) return;
+        if (this.managedListTreeExpandedNodeIds.has(normalized)) {
+            this.managedListTreeExpandedNodeIds.delete(normalized);
+        } else {
+            this.managedListTreeExpandedNodeIds.add(normalized);
+        }
+        this.renderManagedListCurrentSurface();
+    }
+
+    openManagedListInlineCreate(parentItemId = null) {
+        const normalizedParent = Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0
+            ? Number(parentItemId)
+            : null;
+        this.managedListInlineCreateParentId = normalizedParent;
+        if (normalizedParent) {
+            this.managedListTreeExpandedNodeIds.add(String(normalizedParent));
+            this.selectedManagedListTreeNodeId = normalizedParent;
+            this.selectedManagedListTreeNodeIds = new Set([normalizedParent]);
+            this.managedListTreeSelectionAnchorId = normalizedParent;
+        }
+        this.renderManagedListCurrentSurface();
+        window.setTimeout(() => {
+            const input = document.getElementById('managed-list-inline-create-value');
+            if (input) input.focus();
+        }, 0);
+    }
+
+    cancelManagedListInlineCreate() {
+        this.managedListInlineCreateParentId = null;
+        this.renderManagedListCurrentSurface();
+    }
+
+    async submitManagedListInlineCreate() {
+        const input = document.getElementById('managed-list-inline-create-value');
+        const fallbackValue = String(input?.value || '').trim();
+        if (!fallbackValue) {
+            showToast('Ange ett namn för noden', 'error');
+            return;
+        }
+        await this.createManagedListTreeNode(this.managedListInlineCreateParentId, fallbackValue);
+    }
+
+    selectManagedListTreeNode(itemId, event = null) {
+        const id = Number(itemId) || null;
+        if (!id) return;
+
+        const current = new Set(this.selectedManagedListTreeNodeIds || []);
+        const isCtrlLike = Boolean(event?.ctrlKey || event?.metaKey);
+        const isShift = Boolean(event?.shiftKey);
+
+        if (isShift && this.managedListTreeSelectionAnchorId && this.managedListVisibleNodeOrder.length) {
+            const anchor = Number(this.managedListTreeSelectionAnchorId);
+            const anchorIndex = this.managedListVisibleNodeOrder.indexOf(anchor);
+            const targetIndex = this.managedListVisibleNodeOrder.indexOf(id);
+            if (anchorIndex >= 0 && targetIndex >= 0) {
+                const start = Math.min(anchorIndex, targetIndex);
+                const end = Math.max(anchorIndex, targetIndex);
+                const rangeIds = this.managedListVisibleNodeOrder.slice(start, end + 1);
+                this.selectedManagedListTreeNodeIds = isCtrlLike ? new Set([...current, ...rangeIds]) : new Set(rangeIds);
+            } else {
+                this.selectedManagedListTreeNodeIds = new Set([id]);
+            }
+        } else if (isCtrlLike) {
+            if (current.has(id)) current.delete(id);
+            else current.add(id);
+            this.selectedManagedListTreeNodeIds = current.size ? current : new Set([id]);
+            this.managedListTreeSelectionAnchorId = id;
+        } else {
+            this.selectedManagedListTreeNodeIds = new Set([id]);
+            this.managedListTreeSelectionAnchorId = id;
+        }
+
+        this.selectedManagedListTreeNodeId = id;
+        this.renderManagedListCurrentSurface();
+    }
+
+    getManagedListTopLevelSelection(nodeIds, items) {
+        const selection = new Set((nodeIds || []).map(id => Number(id)).filter(id => id > 0));
+        const byId = new Map((items || []).map(item => [Number(item.id), item]));
+        const visibleOrderIndex = new Map((this.managedListVisibleNodeOrder || []).map((id, idx) => [Number(id), idx]));
+
+        const topLevelIds = Array.from(selection).filter((nodeId) => {
+            let parentId = Number(byId.get(nodeId)?.parent_item_id || 0);
+            while (parentId > 0) {
+                if (selection.has(parentId)) return false;
+                parentId = Number(byId.get(parentId)?.parent_item_id || 0);
+            }
+            return true;
+        });
+
+        topLevelIds.sort((a, b) => {
+            const ia = Number(visibleOrderIndex.get(a));
+            const ib = Number(visibleOrderIndex.get(b));
+            const safeA = Number.isFinite(ia) ? ia : Number.MAX_SAFE_INTEGER;
+            const safeB = Number.isFinite(ib) ? ib : Number.MAX_SAFE_INTEGER;
+            return safeA - safeB;
+        });
+        return topLevelIds;
+    }
+
+    clearManagedListDropHighlights() {
+        document
+            .querySelectorAll('.managed-list-drop-target')
+            .forEach((element) => element.classList.remove('managed-list-drop-target'));
+    }
+
+    onManagedListTreeDragStart(event, nodeId) {
+        const id = Number(nodeId || 0);
+        if (!id) return;
+        const list = this.selectedManagedListDetail;
+        const items = Array.isArray(list?.items) ? list.items : [];
+        const selectedIds = this.selectedManagedListTreeNodeIds.has(id)
+            ? Array.from(this.selectedManagedListTreeNodeIds)
+            : [id];
+        const dragCandidateIds = this.getManagedListTopLevelSelection(selectedIds, items);
+
+        const blockedId = dragCandidateIds.find((candidateId) => {
+            const hasChildren = items.some(item => Number(item.parent_item_id || 0) === Number(candidateId));
+            const isExpanded = this.managedListTreeExpandedNodeIds.has(String(candidateId));
+            return hasChildren && isExpanded;
+        });
+        if (blockedId) {
+            if (event) event.preventDefault();
+            showToast('Kollapsa noden innan du flyttar den', 'error');
+            return;
+        }
+
+        this.selectedManagedListTreeNodeId = id;
+        this.selectedManagedListTreeNodeIds = new Set(dragCandidateIds.length ? dragCandidateIds : [id]);
+        this.managedListTreeSelectionAnchorId = id;
+        this.managedListDraggedNodeIds = dragCandidateIds.length ? dragCandidateIds : [id];
+        this.managedListDraggedNodeId = id;
+
+        if (event?.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(id));
+        }
+    }
+
+    onManagedListTreeDragEnter(event, _targetNodeId = null) {
+        if (!event) return;
+        event.preventDefault();
+        this.clearManagedListDropHighlights();
+        event.currentTarget?.classList?.add('managed-list-drop-target');
+    }
+
+    onManagedListTreeDragLeave(event) {
+        if (!event) return;
+        const container = event.currentTarget;
+        if (container && event.relatedTarget && container.contains(event.relatedTarget)) {
+            return;
+        }
+        container?.classList?.remove('managed-list-drop-target');
+    }
+
+    onManagedListTreeDragOver(event) {
+        if (!event) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    }
+
+    onManagedListTreeDragEnd() {
+        this.managedListDraggedNodeId = null;
+        this.managedListDraggedNodeIds = [];
+        this.clearManagedListDropHighlights();
+    }
+
+    async onManagedListTreeDrop(event, targetNodeId = null) {
+        if (event) event.preventDefault();
+        this.clearManagedListDropHighlights();
+        const draggedFromTransfer = Number(event?.dataTransfer?.getData('text/plain') || 0);
+        const fallbackSourceId = Number(draggedFromTransfer || this.managedListDraggedNodeId || 0);
+        const sourceNodeIds = (Array.isArray(this.managedListDraggedNodeIds) && this.managedListDraggedNodeIds.length)
+            ? this.managedListDraggedNodeIds.map(id => Number(id)).filter(id => id > 0)
+            : (fallbackSourceId ? [fallbackSourceId] : []);
+        const newParentId = Number(targetNodeId || 0) || null;
+        if (!sourceNodeIds.length) return;
+        if (newParentId && sourceNodeIds.includes(newParentId)) return;
+        try {
+            for (const sourceNodeId of sourceNodeIds) {
+                await ListsAPI.moveItem(sourceNodeId, { new_parent_id: newParentId });
+            }
+            if (newParentId) this.managedListTreeExpandedNodeIds.add(String(newParentId));
+            this.selectedManagedListTreeNodeIds = new Set(sourceNodeIds);
+            this.selectedManagedListTreeNodeId = sourceNodeIds[0] || null;
+            showToast(sourceNodeIds.length > 1 ? `${sourceNodeIds.length} noder flyttade` : 'Nod flyttad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to move managed list node:', error);
+            showToast(error.message || 'Kunde inte flytta nod', 'error');
+        } finally {
+            this.managedListDraggedNodeId = null;
+            this.managedListDraggedNodeIds = [];
+            this.clearManagedListDropHighlights();
+        }
+    }
+
+    async createManagedListTreeNode(parentItemId = null, fallbackValue = '') {
+        if (!this.selectedManagedListId) {
+            showToast('Välj en lista först', 'error');
+            return;
+        }
+
+        const list = this.selectedManagedListDetail || this.managedLists.find(item => Number(item.id) === Number(this.selectedManagedListId));
+        if (!list) return;
+
+        const normalizedFallbackValue = String(fallbackValue || '').trim();
+        if (!normalizedFallbackValue) return;
+
+        const payload = {
+            label: normalizedFallbackValue,
+            code: '',
+            description: '',
+            value_translations: { en: normalizedFallbackValue },
+            is_active: true,
+            is_selectable: true
+        };
+
+        if (Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0) {
+            payload.parent_id = Number(parentItemId);
+        }
+
+        try {
+            const created = await ListsAPI.addItem(this.selectedManagedListId, payload);
+            this.selectedManagedListTreeNodeId = Number(created?.id) || null;
+            this.selectedManagedListTreeNodeIds = this.selectedManagedListTreeNodeId
+                ? new Set([this.selectedManagedListTreeNodeId])
+                : new Set();
+            this.managedListTreeSelectionAnchorId = this.selectedManagedListTreeNodeId;
+            this.managedListInlineCreateParentId = null;
+            if (Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0) {
+                this.managedListTreeExpandedNodeIds.add(String(parentItemId));
+            }
+            showToast('Nod skapad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list tree node:', error);
+            showToast(error.message || 'Kunde inte skapa nod', 'error');
+        }
+    }
+
+    async createManagedListTreeChildNode() {
+        const parentId = Number(this.selectedManagedListTreeNodeId || 0);
+        if (!parentId) {
+            showToast('Välj en parent-nod först', 'error');
+            return;
+        }
+        this.openManagedListInlineCreate(parentId);
+    }
+
+    async moveManagedListTreeNodeToRoot() {
+        if (!this.selectedManagedListId || !this.selectedManagedListTreeNodeId) return;
+        try {
+            await ListsAPI.updateItem(this.selectedManagedListTreeNodeId, {
+                parent_id: null
+            });
+            showToast('Noden flyttades till top-level', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to move managed list node to root:', error);
+            showToast(error.message || 'Kunde inte flytta noden', 'error');
+        }
+    }
+
+    async saveManagedListTreeNode() {
+        if (!this.selectedManagedListId || !this.selectedManagedListTreeNodeId) return;
+
+        const list = this.selectedManagedListDetail || this.managedLists.find(item => Number(item.id) === Number(this.selectedManagedListId));
+        const selectedNode = this.getManagedListSelectedTreeNode(list);
+        if (!list || !selectedNode) return;
+        const fallbackCode = 'en';
+        const translationInputs = Array.from(document.querySelectorAll('.managed-list-node-translation-input'));
+        const valueTranslations = {};
+        translationInputs.forEach((input) => {
+            const locale = this.sanitizeLanguageCode(input?.dataset?.locale);
+            const value = String(input?.value || '').trim();
+            if (locale && value) {
+                valueTranslations[locale] = value;
+            }
+        });
+        const label = String(valueTranslations[fallbackCode] || '').trim();
+        const description = String(document.getElementById('managed-list-node-description')?.value || '').trim();
+        const sortOrder = Number(document.getElementById('managed-list-node-sort-order')?.value || 0);
+        const isActive = Boolean(document.getElementById('managed-list-node-active')?.checked);
+        const isSelectable = Boolean(document.getElementById('managed-list-node-selectable')?.checked);
+        if (!label) {
+            showToast('English (fallback) är obligatoriskt', 'error');
+            return;
+        }
+
+        try {
+            await ListsAPI.updateItem(this.selectedManagedListTreeNodeId, {
+                label,
+                description: description || null,
+                value_translations: valueTranslations,
+                sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+                is_active: isActive,
+                is_selectable: isSelectable
+            });
+            showToast('Nod uppdaterad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to save managed list tree node:', error);
+            showToast(error.message || 'Kunde inte uppdatera noden', 'error');
+        }
+    }
+
+    async createManagedListChildLink(parentListId) {
+        const select = document.getElementById(`managed-list-add-child-${parentListId}`);
+        const childListId = Number(select?.value || 0);
+        if (!childListId) {
+            showToast('Välj en barnlista', 'error');
+            return;
+        }
+        try {
+            await ManagedListsAPI.addLink({ parent_list_id: parentListId, child_list_id: childListId, relation_key: 'depends_on' });
+            showToast('Barnlista kopplad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list child link:', error);
+            showToast(error.message || 'Kunde inte koppla barnlista', 'error');
+        }
+    }
+
+    async createManagedListParentLink(childListId) {
+        const select = document.getElementById(`managed-list-add-parent-${childListId}`);
+        const parentListId = Number(select?.value || 0);
+        if (!parentListId) {
+            showToast('Välj en föräldralista', 'error');
+            return;
+        }
+        try {
+            await ManagedListsAPI.addLink({ parent_list_id: parentListId, child_list_id: childListId, relation_key: 'depends_on' });
+            showToast('Föräldralista kopplad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list parent link:', error);
+            showToast(error.message || 'Kunde inte koppla föräldralista', 'error');
+        }
+    }
+
+    async deleteManagedListLink(linkId) {
+        if (!confirm('Ta bort denna listkoppling och tillhörande värdekopplingar?')) return;
+        try {
+            await ManagedListsAPI.deleteLink(linkId);
+            showToast('Listkoppling borttagen', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to delete managed list link:', error);
+            showToast(error.message || 'Kunde inte ta bort listkoppling', 'error');
+        }
+    }
+
+    async createManagedListItemLink(linkId) {
+        const parentSelect = document.getElementById(`managed-list-item-link-parent-${linkId}`);
+        const childSelect = document.getElementById(`managed-list-item-link-child-${linkId}`);
+        const parentItemId = Number(parentSelect?.value || 0);
+        const childItemId = Number(childSelect?.value || 0);
+        if (!parentItemId || !childItemId) {
+            showToast('Välj både parent- och child-värde', 'error');
+            return;
+        }
+        try {
+            await ManagedListsAPI.addItemLink({
+                list_link_id: linkId,
+                parent_item_id: parentItemId,
+                child_item_id: childItemId
+            });
+            showToast('Värdekoppling skapad', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to create managed list item link:', error);
+            showToast(error.message || 'Kunde inte skapa värdekoppling', 'error');
+        }
+    }
+
+    async deleteManagedListItemLink(itemLinkId) {
+        try {
+            await ManagedListsAPI.deleteItemLink(itemLinkId);
+            showToast('Värdekoppling borttagen', 'success');
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to delete managed list item link:', error);
+            showToast(error.message || 'Kunde inte ta bort värdekoppling', 'error');
+        }
+    }
+
+    async selectManagedList(listId) {
         this.selectedManagedListId = listId;
+        this.selectedManagedListTreeNodeId = null;
+        this.selectedManagedListTreeNodeIds = new Set();
+        this.managedListTreeSelectionAnchorId = null;
+        this.managedListInlineCreateParentId = null;
+        this.managedListTreeExpandedNodeIds = new Set();
+        try {
+            this.selectedManagedListDetail = await ListsAPI.getById(listId, true, true);
+        } catch (error) {
+            console.error('Failed to fetch selected managed list detail:', error);
+            this.selectedManagedListDetail = null;
+        }
         this.renderManagedLists();
     }
 
     async createManagedList() {
         const input = document.getElementById('new-managed-list-name');
         const name = (input?.value || '').trim();
+        const codeInput = document.getElementById('new-managed-list-code');
+        const code = String(codeInput?.value || '').trim();
         if (!name) {
             showToast('Ange ett namn för listan', 'error');
             return;
         }
 
         try {
-            const created = await ManagedListsAPI.create({ name });
+            const created = await ListsAPI.create({ name, code });
             this.selectedManagedListId = created.id;
             if (input) input.value = '';
+            if (codeInput) codeInput.value = '';
             showToast('Lista skapad', 'success');
             await this.loadManagedLists();
         } catch (error) {
@@ -1436,7 +2491,7 @@ class ObjectTypeManager {
         }
 
         try {
-            await ManagedListsAPI.update(listId, { name: trimmed });
+            await ListsAPI.update(listId, { name: trimmed });
             showToast('Lista uppdaterad', 'success');
             await this.loadManagedLists();
         } catch (error) {
@@ -1449,8 +2504,11 @@ class ObjectTypeManager {
         if (!confirm('Är du säker på att du vill ta bort denna lista och alla dess rader?')) return;
 
         try {
-            await ManagedListsAPI.delete(listId);
+            await ListsAPI.delete(listId);
             showToast('Lista borttagen', 'success');
+            if (Number(this.selectedManagedListId) === Number(listId)) {
+                this.closeManagedListWorkspace();
+            }
             await this.loadManagedLists();
         } catch (error) {
             console.error('Failed to delete managed list:', error);
@@ -1628,7 +2686,7 @@ class ObjectTypeManager {
         if (!this.selectedManagedListId) return;
 
         try {
-            await ManagedListsAPI.deleteItem(this.selectedManagedListId, itemId);
+            await ListsAPI.deleteItem(itemId);
             showToast('Rad borttagen', 'success');
             await this.loadManagedLists();
         } catch (error) {

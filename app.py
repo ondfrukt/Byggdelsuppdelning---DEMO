@@ -138,6 +138,24 @@ def create_app():
             logger.warning(f"Managed list translations migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_list_administration_core import run_migration as run_list_admin_core_migration
+            run_list_admin_core_migration(db)
+        except Exception as e:
+            logger.warning(f"List administration core migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_managed_list_item_tree_fields import run_migration as run_managed_list_item_tree_fields_migration
+            run_managed_list_item_tree_fields_migration(db)
+        except Exception as e:
+            logger.warning(f"Managed list item tree field migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_managed_list_links import run_migration as run_managed_list_links_migration
+            run_managed_list_links_migration(db)
+        except Exception as e:
+            logger.warning(f"Managed list link migration may have already run: {str(e)}")
+
+        try:
             from migrations.add_field_templates import run_migration as run_field_templates_migration
             run_field_templates_migration(db)
         except Exception as e:
