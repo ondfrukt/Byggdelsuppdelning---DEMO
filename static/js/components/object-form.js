@@ -52,8 +52,11 @@ class ObjectFormComponent {
                     this.managedListValues[listId] = (managedList?.items || [])
                         .filter(item => item.is_active !== false)
                         .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-                        .map(item => item.value)
-                        .filter(Boolean);
+                        .map(item => ({
+                            value: String(item.value || '').trim(),
+                            label: String(item.display_value || item.value || '').trim()
+                        }))
+                        .filter(item => item.value);
                 } catch (error) {
                     console.error(`Failed to load managed list ${listId} for object form:`, error);
                     this.managedListValues[listId] = [];
@@ -278,8 +281,8 @@ class ObjectFormComponent {
             case 'select':
                 const options = this.getSelectOptions(field);
                 const optionsHtml = options.map(opt => 
-                    `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>
-                        ${escapeHtml(opt)}
+                    `<option value="${escapeHtml(opt.value)}" ${(String(value) === String(opt.value) || String(value) === String(opt.label)) ? 'selected' : ''}>
+                        ${escapeHtml(opt.label)}
                     </option>`
                 ).join('');
                 inputHtml = `
@@ -1177,7 +1180,12 @@ class ObjectFormComponent {
             if (!Number.isFinite(listId) || listId <= 0) return [];
             return this.managedListValues[listId] || [];
         }
-        return this.parseOptions(field.field_options || field.options);
+        return this.parseOptions(field.field_options || field.options)
+            .map(option => ({
+                value: String(option ?? '').trim(),
+                label: String(option ?? '').trim()
+            }))
+            .filter(option => option.value);
     }
     
     getFormData() {

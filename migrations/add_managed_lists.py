@@ -20,6 +20,8 @@ def run_migration(db):
                     id INTEGER PRIMARY KEY,
                     name VARCHAR(120) NOT NULL UNIQUE,
                     description VARCHAR(255),
+                    language_codes JSON,
+                    additional_language_code VARCHAR(10) NOT NULL DEFAULT 'fi',
                     is_active BOOLEAN NOT NULL DEFAULT 1,
                     created_at DATETIME,
                     updated_at DATETIME
@@ -33,6 +35,7 @@ def run_migration(db):
                     id INTEGER PRIMARY KEY,
                     list_id INTEGER NOT NULL,
                     value VARCHAR(255) NOT NULL,
+                    value_translations JSON,
                     sort_order INTEGER NOT NULL DEFAULT 0,
                     is_active BOOLEAN NOT NULL DEFAULT 1,
                     created_at DATETIME,

@@ -34,7 +34,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def is_file_object_type(type_name):
     """Check if an object type should be treated as a file object."""
     normalized = (type_name or '').strip().lower()
-    return normalized == 'filobjekt'
+    return normalized in {'filobjekt', 'fileobject', 'file object'}
 
 
 def ensure_file_object_or_422(obj):
@@ -45,7 +45,7 @@ def ensure_file_object_or_422(obj):
 
     return jsonify({
         'error': 'FILE_OWNER_TYPE_INVALID',
-        'message': 'Only Filobjekt can own documents',
+        'message': 'Only FileObject can own documents',
         'object_id': obj.id if obj else None,
         'object_type': object_type_name
     }), 422

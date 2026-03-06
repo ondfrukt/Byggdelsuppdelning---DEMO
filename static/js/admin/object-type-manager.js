@@ -583,15 +583,16 @@ class ObjectTypeManager {
                     className: 'col-name',
                     render: (row) => {
                         const options = Array.isArray(row.pair_type_options) ? row.pair_type_options : [];
-                        const left = options[0] || { name: '-' };
-                        const right = options[1] || { name: '-' };
-                        const leftColor = getObjectTypeColor(left.name);
-                        const rightColor = getObjectTypeColor(right.name);
+                        const optionById = new Map(options.map(option => [Number(option.id), option]));
+                        const source = optionById.get(Number(row.source_object_type_id)) || { name: '-' };
+                        const target = optionById.get(Number(row.target_object_type_id)) || { name: '-' };
+                        const sourceColor = getObjectTypeColor(source.name);
+                        const targetColor = getObjectTypeColor(target.name);
                         return `
                             <div class="relation-pair-badges">
-                                <span class="object-type-badge" style="background-color: ${leftColor}">${escapeHtml(left.name)}</span>
-                                <span class="relation-pair-separator">↔</span>
-                                <span class="object-type-badge" style="background-color: ${rightColor}">${escapeHtml(right.name)}</span>
+                                <span class="object-type-badge" style="background-color: ${sourceColor}">${escapeHtml(source.name)}</span>
+                                <span class="relation-pair-separator">→</span>
+                                <span class="object-type-badge" style="background-color: ${targetColor}">${escapeHtml(target.name)}</span>
                             </div>
                         `;
                     }
@@ -1063,9 +1064,9 @@ class ObjectTypeManager {
             });
         }
 
-        const newItemInput = document.getElementById('new-managed-list-item-value');
-        if (newItemInput) {
-            newItemInput.addEventListener('keydown', (event) => {
+        const newItemInputEn = document.getElementById('new-managed-list-item-value-en');
+        if (newItemInputEn) {
+            newItemInputEn.addEventListener('keydown', (event) => {
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
                 this.createManagedListItem();
@@ -1073,8 +1074,215 @@ class ObjectTypeManager {
         }
     }
 
+    getManagedListLanguageCodes(list) {
+        const rawCodes = Array.isArray(list?.language_codes) ? list.language_codes : [];
+        const seen = new Set();
+        const codes = [];
+
+        rawCodes.forEach((raw) => {
+            const code = this.sanitizeLanguageCode(raw);
+            if (!code || seen.has(code)) return;
+            seen.add(code);
+            codes.push(code);
+        });
+
+        if (!codes.length) {
+            const fallback = this.sanitizeLanguageCode(list?.fallback_language_code) || 'en';
+            codes.push(fallback);
+        }
+        return codes;
+    }
+
+    sanitizeLanguageCode(code) {
+        return String(code || '').trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 10);
+    }
+
+    buildLocaleInputId(prefix, locale, index) {
+        const safeLocale = this.sanitizeLanguageCode(locale) || `lang${index + 1}`;
+        return `${prefix}-${safeLocale}`;
+    }
+
+    getSuggestedLanguageCode(index, usedCodes) {
+        const suggestions = ['sv', 'fi', 'de', 'no', 'da', 'fr', 'es', 'it', 'nl', 'pl'];
+        for (const suggestion of suggestions) {
+            if (!usedCodes.has(suggestion)) return suggestion;
+        }
+        let counter = index + 1;
+        while (usedCodes.has(`l${counter}`)) counter += 1;
+        return `l${counter}`;
+    }
+
+    getManagedListFallbackLanguageCode(list, languageCodes = null) {
+        const codes = Array.isArray(languageCodes) && languageCodes.length
+            ? languageCodes
+            : this.getManagedListLanguageCodes(list);
+        const preferredFallback = this.sanitizeLanguageCode(list?.fallback_language_code);
+        if (preferredFallback && codes.includes(preferredFallback)) {
+            return preferredFallback;
+        }
+        return this.sanitizeLanguageCode(codes[0]) || 'en';
+    }
+
+    getManagedListLanguageCatalog() {
+        return ['en', 'sv', 'fi', 'de', 'no', 'da', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'et', 'lv', 'lt'];
+    }
+
+    renderManagedListLanguageSelectOptions(languageCodes, index, selectedCode) {
+        const selected = this.sanitizeLanguageCode(selectedCode);
+        const usedByOthers = new Set(
+            languageCodes
+                .filter((_, itemIndex) => itemIndex !== index)
+                .map(code => this.sanitizeLanguageCode(code))
+                .filter(Boolean)
+        );
+
+        const catalog = this.getManagedListLanguageCatalog();
+        const options = [];
+
+        if (selected && !catalog.includes(selected)) {
+            options.push(selected);
+        }
+
+        catalog.forEach((code) => {
+            if (code === selected || !usedByOthers.has(code)) {
+                options.push(code);
+            }
+        });
+
+        return Array.from(new Set(options)).map((code) => `
+            <option value="${escapeHtml(code)}" ${code === selected ? 'selected' : ''}>${escapeHtml(code.toUpperCase())}</option>
+        `).join('');
+    }
+
+    getNormalizedLanguageCodes(languageCodes) {
+        const seen = new Set();
+        const normalized = [];
+
+        (Array.isArray(languageCodes) ? languageCodes : []).forEach((raw, index) => {
+            let code = this.sanitizeLanguageCode(raw);
+            if (!code || seen.has(code)) {
+                code = this.getSuggestedLanguageCode(index, seen);
+            }
+            if (!code || seen.has(code)) return;
+            seen.add(code);
+            normalized.push(code);
+        });
+
+        if (!normalized.length) normalized.push('en');
+        return normalized.slice(0, 10);
+    }
+
+    async persistManagedListLanguages(list, nextLanguageCodes, fallbackLanguageCode = '') {
+        const normalizedCodes = this.getNormalizedLanguageCodes(nextLanguageCodes);
+        const fallback = this.sanitizeLanguageCode(fallbackLanguageCode) || normalizedCodes[0];
+        const orderedCodes = [fallback, ...normalizedCodes.filter(code => code !== fallback)];
+        const additionalLanguageCode = orderedCodes.find(code => code !== fallback) || fallback;
+
+        try {
+            await ManagedListsAPI.update(this.selectedManagedListId, {
+                language_codes: orderedCodes,
+                additional_language_code: additionalLanguageCode
+            });
+            list.language_codes = orderedCodes;
+            list.fallback_language_code = fallback;
+            list.additional_language_code = additionalLanguageCode;
+            await this.loadManagedLists();
+        } catch (error) {
+            console.error('Failed to update managed list languages:', error);
+            showToast(error.message || 'Kunde inte uppdatera språk', 'error');
+        }
+    }
+
+    async addManagedListLanguageColumn() {
+        if (!this.selectedManagedListId) return;
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        if (!list) return;
+
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        if (languageCodes.length >= 10) {
+            showToast('Max 10 språk per lista', 'error');
+            return;
+        }
+
+        const nextCode = this.getSuggestedLanguageCode(languageCodes.length, new Set(languageCodes));
+        await this.persistManagedListLanguages(
+            list,
+            [...languageCodes, nextCode],
+            this.getManagedListFallbackLanguageCode(list, languageCodes)
+        );
+    }
+
+    async removeManagedListLanguageColumn(index) {
+        if (!this.selectedManagedListId) return;
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        if (!list) return;
+
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
+        const codeToRemove = this.sanitizeLanguageCode(languageCodes[index]);
+
+        if (!codeToRemove) return;
+        if (codeToRemove === fallbackCode) {
+            showToast('Fallback-kolumnen kan inte tas bort', 'error');
+            return;
+        }
+        if (languageCodes.length <= 1) {
+            showToast('Minst ett språk måste finnas kvar', 'error');
+            return;
+        }
+
+        const nextCodes = languageCodes.filter((_, itemIndex) => itemIndex !== index);
+        await this.persistManagedListLanguages(list, nextCodes, fallbackCode);
+    }
+
+    async updateManagedListColumnLanguage(index, value) {
+        if (!this.selectedManagedListId) return;
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        if (!list) return;
+
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
+        const nextCode = this.sanitizeLanguageCode(value);
+        if (!nextCode) {
+            showToast('Välj ett giltigt språk', 'error');
+            return;
+        }
+
+        const isDuplicate = languageCodes.some((code, itemIndex) => itemIndex !== index && this.sanitizeLanguageCode(code) === nextCode);
+        if (isDuplicate) {
+            showToast(`Språket ${nextCode.toUpperCase()} finns redan`, 'error');
+            return;
+        }
+
+        const nextCodes = [...languageCodes];
+        nextCodes[index] = nextCode;
+        const nextFallback = this.sanitizeLanguageCode(languageCodes[index]) === fallbackCode ? nextCode : fallbackCode;
+        await this.persistManagedListLanguages(list, nextCodes, nextFallback);
+    }
+
+    async setManagedListFallbackLanguage(value) {
+        if (!this.selectedManagedListId) return;
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        if (!list) return;
+
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const fallbackCode = this.sanitizeLanguageCode(value);
+        if (!fallbackCode || !languageCodes.includes(fallbackCode)) return;
+
+        await this.persistManagedListLanguages(list, languageCodes, fallbackCode);
+    }
+
+    getManagedListItemTranslations(item) {
+        const raw = (item && typeof item.value_translations === 'object' && item.value_translations) || {};
+        return raw;
+    }
+
     renderManagedListDetails(list) {
         const items = Array.isArray(list.items) ? list.items : [];
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
+        const columnCount = Math.max(1, languageCodes.length);
+        const gridTemplate = `repeat(${columnCount}, minmax(120px, 1fr)) auto`;
         return `
             <div class="type-detail-view managed-list-detail-view">
                 <div class="detail-header">
@@ -1095,30 +1303,91 @@ class ObjectTypeManager {
                         >
                         <button class="btn btn-sm btn-secondary" onclick="adminManager.updateManagedListDescription()">Spara</button>
                     </div>
+                    <span><strong>Språk:</strong></span>
+                    <span>${escapeHtml(fallbackCode.toUpperCase())} är fallback</span>
                 </div>
                 <div class="fields-section managed-list-items-section">
                     <div class="section-header">
                         <h4>Rader</h4>
                     </div>
-                    <div class="category-toolbar managed-lists-toolbar">
-                        <input id="new-managed-list-item-value" type="text" class="form-control" placeholder="Nytt listvärde...">
-                        <button class="btn btn-primary" onclick="adminManager.createManagedListItem()">Lägg till rad</button>
+                    <div class="managed-list-grid-row managed-list-language-header" style="grid-template-columns: ${gridTemplate};">
+                        ${languageCodes.map((code, index) => {
+                            const options = this.renderManagedListLanguageSelectOptions(languageCodes, index, code);
+                            const isFallback = code === fallbackCode;
+                            return `
+                                <div class="managed-list-language-cell">
+                                    <select
+                                        class="form-control managed-list-column-language-select"
+                                        onchange="adminManager.updateManagedListColumnLanguage(${index}, this.value)"
+                                    >
+                                        ${options}
+                                    </select>
+                                    <label class="managed-list-fallback-toggle">
+                                        <input
+                                            type="radio"
+                                            name="managed-list-fallback-${list.id}"
+                                            value="${escapeHtml(code)}"
+                                            ${isFallback ? 'checked' : ''}
+                                            onchange="adminManager.setManagedListFallbackLanguage(this.value)"
+                                        >
+                                        Fallback
+                                    </label>
+                                    <button
+                                        class="btn-icon btn-danger"
+                                        title="Ta bort kolumn"
+                                        aria-label="Ta bort kolumn ${escapeHtml(code)}"
+                                        onclick="adminManager.removeManagedListLanguageColumn(${index})"
+                                        ${isFallback ? 'disabled' : ''}
+                                    >-</button>
+                                </div>
+                            `;
+                        }).join('')}
+                        <div class="managed-list-column-actions">
+                            <button
+                                class="btn btn-sm btn-secondary managed-list-add-column-btn"
+                                title="Lägg till språk-kolumn"
+                                onclick="adminManager.addManagedListLanguageColumn()"
+                            >+</button>
+                        </div>
+                    </div>
+                    <div class="managed-list-grid-row managed-list-new-row" style="grid-template-columns: ${gridTemplate};">
+                        ${languageCodes.map((code, index) => {
+                            const inputId = this.buildLocaleInputId('new-managed-list-item-value', code, index);
+                            const placeholder = code === fallbackCode ? `${code} (fallback) *` : code;
+                            return `<input id="${inputId}" type="text" class="form-control" placeholder="${escapeHtml(placeholder)}">`;
+                        }).join('')}
+                        <button class="btn btn-primary managed-list-add-row-btn" onclick="adminManager.createManagedListItem()">Lägg till rad</button>
                     </div>
                     ${items.length === 0
                         ? '<p class="empty-state">Inga rader ännu</p>'
                         : `<div class="category-list managed-list-items-list">
                             ${items.map(item => `
-                                <div class="category-item managed-list-item-row">
-                                    <input
-                                        type="text"
-                                        class="form-control managed-list-item-input"
-                                        value="${escapeHtml(item.value)}"
-                                        data-item-id="${item.id}"
-                                        data-original-value="${escapeHtml(item.value)}"
-                                        onkeydown="if(event.key === 'Enter'){ event.preventDefault(); this.blur(); }"
-                                        onblur="adminManager.updateManagedListItemInline(${item.id}, this)"
-                                    >
+                                <div
+                                    class="category-item managed-list-item-row managed-list-grid-row"
+                                    id="managed-list-item-row-${item.id}"
+                                    data-item-id="${item.id}"
+                                    style="grid-template-columns: ${gridTemplate};"
+                                >
+                                    ${languageCodes.map((code, index) => {
+                                        const translations = this.getManagedListItemTranslations(item);
+                                        const currentValue = code === fallbackCode
+                                            ? String(item.value || '')
+                                            : String(translations[code] || '');
+                                        const placeholder = code === fallbackCode ? `${code} (fallback) *` : code;
+                                        return `
+                                            <input
+                                                type="text"
+                                                class="form-control managed-list-item-input"
+                                                value="${escapeHtml(currentValue)}"
+                                                data-locale="${escapeHtml(code)}"
+                                                data-original-value="${escapeHtml(currentValue)}"
+                                                placeholder="${escapeHtml(placeholder)}"
+                                                onkeydown="if(event.key === 'Enter'){ event.preventDefault(); adminManager.updateManagedListItemInline(${item.id}); }"
+                                            >
+                                        `;
+                                    }).join('')}
                                     <div class="category-actions">
+                                        <button class="btn-icon" onclick="adminManager.updateManagedListItemInline(${item.id})" title="Spara rad" aria-label="Spara rad ${escapeHtml(String(item.value || ''))}">💾</button>
                                         <button class="btn-icon btn-danger" onclick="adminManager.deleteManagedListItem(${item.id})" title="Ta bort rad" aria-label="Ta bort rad ${escapeHtml(item.value)}">🗑️</button>
                                     </div>
                                 </div>
@@ -1195,16 +1464,37 @@ class ObjectTypeManager {
             return;
         }
 
-        const input = document.getElementById('new-managed-list-item-value');
-        const value = (input?.value || '').trim();
-        if (!value) {
-            showToast('Ange ett värde för raden', 'error');
+        const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
+        const languageCodes = this.getManagedListLanguageCodes(list);
+        const fallbackCode = this.getManagedListFallbackLanguageCode(list, languageCodes);
+
+        const valueTranslations = {};
+        languageCodes.forEach((code, index) => {
+            const inputId = this.buildLocaleInputId('new-managed-list-item-value', code, index);
+            const input = document.getElementById(inputId);
+            const value = String(input?.value || '').trim();
+            if (value) {
+                valueTranslations[code] = value;
+            }
+        });
+
+        const fallbackValue = String(valueTranslations[fallbackCode] || '').trim();
+
+        if (!fallbackValue) {
+            showToast(`${fallbackCode.toUpperCase()} (fallback) är obligatoriskt`, 'error');
             return;
         }
 
         try {
-            await ManagedListsAPI.addItem(this.selectedManagedListId, { value });
-            if (input) input.value = '';
+            await ManagedListsAPI.addItem(this.selectedManagedListId, {
+                value: fallbackValue,
+                value_translations: valueTranslations
+            });
+            languageCodes.forEach((code, index) => {
+                const inputId = this.buildLocaleInputId('new-managed-list-item-value', code, index);
+                const input = document.getElementById(inputId);
+                if (input) input.value = '';
+            });
             showToast('Rad tillagd', 'success');
             await this.loadManagedLists();
         } catch (error) {
@@ -1260,33 +1550,77 @@ class ObjectTypeManager {
         }
     }
 
-    async updateManagedListItemInline(itemId, inputEl) {
-        if (!this.selectedManagedListId || !inputEl) return;
-        if (inputEl.dataset.saving === 'true') return;
+    async updateManagedListLanguages() {
+        // Kept for backwards compatibility with older onclick bindings.
+    }
+
+    async updateManagedListItemInline(itemId) {
+        if (!this.selectedManagedListId) return;
+
+        const row = document.getElementById(`managed-list-item-row-${itemId}`);
+        if (!row) return;
+        if (row.dataset.saving === 'true') return;
 
         const list = this.managedLists.find(item => item.id === this.selectedManagedListId);
-        const item = list?.items?.find(row => row.id === itemId);
+        const item = list?.items?.find(currentItem => currentItem.id === itemId);
         if (!item) return;
 
-        const originalValue = (inputEl.dataset.originalValue || item.value || '').trim();
-        const nextValue = (inputEl.value || '').trim();
-        if (!nextValue || nextValue === originalValue) {
-            inputEl.value = originalValue;
+        const inputs = Array.from(row.querySelectorAll('.managed-list-item-input'));
+        if (!inputs.length) return;
+        const fallbackCode = this.getManagedListFallbackLanguageCode(list);
+
+        const valueTranslations = {};
+        let nextFallback = '';
+        let hasChanged = false;
+
+        inputs.forEach((input) => {
+            const locale = this.sanitizeLanguageCode(input.dataset.locale);
+            const original = String(input.dataset.originalValue || '').trim();
+            const next = String(input.value || '').trim();
+            if (next !== original) {
+                hasChanged = true;
+            }
+            if (locale && next) {
+                valueTranslations[locale] = next;
+            }
+            if (locale === fallbackCode) {
+                nextFallback = next;
+            }
+        });
+
+        if (!nextFallback) {
+            showToast(`${fallbackCode.toUpperCase()} (fallback) kan inte vara tomt`, 'error');
+            const fallbackInput = inputs.find(input => this.sanitizeLanguageCode(input.dataset.locale) === fallbackCode);
+            if (fallbackInput) {
+                fallbackInput.value = String(fallbackInput.dataset.originalValue || '').trim();
+            }
+            return;
+        }
+
+        if (!hasChanged) {
             return;
         }
 
         try {
-            inputEl.dataset.saving = 'true';
-            await ManagedListsAPI.updateItem(this.selectedManagedListId, itemId, { value: nextValue });
-            inputEl.dataset.originalValue = nextValue;
-            item.value = nextValue;
+            row.dataset.saving = 'true';
+            await ManagedListsAPI.updateItem(this.selectedManagedListId, itemId, {
+                value: nextFallback,
+                value_translations: valueTranslations
+            });
+            inputs.forEach((input) => {
+                input.dataset.originalValue = String(input.value || '').trim();
+            });
+            item.value = nextFallback;
+            item.value_translations = valueTranslations;
             await this.loadManagedLists();
         } catch (error) {
             console.error('Failed to inline-update managed list item:', error);
             showToast(error.message || 'Kunde inte uppdatera rad', 'error');
-            inputEl.value = originalValue;
+            inputs.forEach((input) => {
+                input.value = String(input.dataset.originalValue || '').trim();
+            });
         } finally {
-            inputEl.dataset.saving = 'false';
+            row.dataset.saving = 'false';
         }
     }
 

@@ -1640,6 +1640,52 @@ body {
     padding-right: 2px;
 }
 
+.managed-list-grid-row {
+    display: grid;
+    gap: 6px;
+    align-items: center;
+}
+
+.managed-list-language-header {
+    margin-bottom: 8px;
+}
+
+.managed-list-language-cell {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.managed-list-column-language-select {
+    min-width: 0;
+}
+
+.managed-list-fallback-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.managed-list-column-actions,
+.managed-list-add-row-btn {
+    justify-self: end;
+}
+
+.managed-list-add-column-btn {
+    min-width: 32px;
+    min-height: 28px;
+    padding: 2px 8px;
+}
+
+.managed-list-new-row {
+    margin-bottom: 8px;
+}
+
 .managed-lists-admin-content .category-actions {
     gap: 2px;
 }

@@ -3,12 +3,22 @@ from models import db, Object, ObjectType
 
 
 DEFAULT_PREFIX_MAP = {
+    'Assembly': 'BYG',
+    'BuildingPart': 'BYG',
+    'Building Part': 'BYG',
     'Byggdel': 'BYG',
+    'Product': 'PROD',
     'Produkt': 'PROD',
+    'Requirement': 'KRAV',
     'Kravställning': 'KRAV',
+    'Connection': 'ANS',
     'Anslutning': 'ANS',
+    'FileObject': 'RIT',
+    'File Object': 'RIT',
     'Ritningsobjekt': 'RIT',
+    'Property': 'EG',
     'Egenskap': 'EG',
+    'Instruction': 'ANV',
     'Anvisning': 'ANV'
 }
 
@@ -118,4 +128,3 @@ def generate_base_id(object_type_name):
         logger = logging.getLogger(__name__)
         logger.warning(f"Error generating base_id for {object_type_name}: {str(e)}. Starting from 1.")
         return f"{prefix}-1"
-

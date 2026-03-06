@@ -132,6 +132,12 @@ def create_app():
             logger.warning(f"Managed lists migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_managed_list_translations import run_migration as run_managed_list_translations_migration
+            run_managed_list_translations_migration(db)
+        except Exception as e:
+            logger.warning(f"Managed list translations migration may have already run: {str(e)}")
+
+        try:
             from migrations.add_field_templates import run_migration as run_field_templates_migration
             run_field_templates_migration(db)
         except Exception as e:

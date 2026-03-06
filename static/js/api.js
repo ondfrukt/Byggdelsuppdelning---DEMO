@@ -274,11 +274,19 @@ const SearchAPI = {
 
 
 // Managed Lists API
+function getManagedListLocaleParam() {
+    const browserLocale = String((typeof navigator !== 'undefined' && navigator && navigator.language) || '').trim();
+    if (!browserLocale) return '';
+    return browserLocale;
+}
+
 const ManagedListsAPI = {
     getAll: (includeInactive = false, includeItems = false) => {
         const params = new URLSearchParams();
         if (includeInactive) params.append('include_inactive', 'true');
         if (includeItems) params.append('include_items', 'true');
+        const locale = getManagedListLocaleParam();
+        if (locale) params.append('locale', locale);
         const query = params.toString();
         return fetchAPI(`/managed-lists${query ? '?' + query : ''}`);
     },
@@ -287,6 +295,8 @@ const ManagedListsAPI = {
         const params = new URLSearchParams();
         if (includeItems) params.append('include_items', 'true');
         if (includeInactiveItems) params.append('include_inactive_items', 'true');
+        const locale = getManagedListLocaleParam();
+        if (locale) params.append('locale', locale);
         const query = params.toString();
         return fetchAPI(`/managed-lists/${id}${query ? '?' + query : ''}`);
     },
@@ -296,8 +306,12 @@ const ManagedListsAPI = {
     delete: (id) => fetchAPI(`/managed-lists/${id}`, { method: 'DELETE' }),
 
     getItems: (listId, includeInactive = false) => {
-        const params = includeInactive ? '?include_inactive=true' : '';
-        return fetchAPI(`/managed-lists/${listId}/items${params}`);
+        const params = new URLSearchParams();
+        if (includeInactive) params.append('include_inactive', 'true');
+        const locale = getManagedListLocaleParam();
+        if (locale) params.append('locale', locale);
+        const query = params.toString();
+        return fetchAPI(`/managed-lists/${listId}/items${query ? '?' + query : ''}`);
     },
     addItem: (listId, data) => fetchAPI(`/managed-lists/${listId}/items`, { method: 'POST', body: JSON.stringify(data) }),
     updateItem: (listId, itemId, data) => fetchAPI(`/managed-lists/${listId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),

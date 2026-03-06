@@ -11,7 +11,7 @@ DEFAULT_RELATION_TYPE = 'uses_object'
 
 def is_file_object(obj):
     type_name = obj.object_type.name if obj and obj.object_type else ''
-    return type_name.strip().lower() == 'filobjekt'
+    return type_name.strip().lower() in {'filobjekt', 'fileobject', 'file object'}
 
 
 def normalize_id_full(value):

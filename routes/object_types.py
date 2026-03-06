@@ -163,7 +163,7 @@ def create_object_type():
         name_field = ObjectField(
             object_type_id=object_type.id,
             field_name=REQUIRED_NAME_FIELD,
-            display_name='Namn',
+            display_name='Name',
             field_type='text',
             is_required=True,
             lock_required_setting=True,
@@ -433,4 +433,3 @@ def delete_field_with_type(type_id, field_id):
         db.session.rollback()
         logger.error(f"Error deleting field: {str(e)}")
         return jsonify({'error': 'Failed to delete field'}), 500
-

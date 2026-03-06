@@ -999,12 +999,22 @@ class ObjectListComponent {
             if (!Number.isFinite(listId) || listId <= 0) return [];
             try {
                 const managedList = await ManagedListsAPI.getById(listId, true, false);
-                return (managedList?.items || []).map(item => item.value).filter(Boolean);
+                return (managedList?.items || [])
+                    .map(item => ({
+                        value: String(item.value || '').trim(),
+                        label: String(item.display_value || item.value || '').trim()
+                    }))
+                    .filter(item => item.value);
             } catch (_error) {
                 return [];
             }
         }
-        return this.parseFieldOptions(field.field_options);
+        return this.parseFieldOptions(field.field_options)
+            .map(option => ({
+                value: String(option ?? '').trim(),
+                label: String(option ?? '').trim()
+            }))
+            .filter(option => option.value);
     }
 
     async getObjectTypeFields(obj) {
@@ -1117,7 +1127,7 @@ class ObjectListComponent {
                     <label for="${id}">${escapeHtml(field.displayName)}</label>
                     <select id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="${field.fieldType}">
                         <option value="">${field.varies ? 'Varierar / Oförändrat' : 'Oförändrat'}</option>
-                        ${options.map(option => `<option value="${escapeHtml(String(option))}" ${String(currentValue) === String(option) ? 'selected' : ''}>${escapeHtml(String(option))}</option>`).join('')}
+                        ${options.map(option => `<option value="${escapeHtml(String(option.value))}" ${(String(currentValue) === String(option.value) || String(currentValue) === String(option.label)) ? 'selected' : ''}>${escapeHtml(String(option.label))}</option>`).join('')}
                     </select>
                 </div>
             `;

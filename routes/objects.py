@@ -182,7 +182,14 @@ def build_tree_root_nodes(root_objects, view_config):
 def is_document_object_type(type_name):
     """Check whether an object type is a document/drawing object."""
     normalized = (type_name or '').lower()
-    return 'filobjekt' in normalized or 'ritning' in normalized or 'dokument' in normalized
+    return (
+        'filobjekt' in normalized
+        or 'fileobject' in normalized
+        or 'file object' in normalized
+        or 'ritning' in normalized
+        or 'dokument' in normalized
+        or 'document' in normalized
+    )
 
 
 def normalize_field_key(value):
@@ -192,7 +199,8 @@ def normalize_field_key(value):
 
 def is_connection_object_type(type_name):
     """Check whether object type represents connection objects."""
-    return 'anslutning' in normalize_field_key(type_name)
+    normalized = normalize_field_key(type_name)
+    return 'anslutning' in normalized or 'connection' in normalized
 
 
 def find_field_name_by_aliases(fields, aliases):
