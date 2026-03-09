@@ -32,6 +32,7 @@ class ObjectTypeManager {
         this.fieldBindingsTable = null;
         this.managedListWorkspaceOpen = false;
         this.managedListDraggedNodeIds = [];
+        this.fieldHierarchySettingsAttached = false;
     }
     
     async render() {
@@ -113,6 +114,7 @@ class ObjectTypeManager {
         `;
         
         this.setupFieldModalTypeBehavior();
+        this.setupFieldHierarchySettingsBehavior();
         this.setupFieldTemplateModalBehavior();
         await this.loadObjectTypes();
         await this.loadManagedLists();
@@ -188,12 +190,13 @@ class ObjectTypeManager {
                         </button>
                     </div>
                 </div>
+
+                <div class="type-description-block">
+                    <span class="detail-label">Beskrivning</span>
+                    <span class="detail-value">${this.selectedType.description || 'N/A'}</span>
+                </div>
                 
                 <div class="detail-grid">
-                    <div class="detail-item">
-                        <span class="detail-label">Beskrivning</span>
-                        <span class="detail-value">${this.selectedType.description || 'N/A'}</span>
-                    </div>
                     <div class="detail-item">
                         <span class="detail-label">ID-prefix</span>
                         <span class="detail-value">${this.selectedType.id_prefix || 'AUTO'}</span>
@@ -219,10 +222,11 @@ class ObjectTypeManager {
                                 <thead>
                                     <tr>
                                         <th class="col-name">Namn</th>
+                                        <th class="col-type">Typ</th>
+                                        <th class="col-field-name">Fältnamn</th>
                                         <th class="col-status">Obligatorisk</th>
                                         <th class="col-detail-visible">Detaljvy</th>
                                         <th class="col-width">Bredd</th>
-                                        <th class="col-dependency">Beroende av fält</th>
                                         <th class="col-actions"></th>
                                     </tr>
                                 </thead>
@@ -244,17 +248,17 @@ class ObjectTypeManager {
     renderFieldRow(field) {
         const nameLabel = field.display_name || field.field_name;
         const canDelete = this.canDeleteField(field);
-        const ruleBits = [];
-        if (field.lock_required_setting) ruleBits.push('låst krav');
-        if (field.force_presence_on_all_objects) ruleBits.push('forcerad närvaro');
-        if (field.field_template_name) ruleBits.unshift(`mall: ${field.field_template_name}`);
-        const meta = `${this.getFieldTypeLabel(field)} • ${field.field_name}${ruleBits.length ? ` • ${ruleBits.join(', ')}` : ''}`;
         return `
             <tr data-field-id="${field.id}" draggable="true">
                 <td class="col-name">
                     <span class="field-drag-handle" title="Dra för att ändra ordning" aria-hidden="true">⋮⋮</span>
                     <strong>${escapeHtml(nameLabel)}</strong>
-                    <div class="admin-field-meta">${escapeHtml(meta)}${field.help_text ? ` • ${escapeHtml(field.help_text)}` : ''}</div>
+                </td>
+                <td class="col-type">
+                    ${escapeHtml(this.getFieldTypeLabel(field))}
+                </td>
+                <td class="col-field-name">
+                    <code>${escapeHtml(field.field_name || '')}</code>
                 </td>
                 <td class="col-status">
                     <input
@@ -284,17 +288,22 @@ class ObjectTypeManager {
                         <option value="third" ${(this.resolveFieldDetailWidth(field) === 'third') ? 'selected' : ''}>1/3</option>
                     </select>
                 </td>
-                <td class="col-dependency">
-                    ${this.renderFieldDependencyControl(field)}
-                </td>
                 <td class="col-actions">
-                    <button
-                        class="btn-icon btn-danger"
-                        onclick="adminManager.deleteField(${field.id})"
-                        ${canDelete ? '' : 'disabled'}
-                        title="${canDelete ? 'Ta bort fält' : 'Detta fält kan inte tas bort'}"
-                        aria-label="Ta bort fält ${escapeHtml(nameLabel)}"
-                    >🗑️</button>
+                    <div class="list-actions-inline">
+                        <button
+                            class="btn btn-sm btn-primary"
+                            onclick="adminManager.editField(${field.id})"
+                            title="Redigera fältinställningar"
+                            aria-label="Redigera fält ${escapeHtml(nameLabel)}"
+                        >Redigera</button>
+                        <button
+                            class="btn-icon btn-danger"
+                            onclick="adminManager.deleteField(${field.id})"
+                            ${canDelete ? '' : 'disabled'}
+                            title="${canDelete ? 'Ta bort fält' : 'Detta fält kan inte tas bort'}"
+                            aria-label="Ta bort fält ${escapeHtml(nameLabel)}"
+                        >🗑️</button>
+                    </div>
                 </td>
             </tr>
         `;
@@ -317,13 +326,7 @@ class ObjectTypeManager {
     }
 
     getFieldTypeLabel(field) {
-        const options = this.normalizeFieldOptions(field.field_options);
-        if (field.field_type === 'select' && options?.source === 'managed_list') {
-            const listId = Number(options?.list_id);
-            const list = this.managedLists.find(item => item.id === listId);
-            return list ? `lista: ${list.name}` : 'admin-lista';
-        }
-        return field.field_type;
+        return String(field?.field_type || '');
     }
 
     isManagedListSelectField(field) {
@@ -366,6 +369,25 @@ class ObjectTypeManager {
             source: 'managed_list',
             list_id: Number(rawOptions.list_id)
         };
+        if (rawOptions.selection_mode === 'multi' || rawOptions.selection_mode === 'single') {
+            nextOptions.selection_mode = rawOptions.selection_mode;
+        }
+        if ('allow_only_leaf_selection' in rawOptions) {
+            nextOptions.allow_only_leaf_selection = Boolean(rawOptions.allow_only_leaf_selection);
+        }
+        const hierarchyLevelCount = Number(rawOptions.hierarchy_level_count || 0);
+        if (Number.isFinite(hierarchyLevelCount) && hierarchyLevelCount > 1) {
+            nextOptions.hierarchy_level_count = Math.min(8, Math.max(2, Math.floor(hierarchyLevelCount)));
+        }
+        if (Array.isArray(rawOptions.hierarchy_level_labels)) {
+            const labels = rawOptions.hierarchy_level_labels
+                .map(label => String(label || '').trim())
+                .filter(Boolean)
+                .slice(0, 8);
+            if (labels.length) {
+                nextOptions.hierarchy_level_labels = labels;
+            }
+        }
 
         const normalizedParentFieldName = String(parentFieldName || '').trim();
         if (normalizedParentFieldName) {
@@ -1085,12 +1107,184 @@ class ObjectTypeManager {
         const requiredCheckbox = document.getElementById('field-required');
         if (!Number.isFinite(id) || id <= 0) {
             if (requiredCheckbox) requiredCheckbox.checked = false;
+            this.updateFieldHierarchySettingsVisibility();
             return;
         }
 
         const template = this.fieldTemplates.find(item => Number(item.id) === id);
         if (!template) return;
         if (requiredCheckbox) requiredCheckbox.checked = Boolean(template.is_required);
+        this.updateFieldHierarchySettingsVisibility();
+    }
+
+    normalizeHierarchyLevelCount(value, fallback = 2) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return fallback;
+        const safe = Math.floor(parsed);
+        if (safe < 2) return 2;
+        if (safe > 8) return 8;
+        return safe;
+    }
+
+    getHierarchyConfigFromOptions(rawOptions) {
+        const options = this.normalizeFieldOptions(rawOptions) || {};
+        const labels = Array.isArray(options.hierarchy_level_labels)
+            ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
+            : [];
+        const countFromOptions = Number(options.hierarchy_level_count || 0);
+        const enabled = countFromOptions > 1 || labels.length > 1;
+        const levelCount = this.normalizeHierarchyLevelCount(
+            countFromOptions > 1 ? countFromOptions : (labels.length > 1 ? labels.length : 2),
+            2
+        );
+        return {
+            enabled,
+            levelCount,
+            labels
+        };
+    }
+
+    renderFieldHierarchyLabels(levelCount, labels = []) {
+        const container = document.getElementById('field-hierarchy-labels-container');
+        if (!container) return;
+
+        const safeCount = this.normalizeHierarchyLevelCount(levelCount, 2);
+        container.innerHTML = Array.from({ length: safeCount }, (_, idx) => {
+            const levelIndex = idx + 1;
+            const value = String(labels[idx] || `Nivå ${levelIndex}`).trim();
+            return `
+                <div class="form-group">
+                    <label for="field-hierarchy-label-${levelIndex}">Rubrik nivå ${levelIndex}</label>
+                    <input
+                        type="text"
+                        id="field-hierarchy-label-${levelIndex}"
+                        class="form-control field-hierarchy-label-input"
+                        data-level-index="${idx}"
+                        value="${escapeHtml(value)}"
+                        placeholder="Nivå ${levelIndex}">
+                </div>
+            `;
+        }).join('');
+    }
+
+    setupFieldHierarchySettingsBehavior() {
+        if (this.fieldHierarchySettingsAttached) return;
+        const enabledCheckbox = document.getElementById('field-enable-hierarchy');
+        const levelCountInput = document.getElementById('field-hierarchy-level-count');
+        if (!enabledCheckbox || !levelCountInput) return;
+
+        enabledCheckbox.addEventListener('change', () => this.updateFieldHierarchySettingsVisibility());
+        levelCountInput.addEventListener('change', () => {
+            levelCountInput.value = String(this.normalizeHierarchyLevelCount(levelCountInput.value, 2));
+            this.updateFieldHierarchySettingsVisibility({ preserveLabels: true });
+        });
+        levelCountInput.addEventListener('input', () => this.updateFieldHierarchySettingsVisibility({ preserveLabels: true }));
+        this.fieldHierarchySettingsAttached = true;
+        this.updateFieldHierarchySettingsVisibility();
+    }
+
+    getFieldModalManagedListTemplate() {
+        const templateId = Number(document.getElementById('field-template-select')?.value || 0);
+        if (!Number.isFinite(templateId) || templateId <= 0) return null;
+        const template = this.fieldTemplates.find(item => Number(item.id) === templateId);
+        if (!template) return null;
+        const fieldType = String(template.field_type || '').toLowerCase();
+        const options = this.normalizeFieldOptions(template.field_options) || {};
+        if (fieldType !== 'select' || options.source !== 'managed_list') return null;
+        return template;
+    }
+
+    updateFieldHierarchySettingsVisibility({ preserveLabels = false } = {}) {
+        const settingsGroup = document.getElementById('field-hierarchy-settings-group');
+        const levelConfig = document.getElementById('field-hierarchy-level-config');
+        const enabledCheckbox = document.getElementById('field-enable-hierarchy');
+        const levelCountInput = document.getElementById('field-hierarchy-level-count');
+        const template = this.getFieldModalManagedListTemplate();
+        if (!settingsGroup || !levelConfig || !enabledCheckbox || !levelCountInput) return;
+
+        if (!template) {
+            settingsGroup.style.display = 'none';
+            levelConfig.style.display = 'none';
+            enabledCheckbox.checked = false;
+            return;
+        }
+
+        settingsGroup.style.display = '';
+        levelConfig.style.display = enabledCheckbox.checked ? '' : 'none';
+        const safeCount = this.normalizeHierarchyLevelCount(levelCountInput.value, 2);
+        levelCountInput.value = String(safeCount);
+
+        if (!enabledCheckbox.checked) return;
+        const existingLabels = preserveLabels
+            ? Array.from(document.querySelectorAll('.field-hierarchy-label-input'))
+                .map(input => String(input.value || '').trim())
+            : [];
+        this.renderFieldHierarchyLabels(safeCount, existingLabels);
+    }
+
+    setFieldHierarchySettingsFromFieldOptions(rawOptions) {
+        const enabledCheckbox = document.getElementById('field-enable-hierarchy');
+        const levelCountInput = document.getElementById('field-hierarchy-level-count');
+        if (!enabledCheckbox || !levelCountInput) return;
+
+        const hierarchy = this.getHierarchyConfigFromOptions(rawOptions);
+        enabledCheckbox.checked = hierarchy.enabled;
+        levelCountInput.value = String(hierarchy.levelCount);
+        this.updateFieldHierarchySettingsVisibility();
+        if (hierarchy.enabled) {
+            this.renderFieldHierarchyLabels(hierarchy.levelCount, hierarchy.labels);
+        }
+    }
+
+    buildFieldManagedListOptionsForModal({ mode, fieldId } = {}) {
+        const template = this.getFieldModalManagedListTemplate();
+        if (!template) return null;
+
+        const templateOptions = this.normalizeFieldOptions(template.field_options) || {};
+        const listId = Number(templateOptions.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return null;
+
+        const nextOptions = {
+            source: 'managed_list',
+            list_id: listId
+        };
+        if (templateOptions.selection_mode === 'multi' || templateOptions.selection_mode === 'single') {
+            nextOptions.selection_mode = templateOptions.selection_mode;
+        }
+        if ('allow_only_leaf_selection' in templateOptions) {
+            nextOptions.allow_only_leaf_selection = Boolean(templateOptions.allow_only_leaf_selection);
+        }
+
+        if (mode === 'edit' && this.selectedType) {
+            const currentField = (this.selectedType.fields || []).find(item => Number(item.id) === Number(fieldId));
+            const currentOptions = this.normalizeFieldOptions(currentField?.field_options) || {};
+            if (currentOptions.parent_field_name) nextOptions.parent_field_name = currentOptions.parent_field_name;
+            if (Number(currentOptions.parent_list_id) > 0) nextOptions.parent_list_id = Number(currentOptions.parent_list_id);
+            if (Number(currentOptions.list_link_id) > 0) nextOptions.list_link_id = Number(currentOptions.list_link_id);
+            if (currentOptions.selection_mode === 'multi' || currentOptions.selection_mode === 'single') {
+                nextOptions.selection_mode = currentOptions.selection_mode;
+            }
+            if ('allow_only_leaf_selection' in currentOptions) {
+                nextOptions.allow_only_leaf_selection = Boolean(currentOptions.allow_only_leaf_selection);
+            }
+        }
+
+        const enabledHierarchy = Boolean(document.getElementById('field-enable-hierarchy')?.checked);
+        if (!enabledHierarchy) {
+            return nextOptions;
+        }
+
+        const levelCount = this.normalizeHierarchyLevelCount(document.getElementById('field-hierarchy-level-count')?.value, 2);
+        const labels = Array.from(document.querySelectorAll('.field-hierarchy-label-input'))
+            .map(input => String(input.value || '').trim())
+            .filter(Boolean)
+            .slice(0, levelCount);
+
+        nextOptions.hierarchy_level_count = levelCount;
+        if (labels.length) {
+            nextOptions.hierarchy_level_labels = labels;
+        }
+        return nextOptions;
     }
 
     showCreateFieldTemplateModal() {
@@ -1787,10 +1981,7 @@ class ObjectTypeManager {
     renderManagedListInlineCreateRow(parentItemId, fallbackCode, depth = 0) {
         const normalizedParent = Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0
             ? Number(parentItemId)
-            : null;
-        if (normalizedParent === null) {
-            return '';
-        }
+            : 0;
         if (this.managedListInlineCreateParentId !== normalizedParent) {
             return '';
         }
@@ -1812,7 +2003,16 @@ class ObjectTypeManager {
     renderManagedListTreeNodes(childrenByParent, parentId = 0, depth = 0, fallbackCode = 'en') {
         const nodes = childrenByParent.get(Number(parentId)) || [];
         if (!nodes.length) {
-            return this.renderManagedListInlineCreateRow(parentId || null, fallbackCode, depth);
+            if (Number(parentId) === 0 && this.managedListInlineCreateParentId !== 0) {
+                return `
+                    <div class="managed-list-inline-create-empty-state">
+                        <button type="button" class="btn btn-sm btn-primary" onclick="adminManager.openManagedListInlineCreate(null)">
+                            Lägg till första nod
+                        </button>
+                    </div>
+                `;
+            }
+            return this.renderManagedListInlineCreateRow(parentId, fallbackCode, depth);
         }
 
         const renderedNodes = nodes.map((node) => {
@@ -1865,7 +2065,7 @@ class ObjectTypeManager {
             `;
         }).join('');
 
-        const inlineCreateRow = this.renderManagedListInlineCreateRow(parentId || null, fallbackCode, depth);
+        const inlineCreateRow = this.renderManagedListInlineCreateRow(parentId, fallbackCode, depth);
         return `${renderedNodes}${inlineCreateRow}`;
     }
 
@@ -1996,6 +2196,9 @@ class ObjectTypeManager {
                     <div class="managed-list-tree-panel">
                         <div class="section-header">
                             <h4>Träd</h4>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="adminManager.openManagedListInlineCreate(null)">
+                                + Top-level
+                            </button>
                         </div>
                         <div
                             class="managed-list-root-dropzone"
@@ -2064,9 +2267,9 @@ class ObjectTypeManager {
     openManagedListInlineCreate(parentItemId = null) {
         const normalizedParent = Number.isFinite(Number(parentItemId)) && Number(parentItemId) > 0
             ? Number(parentItemId)
-            : null;
+            : 0;
         this.managedListInlineCreateParentId = normalizedParent;
-        if (normalizedParent) {
+        if (normalizedParent > 0) {
             this.managedListTreeExpandedNodeIds.add(String(normalizedParent));
             this.selectedManagedListTreeNodeId = normalizedParent;
             this.selectedManagedListTreeNodeIds = new Set([normalizedParent]);
@@ -2512,7 +2715,21 @@ class ObjectTypeManager {
             await this.loadManagedLists();
         } catch (error) {
             console.error('Failed to delete managed list:', error);
-            showToast(error.message || 'Kunde inte ta bort lista', 'error');
+            const blockedFields = Array.isArray(error?.details?.used_by_fields)
+                ? error.details.used_by_fields
+                : [];
+            let message = error.message || 'Kunde inte ta bort lista';
+            if (blockedFields.length) {
+                const refs = blockedFields
+                    .slice(0, 5)
+                    .map(item => `${item.object_type}.${item.field_name}`)
+                    .join(', ');
+                const extra = blockedFields.length > 5 ? `, +${blockedFields.length - 5} till` : '';
+                message = `Listan används av fält: ${refs}${extra}`;
+            } else if (error?.details && typeof error.details === 'string') {
+                message = `${message}: ${error.details}`;
+            }
+            showToast(message, 'error');
         }
     }
 
@@ -2840,6 +3057,8 @@ class ObjectTypeManager {
         this.renderFieldTemplateOptions('');
         const templateSelect = document.getElementById('field-template-select');
         if (templateSelect) templateSelect.value = '';
+        this.setFieldHierarchySettingsFromFieldOptions(null);
+        this.updateFieldHierarchySettingsVisibility();
         modal.dataset.mode = 'create';
         modal.dataset.typeId = this.selectedType.id;
         delete modal.dataset.fieldId;
@@ -2872,6 +3091,7 @@ class ObjectTypeManager {
             templateSelect.disabled = true;
         }
         document.getElementById('field-required').checked = field.is_required;
+        this.setFieldHierarchySettingsFromFieldOptions(field.field_options);
         
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = this.selectedType.id;
@@ -3114,10 +3334,18 @@ async function saveField(event) {
             field_template_id: selectedTemplateId,
             is_required: document.getElementById('field-required').checked
         };
+        const managedListOptions = adminManager?.buildFieldManagedListOptionsForModal({ mode });
+        if (managedListOptions) {
+            data.field_options = managedListOptions;
+        }
     } else {
         data = {
             is_required: document.getElementById('field-required').checked
         };
+        const managedListOptions = adminManager?.buildFieldManagedListOptionsForModal({ mode, fieldId });
+        if (managedListOptions) {
+            data.field_options = managedListOptions;
+        }
     }
     
     try {

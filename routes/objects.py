@@ -14,6 +14,7 @@ from copy import deepcopy
 import re
 import logging
 import os
+import json
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
@@ -287,8 +288,73 @@ def enrich_object_type_fields_with_effective_required(obj_payload, required_over
         field_payload['is_required_override'] = override_value
 
 
-def set_object_data_value(record, field_type, value):
+def set_object_data_value(record, field_type, value, field_options=None):
     """Set typed ObjectData value and clear non-applicable typed columns."""
+    def normalize_field_options(raw_options):
+        if isinstance(raw_options, dict):
+            return raw_options
+        if isinstance(raw_options, str):
+            text = raw_options.strip()
+            if not text:
+                return None
+            try:
+                parsed = json.loads(text)
+                return parsed if isinstance(parsed, dict) else None
+            except Exception:
+                return None
+        return None
+
+    def normalize_multi_values(raw_value):
+        if raw_value is None:
+            return []
+        if isinstance(raw_value, list):
+            values = raw_value
+        elif isinstance(raw_value, str):
+            values = [part.strip() for part in raw_value.split(',') if part.strip()]
+        else:
+            values = [raw_value]
+        result = []
+        for candidate in values:
+            try:
+                parsed = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            if parsed <= 0 or parsed in result:
+                continue
+            result.append(parsed)
+        return result
+
+    def resolve_path_payload(item_id):
+        from models import ManagedListItem
+        item = ManagedListItem.query.get(item_id)
+        if not item:
+            return None
+
+        chain = []
+        visited = set()
+        current = item
+        while current and int(current.id) not in visited:
+            current_id = int(current.id)
+            visited.add(current_id)
+            chain.append({
+                'id': current_id,
+                'label': str(current.resolve_display_value(locale='sv', fallback_language_code='en') or current.value or '').strip()
+            })
+            parent_id = int(current.parent_item_id or 0)
+            if parent_id <= 0:
+                break
+            current = ManagedListItem.query.get(parent_id)
+
+        chain.reverse()
+        if not chain:
+            return None
+        return {
+            'selected_id': int(item.id),
+            'label': chain[-1]['label'],
+            'path_ids': [entry['id'] for entry in chain],
+            'path': [entry['label'] for entry in chain]
+        }
+
     if value is None or value == '':
         record.value_text = None
         record.value_number = None
@@ -321,12 +387,68 @@ def set_object_data_value(record, field_type, value):
         record.value_number = None
         record.value_date = None
         record.value_json = None
+    elif field_type == 'select':
+        field_options = normalize_field_options(field_options)
+        is_multi_managed_list = (
+            bool(field_options)
+            and str(field_options.get('source') or '').strip().lower() == 'managed_list'
+            and str(field_options.get('selection_mode') or '').strip().lower() == 'multi'
+        )
+        if not is_multi_managed_list:
+            record.value_text = str(value)
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        selected_ids = normalize_multi_values(value)
+        if not selected_ids:
+            record.value_text = None
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        selected = []
+        for selected_id in selected_ids:
+            payload = resolve_path_payload(selected_id)
+            if payload:
+                selected.append(payload)
+
+        if not selected:
+            record.value_text = None
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        record.value_text = ','.join(str(entry['selected_id']) for entry in selected)
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = {
+            'selection_mode': 'multi',
+            'list_id': int(field_options.get('list_id') or 0),
+            'selected_ids': [entry['selected_id'] for entry in selected],
+            'selected': selected
+        }
     else:
         record.value_text = str(value)
         record.value_number = None
         record.value_date = None
         record.value_boolean = None
         record.value_json = None
+
+
+def has_meaningful_value(value):
+    if value is None or value == '':
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return len(value) > 0
+    return True
 
 
 def is_pdf_document(document):
@@ -623,7 +745,7 @@ def create_object():
         for field in object_type.fields:
             field_name = field.field_name
             value = object_data.get(field_name)
-            should_store = (value is not None and value != '') or bool(field.force_presence_on_all_objects)
+            should_store = has_meaningful_value(value) or bool(field.force_presence_on_all_objects)
             if not should_store:
                 continue
 
@@ -631,7 +753,7 @@ def create_object():
                 object_id=obj.id,
                 field_id=field.id
             )
-            set_object_data_value(obj_data, field.field_type, value)
+            set_object_data_value(obj_data, field.field_type, value, field.field_options)
             db.session.add(obj_data)
         
         db.session.commit()
@@ -713,7 +835,7 @@ def update_object(id):
                 field_id=field.id
             ).first()
             
-            if value is not None and value != '':
+            if has_meaningful_value(value):
                 if not existing:
                     existing = ObjectData(
                         object_id=obj.id,
@@ -721,7 +843,7 @@ def update_object(id):
                     )
                     db.session.add(existing)
 
-                set_object_data_value(existing, field.field_type, value)
+                set_object_data_value(existing, field.field_type, value, field.field_options)
                 existing.updated_at = datetime.utcnow()
             elif field.force_presence_on_all_objects:
                 if not existing:
@@ -730,7 +852,7 @@ def update_object(id):
                         field_id=field.id
                     )
                     db.session.add(existing)
-                set_object_data_value(existing, field.field_type, None)
+                set_object_data_value(existing, field.field_type, None, field.field_options)
                 existing.updated_at = datetime.utcnow()
             elif existing:
                 # Remove if value is empty
@@ -917,7 +1039,7 @@ def duplicate_object(id):
                 object_id=duplicate.id,
                 field_id=field.id
             )
-            set_object_data_value(copied_data, field.field_type, value)
+            set_object_data_value(copied_data, field.field_type, value, field.field_options)
             db.session.add(copied_data)
 
         source_overrides = ObjectFieldOverride.query.filter_by(object_id=source.id).all()

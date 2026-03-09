@@ -275,6 +275,27 @@
                         Obligatoriskt fält
                     </label>
                 </div>
+                <div class="form-group" id="field-hierarchy-settings-group" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="field-enable-hierarchy">
+                        Hierarkiskt listval
+                    </label>
+                    <small class="form-help">Skapa flera nivåer för samma listfält (kaskadval).</small>
+                </div>
+                <div id="field-hierarchy-level-config" style="display: none;">
+                    <div class="form-group">
+                        <label for="field-hierarchy-level-count">Antal nivåer</label>
+                        <input
+                            type="number"
+                            id="field-hierarchy-level-count"
+                            class="form-control"
+                            min="2"
+                            max="8"
+                            step="1"
+                            value="2">
+                    </div>
+                    <div id="field-hierarchy-labels-container"></div>
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
                         Avbryt

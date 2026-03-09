@@ -45,7 +45,7 @@ class Object(db.Model):
                     elif field_type == 'boolean':
                         data[od.field.field_name] = od.value_boolean
                     else:
-                        data[od.field.field_name] = od.value_text
+                        data[od.field.field_name] = od.value_json if od.value_json is not None else od.value_text
             except Exception as e:
                 # Log but don't fail - skip problematic field
                 logger.warning(f"Error processing field data for object {self.id}, field {od.field_id if od else 'unknown'}: {str(e)}")

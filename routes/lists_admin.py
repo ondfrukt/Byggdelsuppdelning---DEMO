@@ -1,6 +1,7 @@
 from datetime import datetime
 import csv
 import io
+import json
 import logging
 import re
 
@@ -9,6 +10,8 @@ from flask import Blueprint, jsonify, request, Response
 from models import db
 from models.managed_list import ManagedList
 from models.managed_list_item import ManagedListItem
+from models.managed_list_link import ManagedListLink
+from models.managed_list_item_link import ManagedListItemLink
 from models.field_list_binding import FieldListBinding
 from models.object_type import ObjectType
 from models.object_field import ObjectField
@@ -161,6 +164,68 @@ def sync_binding_to_object_field(binding):
     field.is_required = bool(binding.is_required)
 
 
+def normalize_field_options(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            return None
+    return None
+
+
+def get_list_usage_blockers(list_id):
+    """Return object fields that currently reference this managed list."""
+    blockers = {}
+
+    bindings = FieldListBinding.query.filter_by(list_id=list_id).all()
+    for binding in bindings:
+        object_type_name = str(binding.object_type or '').strip()
+        field_name = str(binding.field_name or '').strip()
+        if not object_type_name or not field_name:
+            continue
+        key = (object_type_name.lower(), field_name.lower())
+        blockers[key] = {
+            'object_type': object_type_name,
+            'field_name': field_name,
+            'source': 'field_list_binding'
+        }
+
+    select_fields = ObjectField.query.filter_by(field_type='select').all()
+    for field in select_fields:
+        options = normalize_field_options(field.field_options)
+        if not options or str(options.get('source') or '').strip().lower() != 'managed_list':
+            continue
+        try:
+            referenced_list_id = int(options.get('list_id') or 0)
+        except (TypeError, ValueError):
+            continue
+        if referenced_list_id != int(list_id):
+            continue
+
+        object_type_name = str(field.object_type.name if field.object_type else '').strip()
+        field_name = str(field.field_name or '').strip()
+        if not object_type_name or not field_name:
+            continue
+        key = (object_type_name.lower(), field_name.lower())
+        blockers[key] = {
+            'object_type': object_type_name,
+            'field_name': field_name,
+            'source': 'object_field_options'
+        }
+
+    return sorted(
+        blockers.values(),
+        key=lambda item: (item['object_type'].lower(), item['field_name'].lower())
+    )
+
+
 @bp.route('/lists', methods=['GET'])
 def list_definitions():
     try:
@@ -302,13 +367,61 @@ def update_list_definition(list_id):
 def delete_list_definition(list_id):
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
+        blockers = get_list_usage_blockers(list_id)
+        if blockers:
+            refs = ', '.join(
+                f"{item['object_type']}.{item['field_name']}"
+                for item in blockers[:5]
+            )
+            if len(blockers) > 5:
+                refs = f"{refs}, +{len(blockers) - 5} till"
+            return jsonify({
+                'error': f'Listan används av fält och kan inte tas bort ({refs})',
+                'details': {
+                    'list_id': int(list_id),
+                    'usage_count': len(blockers),
+                    'used_by_fields': blockers
+                }
+            }), 409
+
+        item_ids = [
+            int(row[0])
+            for row in db.session.query(ManagedListItem.id)
+            .filter(ManagedListItem.list_id == list_id)
+            .all()
+        ]
+        if item_ids:
+            ManagedListItemLink.query.filter(
+                db.or_(
+                    ManagedListItemLink.parent_item_id.in_(item_ids),
+                    ManagedListItemLink.child_item_id.in_(item_ids),
+                )
+            ).delete(synchronize_session=False)
+
+        # Explicitly remove list-link graph rows before deleting the list.
+        # This avoids ORM trying to nullify non-null FK columns on linked rows.
+        list_links = ManagedListLink.query.filter(
+            db.or_(
+                ManagedListLink.parent_list_id == list_id,
+                ManagedListLink.child_list_id == list_id
+            )
+        ).all()
+        link_ids = [int(link.id) for link in list_links]
+        if link_ids:
+            ManagedListItemLink.query.filter(
+                ManagedListItemLink.list_link_id.in_(link_ids)
+            ).delete(synchronize_session=False)
+            ManagedListLink.query.filter(
+                ManagedListLink.id.in_(link_ids)
+            ).delete(synchronize_session=False)
+
         db.session.delete(managed_list)
         db.session.commit()
         return jsonify({'message': 'List deleted'}), 200
     except Exception as e:
         db.session.rollback()
-        logger.error(f"Error deleting list definition {list_id}: {str(e)}")
-        return jsonify({'error': 'Failed to delete list'}), 500
+        logger.error(f"Error deleting list definition {list_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to delete list', 'details': str(e)}), 500
 
 
 @bp.route('/lists/<int:list_id>/tree', methods=['GET'])

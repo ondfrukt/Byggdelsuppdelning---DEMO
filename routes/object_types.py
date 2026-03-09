@@ -61,6 +61,13 @@ def normalize_managed_list_field_options(value):
         'list_id': list_id,
     }
 
+    selection_mode = str(value.get('selection_mode') or '').strip().lower()
+    if selection_mode in ('single', 'multi'):
+        normalized['selection_mode'] = selection_mode
+
+    if 'allow_only_leaf_selection' in value:
+        normalized['allow_only_leaf_selection'] = bool(value.get('allow_only_leaf_selection'))
+
     parent_field_name = str(value.get('parent_field_name') or '').strip()
     if parent_field_name:
         normalized['parent_field_name'] = parent_field_name
@@ -78,6 +85,39 @@ def normalize_managed_list_field_options(value):
         return None, 'field_options.list_link_id must be an integer'
     if list_link_id > 0:
         normalized['list_link_id'] = list_link_id
+
+    try:
+        hierarchy_level_count = int(value.get('hierarchy_level_count') or 0)
+    except (TypeError, ValueError):
+        return None, 'field_options.hierarchy_level_count must be an integer'
+
+    raw_level_labels = value.get('hierarchy_level_labels')
+    if raw_level_labels is None:
+        level_labels = []
+    elif isinstance(raw_level_labels, list):
+        level_labels = [str(label or '').strip() for label in raw_level_labels]
+        if any(not label for label in level_labels):
+            return None, 'field_options.hierarchy_level_labels may not contain empty values'
+    else:
+        return None, 'field_options.hierarchy_level_labels must be an array of strings'
+
+    if hierarchy_level_count < 0:
+        return None, 'field_options.hierarchy_level_count must be >= 0'
+    if hierarchy_level_count > 8:
+        return None, 'field_options.hierarchy_level_count must be <= 8'
+    if level_labels and len(level_labels) > 8:
+        return None, 'field_options.hierarchy_level_labels may contain at most 8 labels'
+
+    if hierarchy_level_count <= 0 and level_labels:
+        hierarchy_level_count = len(level_labels)
+
+    if hierarchy_level_count > 1:
+        normalized['hierarchy_level_count'] = hierarchy_level_count
+
+    if level_labels:
+        if hierarchy_level_count > 0 and len(level_labels) > hierarchy_level_count:
+            level_labels = level_labels[:hierarchy_level_count]
+        normalized['hierarchy_level_labels'] = level_labels
 
     return normalized, None
 
@@ -368,6 +408,19 @@ def add_field(id):
             field.is_required = True
             field.lock_required_setting = True
             field.force_presence_on_all_objects = True
+
+        if 'field_options' in data:
+            if str(field.field_type or '').lower() != 'select':
+                return jsonify({'error': 'field_options can only be set for select fields'}), 400
+            current_options, current_error = normalize_managed_list_field_options(field.field_options or {})
+            if current_error:
+                return jsonify({'error': 'Only managed-list select options are supported here'}), 400
+            incoming_options, incoming_error = normalize_managed_list_field_options(data.get('field_options'))
+            if incoming_error:
+                return jsonify({'error': incoming_error}), 400
+            if int(incoming_options['list_id']) != int(current_options['list_id']):
+                return jsonify({'error': 'list_id is template-managed and cannot be changed here'}), 400
+            field.field_options = incoming_options
         
         db.session.add(field)
         db.session.flush()

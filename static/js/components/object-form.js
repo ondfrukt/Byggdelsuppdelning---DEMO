@@ -99,6 +99,7 @@ class ObjectFormComponent {
         `;
 
         this.setupManagedListDependencies(container);
+        this.setupManagedListHierarchySelectors(container);
         await this.initializeRichTextEditors(container);
         this.applyConnectionNameRules();
     }
@@ -110,6 +111,73 @@ class ObjectFormComponent {
         const listId = Number(normalizedOptions?.list_id);
         if (!Number.isFinite(listId) || listId <= 0) return null;
         return normalizedOptions;
+    }
+
+    getManagedListHierarchyConfig(field) {
+        const options = this.getManagedListFieldOptions(field);
+        if (!options || options.parent_field_name) return null;
+
+        const rawCount = Number(options.hierarchy_level_count || 0);
+        const labels = Array.isArray(options.hierarchy_level_labels)
+            ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
+            : [];
+        const hasHierarchy = rawCount > 1 || labels.length > 1;
+        if (!hasHierarchy) return null;
+        const inferredCount = rawCount > 1 ? rawCount : labels.length;
+        const levelCount = Math.min(8, Math.max(2, Number.isFinite(inferredCount) ? Math.floor(inferredCount) : 2));
+
+        return {
+            levelCount,
+            labels: Array.from({ length: levelCount }, (_, idx) => labels[idx] || `Nivå ${idx + 1}`),
+            allowOnlyLeafSelection: Boolean(options.allow_only_leaf_selection)
+        };
+    }
+
+    buildManagedListItemMaps(listId) {
+        const items = this.managedListItemsByListId[Number(listId)] || [];
+        const byId = new Map();
+        const childrenByParent = new Map();
+
+        items.forEach(item => {
+            const itemId = Number(item?.id);
+            if (!Number.isFinite(itemId) || itemId <= 0 || item.is_active === false) return;
+            byId.set(itemId, item);
+            const parentId = Number(item?.parent_item_id || 0);
+            const key = Number.isFinite(parentId) && parentId > 0 ? parentId : 0;
+            if (!childrenByParent.has(key)) {
+                childrenByParent.set(key, []);
+            }
+            childrenByParent.get(key).push(item);
+        });
+
+        childrenByParent.forEach((children, parentId) => {
+            children.sort((a, b) => {
+                const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+                if (orderDiff !== 0) return orderDiff;
+                return String(a.label || a.value || '').localeCompare(String(b.label || b.value || ''), 'sv', { sensitivity: 'base' });
+            });
+            childrenByParent.set(parentId, children);
+        });
+
+        return { byId, childrenByParent };
+    }
+
+    getManagedListPathToItem(listId, itemId) {
+        const safeItemId = Number(itemId || 0);
+        if (!Number.isFinite(safeItemId) || safeItemId <= 0) return [];
+        const { byId } = this.buildManagedListItemMaps(listId);
+        if (!byId.has(safeItemId)) return [];
+
+        const chain = [];
+        let currentId = safeItemId;
+        const visited = new Set();
+        while (currentId && byId.has(currentId) && !visited.has(currentId)) {
+            visited.add(currentId);
+            chain.push(currentId);
+            const parentId = Number(byId.get(currentId)?.parent_item_id || 0);
+            currentId = Number.isFinite(parentId) && parentId > 0 ? parentId : 0;
+        }
+        return chain.reverse();
     }
 
     getManagedListItemIdByValue(listId, value) {
@@ -131,6 +199,18 @@ class ObjectFormComponent {
         if (Number.isFinite(asInt) && asInt > 0) return String(asInt);
         const itemId = this.getManagedListItemIdByValue(listId, normalized);
         return itemId ? String(itemId) : '';
+    }
+
+    getManagedListMultiSelectedValues(listId, rawValue) {
+        const source = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+            ? rawValue.selected_ids
+            : rawValue;
+        const values = Array.isArray(source)
+            ? source
+            : (typeof source === 'string' ? source.split(',').map(part => part.trim()).filter(Boolean) : []);
+        return values
+            .map((value) => this.getManagedListSelectSelectedValue(listId, value))
+            .filter(Boolean);
     }
 
     renderSelectElementOptions(selectEl, options, selectedValue = '') {
@@ -219,6 +299,119 @@ class ObjectFormComponent {
             parentSelect.addEventListener('change', handler);
             parentSelect.addEventListener('input', handler);
             handler();
+        });
+    }
+
+    setupManagedListHierarchySelectors(container) {
+        const form = document.getElementById('object-main-form');
+        if (!form || !container) return;
+
+        const hierarchyFields = (this.fields || []).filter(field => this.getManagedListHierarchyConfig(field));
+        hierarchyFields.forEach((field) => {
+            const options = this.getManagedListFieldOptions(field);
+            const hierarchy = this.getManagedListHierarchyConfig(field);
+            if (!options || !hierarchy) return;
+
+            const listId = Number(options.list_id);
+            const wrapper = Array.from(container.querySelectorAll('[data-managed-hierarchy-field]'))
+                .find(node => String(node.getAttribute('data-managed-hierarchy-field') || '') === String(field.field_name));
+            const hiddenInput = form.elements[field.field_name];
+            if (!wrapper || !hiddenInput || !Number.isFinite(listId) || listId <= 0) return;
+
+            const labelContainer = wrapper.querySelector('[data-managed-hierarchy-levels]');
+            if (!labelContainer) return;
+
+            const { byId, childrenByParent } = this.buildManagedListItemMaps(listId);
+            const selectedItemId = this.getManagedListItemIdByValue(listId, hiddenInput.value);
+            const initialPath = this.getManagedListPathToItem(listId, selectedItemId);
+            const selections = Array.from({ length: hierarchy.levelCount }, (_, idx) => initialPath[idx] || '');
+
+            const hasActiveChildren = (itemId) => {
+                const children = childrenByParent.get(Number(itemId || 0)) || [];
+                return children.some(child => child.is_active !== false);
+            };
+
+            const ensureOptionValue = (selectEl, value) => {
+                const safeValue = String(value || '');
+                if (!safeValue) {
+                    selectEl.value = '';
+                    return false;
+                }
+                const exists = Array.from(selectEl.options).some(option => option.value === safeValue);
+                selectEl.value = exists ? safeValue : '';
+                return exists;
+            };
+
+            labelContainer.innerHTML = hierarchy.labels.map((label, index) => `
+                <div class="form-group managed-list-hierarchy-level">
+                    <label for="field-${field.field_name}-level-${index + 1}">${escapeHtml(label)}</label>
+                    <select id="field-${field.field_name}-level-${index + 1}"
+                            class="form-control managed-list-hierarchy-select"
+                            data-level-index="${index}"
+                            ${field.is_required && index === 0 ? 'required' : ''}>
+                        <option value="">Välj...</option>
+                    </select>
+                </div>
+            `).join('');
+
+            const levelSelects = Array.from(labelContainer.querySelectorAll('.managed-list-hierarchy-select'));
+            if (!levelSelects.length) return;
+
+            const refreshLevels = () => {
+                let parentId = 0;
+
+                levelSelects.forEach((selectEl, index) => {
+                    const children = childrenByParent.get(Number(parentId || 0)) || [];
+                    const optionsHtml = children
+                        .filter(item => item.is_active !== false)
+                        .map(item => `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label || item.value || '')}</option>`)
+                        .join('');
+                    selectEl.innerHTML = `<option value="">Välj...</option>${optionsHtml}`;
+
+                    const wasValid = ensureOptionValue(selectEl, selections[index]);
+                    if (!wasValid) {
+                        selections[index] = '';
+                    }
+
+                    parentId = Number(selections[index] || 0);
+                    if (!Number.isFinite(parentId) || parentId <= 0) {
+                        parentId = 0;
+                        for (let tail = index + 1; tail < selections.length; tail += 1) {
+                            selections[tail] = '';
+                        }
+                    }
+                });
+
+                const lastSelectedId = [...selections]
+                    .reverse()
+                    .map(value => Number(value || 0))
+                    .find(value => Number.isFinite(value) && value > 0) || 0;
+
+                if (!lastSelectedId || !byId.has(lastSelectedId)) {
+                    hiddenInput.value = '';
+                    return;
+                }
+
+                if (hierarchy.allowOnlyLeafSelection && hasActiveChildren(lastSelectedId)) {
+                    hiddenInput.value = '';
+                    return;
+                }
+
+                hiddenInput.value = String(lastSelectedId);
+            };
+
+            levelSelects.forEach(selectEl => {
+                selectEl.addEventListener('change', () => {
+                    const levelIndex = Number(selectEl.dataset.levelIndex || 0);
+                    selections[levelIndex] = selectEl.value || '';
+                    for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
+                        selections[idx] = '';
+                    }
+                    refreshLevels();
+                });
+            });
+
+            refreshLevels();
         });
     }
 
@@ -414,23 +607,45 @@ class ObjectFormComponent {
             case 'select':
                 const options = this.getSelectOptions(field);
                 const managedOptions = this.getManagedListFieldOptions(field);
+                const hierarchyConfig = this.getManagedListHierarchyConfig(field);
+                const isMultiManagedSelect = managedOptions && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi';
                 const selectedValue = managedOptions
                     ? this.getManagedListSelectSelectedValue(Number(managedOptions.list_id), value)
                     : String(value || '');
-                const optionsHtml = options.map(opt => 
-                    `<option value="${escapeHtml(opt.value)}" ${(String(selectedValue) === String(opt.value)) ? 'selected' : ''}>
-                        ${escapeHtml(opt.label)}
-                    </option>`
-                ).join('');
-                inputHtml = `
-                    <select id="field-${field.field_name}" 
-                            name="${field.field_name}"
-                            ${required}
-                            class="form-control">
-                        <option value="">Välj...</option>
-                        ${optionsHtml}
-                    </select>
-                `;
+                if (hierarchyConfig) {
+                    inputHtml = `
+                        <input type="hidden"
+                               id="field-${field.field_name}"
+                               name="${field.field_name}"
+                               value="${escapeHtml(selectedValue)}"
+                               ${required}>
+                        <div class="managed-list-hierarchy"
+                             data-managed-hierarchy-field="${escapeHtml(field.field_name)}"
+                             data-managed-hierarchy-list-id="${escapeHtml(String(managedOptions.list_id || ''))}">
+                            <div data-managed-hierarchy-levels></div>
+                        </div>
+                    `;
+                } else {
+                    const optionsHtml = options.map(opt => 
+                        `<option value="${escapeHtml(opt.value)}" ${
+                            isMultiManagedSelect
+                                ? (this.getManagedListMultiSelectedValues(Number(managedOptions.list_id), value).includes(String(opt.value)) ? 'selected' : '')
+                                : ((String(selectedValue) === String(opt.value)) ? 'selected' : '')
+                        }>
+                            ${escapeHtml(opt.label)}
+                        </option>`
+                    ).join('');
+                    inputHtml = `
+                        <select id="field-${field.field_name}" 
+                                name="${field.field_name}"
+                                ${required}
+                                ${isMultiManagedSelect ? 'multiple size="6"' : ''}
+                                class="form-control">
+                            <option value="">Välj...</option>
+                            ${optionsHtml}
+                        </select>
+                    `;
+                }
                 break;
                 
             default:
@@ -1358,11 +1573,22 @@ class ObjectFormComponent {
             if (!input) return;
             
             let value;
+            const managedOptions = this.getManagedListFieldOptions(field);
+            const isMultiManagedSelect = (
+                field.field_type === 'select'
+                && managedOptions
+                && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi'
+            );
             
             if (field.field_type === 'boolean') {
                 value = input.checked;
             } else if (field.field_type === 'number' || field.field_type === 'decimal') {
                 value = input.value ? parseFloat(input.value) : null;
+            } else if (isMultiManagedSelect && input instanceof HTMLSelectElement) {
+                const selected = Array.from(input.selectedOptions || [])
+                    .map(option => String(option.value || '').trim())
+                    .filter(Boolean);
+                value = selected.length ? selected : null;
             } else if (field.field_type === 'richtext') {
                 const richValue = this.getRichTextFieldValue(field.field_name, form);
                 value = richValue ? richValue : null;
@@ -1413,6 +1639,31 @@ class ObjectFormComponent {
             
             if (field.field_type === 'boolean') {
                 // Boolean fields don't need to be checked (checkbox can be unchecked)
+                return;
+            }
+
+            const managedOptions = this.getManagedListFieldOptions(field);
+            const isMultiManagedSelect = (
+                field.field_type === 'select'
+                && managedOptions
+                && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi'
+            );
+            if (isMultiManagedSelect && input instanceof HTMLSelectElement) {
+                const selectedCount = Array.from(input.selectedOptions || [])
+                    .map(option => String(option.value || '').trim())
+                    .filter(Boolean)
+                    .length;
+                if (selectedCount === 0) {
+                    isValid = false;
+                    missingFields.push({
+                        name: field.display_name || field.field_name,
+                        type: field.field_type,
+                        value: '[]'
+                    });
+                    input.classList.add('error');
+                } else {
+                    input.classList.remove('error');
+                }
                 return;
             }
             

@@ -9,11 +9,13 @@ unset MAIN_DATABASE_URL
 unset RENDER_GIT_BRANCH
 export BRANCH_NAME="local"
 export DATABASE_URL="sqlite:////workspaces/Byggdelsuppdelning---DEMO/plm.db"
+export PORT="${PORT:-5000}"
 
-# Stop previous dev server started by this script (if any).
-pkill -f "python -m flask --app app run --reload --no-debugger --host=0.0.0.0 --port=5000" >/dev/null 2>&1 || true
+# If already running on this port, avoid duplicate startup.
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo "Dev server already running on port $PORT."
+  exit 0
+fi
 
-nohup python -m flask --app app run --reload --no-debugger --host=0.0.0.0 --port=5000 \
-  >/tmp/flask-dev.log 2>&1 &
-
-echo "Flask dev server started on http://0.0.0.0:5000 (log: /tmp/flask-dev.log)"
+echo "Starting Flask dev server in foreground on http://0.0.0.0:$PORT"
+exec python -u app.py

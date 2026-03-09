@@ -9,6 +9,7 @@ class ObjectDetailComponent {
         this.objectId = objectId;
         this.object = null;
         this.activeTab = 'grunddata';
+        this.managedListDisplayByListId = new Map();
     }
     
     async render() {
@@ -16,6 +17,7 @@ class ObjectDetailComponent {
         
         try {
             this.object = await ObjectsAPI.getById(this.objectId);
+            await this.preloadManagedListDisplayMaps();
             
             this.container.innerHTML = `
                 <div class="object-detail">
@@ -66,6 +68,95 @@ class ObjectDetailComponent {
             console.error('Failed to load object:', error);
             showToast('Kunde inte ladda objekt', 'error');
         }
+    }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            return JSON.parse(rawOptions);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    async preloadManagedListDisplayMaps() {
+        this.managedListDisplayByListId = new Map();
+        const fields = Array.isArray(this.object?.object_type?.fields) ? this.object.object_type.fields : [];
+        const managedListIds = fields
+            .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
+            .map(field => this.normalizeFieldOptions(field?.field_options))
+            .filter(options => options?.source === 'managed_list')
+            .map(options => Number(options?.list_id))
+            .filter(listId => Number.isFinite(listId) && listId > 0);
+        const uniqueListIds = Array.from(new Set(managedListIds));
+        await Promise.all(uniqueListIds.map(async (listId) => {
+            try {
+                const response = await fetch(`/api/managed-lists/${listId}?include_items=true&include_inactive_items=true`);
+                if (!response.ok) return;
+                const payload = await response.json();
+                const items = Array.isArray(payload?.items) ? payload.items : [];
+                const byId = new Map();
+                const byValue = new Map();
+                items.forEach(item => {
+                    const itemId = Number(item?.id || 0);
+                    const valueKey = String(item?.value || '').trim();
+                    const label = String(item?.display_value || item?.label || item?.value || '').trim();
+                    if (!label) return;
+                    if (Number.isFinite(itemId) && itemId > 0) {
+                        byId.set(itemId, {
+                            label,
+                            parentItemId: Number(item?.parent_item_id || 0) || null
+                        });
+                    }
+                    if (valueKey) byValue.set(valueKey, label);
+                });
+                this.managedListDisplayByListId.set(listId, { byId, byValue });
+            } catch (_error) {
+                // Ignore and fall back to raw values.
+            }
+        }));
+    }
+
+    resolveManagedListDisplayValue(value, field) {
+        const options = this.normalizeFieldOptions(field?.field_options);
+        if (!options || options.source !== 'managed_list') return value;
+        const listId = Number(options.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return value;
+        const map = this.managedListDisplayByListId.get(listId);
+        if (!map) return value;
+        const hasHierarchy = Number(options?.hierarchy_level_count || 0) > 1
+            || (Array.isArray(options?.hierarchy_level_labels) && options.hierarchy_level_labels.length > 1);
+
+        const resolveHierarchyPath = (itemId) => {
+            if (!hasHierarchy) return '';
+            const safeId = Number(itemId || 0);
+            if (!Number.isFinite(safeId) || safeId <= 0) return '';
+            const chain = [];
+            const visited = new Set();
+            let currentId = safeId;
+            while (currentId && map.byId.has(currentId) && !visited.has(currentId)) {
+                visited.add(currentId);
+                const node = map.byId.get(currentId);
+                chain.push(String(node?.label || '').trim());
+                currentId = Number(node?.parentItemId || 0);
+            }
+            const labels = chain.filter(Boolean).reverse();
+            return labels.length > 1 ? labels.join(' > ') : '';
+        };
+
+        const asNumber = Number(value);
+        if (Number.isFinite(asNumber) && map.byId.has(asNumber)) {
+            const hierarchyPath = resolveHierarchyPath(asNumber);
+            if (hierarchyPath) return hierarchyPath;
+            return map.byId.get(asNumber)?.label || value;
+        }
+        const asText = String(value || '').trim();
+        if (asText && map.byValue.has(asText)) {
+            return map.byValue.get(asText);
+        }
+        return value;
     }
     
     getDisplayName() {
@@ -133,6 +224,7 @@ class ObjectDetailComponent {
                     {
                         displayName: String(field.display_name || field.field_name || '').trim(),
                         fieldType: field.field_type,
+                        fieldOptions: field.field_options,
                         isDetailVisible: field.is_detail_visible !== false
                     }
                 ])
@@ -141,11 +233,14 @@ class ObjectDetailComponent {
                 const config = fieldConfigByName.get(String(key || '').trim().toLowerCase());
                 if (config && config.isDetailVisible === false) return;
                 const fieldType = config?.fieldType;
+                const resolvedValue = config
+                    ? this.resolveManagedListDisplayValue(value, { field_options: config.fieldOptions })
+                    : value;
                 const label = config?.displayName || this.formatFieldName(key);
                 fields.push(`
                     <div class="detail-item">
                         <span class="detail-label">${escapeHtml(label)}</span>
-                        <span class="detail-value">${this.formatValue(value, fieldType)}</span>
+                        <span class="detail-value">${this.formatValue(resolvedValue, fieldType)}</span>
                     </div>
                 `);
             });
