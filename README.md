@@ -285,13 +285,27 @@ export DATABASE_URL=postgresql://localhost/byggdel_demo
 python app.py
 ```
 
+Alternativt med den återstartståliga dev-servern som används i Codespaces/devcontainer:
+```bash
+./scripts/dev-server.sh ensure
+```
+
 7. **Öppna i webbläsare**
 ```
 http://localhost:5000
 ```
 
+### Codespaces/devcontainer
+- Dev-servern startas nu automatiskt både när containern startar och när du reconnectar till en sovande Codespace.
+- Samma idempotenta kommando används varje gång: `./scripts/dev-server.sh ensure`
+- Status och loggar kan kontrolleras med:
+```bash
+./scripts/dev-server.sh status
+./scripts/dev-server.sh logs
+```
+
 ### Standarddata vid nyuppsättning
-- Objekttyper, fält, relationstyper och relationsregler seedas från `defaults/plm-defaults.json`.
+- Objekttyper, fält, objekt, objektrelationer, relationstyper och relationsregler seedas från `defaults/plm-defaults.json`.
 - Uppdatera defaults från nuvarande repo-databas med:
 ```bash
 python scripts/export_defaults_from_db.py

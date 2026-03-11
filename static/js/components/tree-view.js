@@ -22,6 +22,8 @@ class TreeView {
         this.searchExpandedNodes = new Set();
         this.searchDebounceTimer = null;
         this.searchDebounceMs = 350;
+        this.nodeClickDelayMs = 220;
+        this.pendingNodeClickTimer = null;
         this.searchFocusState = null;
         this.hasLoadedData = false;
     }
@@ -34,6 +36,7 @@ class TreeView {
                 throw new Error('Failed to load tree data');
             }
             this.data = await response.json();
+            this.applyDefaultExpansion();
             this.hasLoadedData = true;
         } catch (error) {
             console.error('Error loading tree:', error);
@@ -43,6 +46,8 @@ class TreeView {
     
     async render(options = {}) {
         if (!this.container) return;
+
+        const scrollState = options.preserveScroll ? this.captureScrollState() : null;
 
         if (options.reloadData || !this.hasLoadedData) {
             await this.loadData();
@@ -97,9 +102,30 @@ class TreeView {
         if (options.preserveSearchFocus) {
             this.restoreSearchFocus();
         }
+        if (scrollState) {
+            this.restoreScrollState(scrollState);
+        }
         
         // Tree view sorting is intentionally disabled.
         this.tableSortInstance = null;
+    }
+
+    captureScrollState() {
+        const scrollContainer = this.container?.querySelector('.tree-table-container');
+        if (!scrollContainer) return null;
+
+        return {
+            top: scrollContainer.scrollTop,
+            left: scrollContainer.scrollLeft
+        };
+    }
+
+    restoreScrollState(scrollState) {
+        const scrollContainer = this.container?.querySelector('.tree-table-container');
+        if (!scrollContainer || !scrollState) return;
+
+        scrollContainer.scrollTop = Number(scrollState.top) || 0;
+        scrollContainer.scrollLeft = Number(scrollState.left) || 0;
     }
 
     getDefaultColumnSearches() {
@@ -182,6 +208,20 @@ class TreeView {
             ...this.defaultColumnSearches,
             ...columnSearches
         };
+    }
+
+    applyDefaultExpansion() {
+        const state = this.modeStates?.[this.viewMode];
+        const hasStoredExpansionState = !!(state && Array.isArray(state.expandedNodes));
+        if (hasStoredExpansionState || this.expandedNodes.size > 0 || !Array.isArray(this.data)) {
+            return;
+        }
+
+        this.data.forEach(node => {
+            if (Array.isArray(node?.children) && node.children.length > 0) {
+                this.expandedNodes.add(String(node.id));
+            }
+        });
     }
 
     getEmptyStateText() {
@@ -598,7 +638,7 @@ class TreeView {
                 this.searchDebounceTimer = setTimeout(() => {
                     this.searchDebounceTimer = null;
                     this.persistCurrentModeState();
-                    this.render({ preserveSearchFocus: true });
+                    this.render({ preserveSearchFocus: true, preserveScroll: true });
                 }, this.searchDebounceMs);
             });
         });
@@ -615,7 +655,7 @@ class TreeView {
                 this.searchDebounceTimer = setTimeout(() => {
                     this.searchDebounceTimer = null;
                     this.persistCurrentModeState();
-                    this.render();
+                    this.render({ preserveScroll: true });
                 }, this.searchDebounceMs);
             });
         });
@@ -668,7 +708,7 @@ class TreeView {
             if (node.dataset.hasChildren !== 'true') return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
             if (e.detail > 1) return; // Double-click handled separately.
-            this.toggleNodeExpansion(node.dataset.nodeId);
+            this.scheduleNodeExpansion(node.dataset.nodeId);
         });
 
         treeTableBody.addEventListener('dblclick', (e) => {
@@ -679,8 +719,25 @@ class TreeView {
 
             e.preventDefault();
             e.stopPropagation();
+            this.cancelPendingNodeExpansion();
             this.toggleSubtreeExpansion(node.dataset.nodeId);
         });
+    }
+
+    scheduleNodeExpansion(nodeId) {
+        if (!nodeId) return;
+
+        this.cancelPendingNodeExpansion();
+        this.pendingNodeClickTimer = window.setTimeout(() => {
+            this.pendingNodeClickTimer = null;
+            this.toggleNodeExpansion(nodeId);
+        }, this.nodeClickDelayMs);
+    }
+
+    cancelPendingNodeExpansion() {
+        if (this.pendingNodeClickTimer === null) return;
+        window.clearTimeout(this.pendingNodeClickTimer);
+        this.pendingNodeClickTimer = null;
     }
 
     toggleNodeExpansion(nodeId) {
@@ -691,7 +748,7 @@ class TreeView {
             this.expandedNodes.add(nodeId);
         }
         this.persistCurrentModeState();
-        this.render();
+        this.render({ preserveScroll: true });
     }
 
     toggleSubtreeExpansion(nodeId) {
@@ -709,7 +766,7 @@ class TreeView {
             expandableIds.forEach(id => this.expandedNodes.add(id));
         }
         this.persistCurrentModeState();
-        this.render();
+        this.render({ preserveScroll: true });
     }
     
     setNodeClickHandler(handler) {

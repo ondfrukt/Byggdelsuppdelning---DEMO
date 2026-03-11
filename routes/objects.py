@@ -15,6 +15,7 @@ import re
 import logging
 import os
 import json
+import html
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
@@ -79,14 +80,94 @@ def normalize_lookup_key(value):
     return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
 
 
+def natural_sort_key(value):
+    parts = re.split(r'(\d+)', str(value or '').strip().casefold())
+    key = []
+    for part in parts:
+        if not part:
+            continue
+        if part.isdigit():
+            key.append((0, int(part)))
+        else:
+            key.append((1, part))
+    return key
+
+
+def strip_html_to_text(value):
+    text = str(value or '')
+    if not text:
+        return ''
+    text = re.sub(r'(?i)<br\s*/?>', '\n', text)
+    text = re.sub(r'(?i)</p\s*>', '\n', text)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = html.unescape(text)
+    text = re.sub(r'\r\n?', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def is_requirement_object_type(type_name):
+    normalized = normalize_field_key(type_name)
+    return 'requirement' in normalized or 'krav' in normalized
+
+
+def get_object_field_value_by_template_names(obj, template_names):
+    if not obj or not obj.object_type:
+        return None
+
+    normalized_templates = {normalize_field_key(name) for name in template_names if name}
+    if not normalized_templates:
+        return None
+
+    object_data = obj.data or {}
+    for field in obj.object_type.fields or []:
+        template = getattr(field, 'field_template', None)
+        candidate_names = {
+            normalize_field_key(getattr(field, 'field_name', '')),
+            normalize_field_key(getattr(field, 'display_name', '')),
+            normalize_field_key(getattr(template, 'template_name', '')),
+            normalize_field_key(getattr(template, 'display_name', ''))
+        }
+
+        translations = getattr(template, 'display_name_translations', None) or {}
+        if isinstance(translations, dict):
+            candidate_names.update(normalize_field_key(value) for value in translations.values())
+
+        if normalized_templates.isdisjoint(candidate_names):
+            continue
+
+        value = get_data_value_case_insensitive(object_data, field.field_name)
+        if value not in (None, ''):
+            return value
+
+    return None
+
+
+def get_tree_requirement_text(obj):
+    own_value = get_object_field_value_by_template_names(obj, ['Requirement Text', 'Kravtext'])
+    if own_value not in (None, ''):
+        return strip_html_to_text(own_value)
+    return ''
+
+
+def get_tree_short_description(obj):
+    value = get_object_field_value_by_template_names(
+        obj,
+        ['Description - short', 'Description short', 'Kort beskrivning']
+    )
+    if value not in (None, ''):
+        return strip_html_to_text(value)
+    return ''
+
+
 def matches_tree_view_type(object_type_name, tree_view):
     normalized = normalize_lookup_key(object_type_name)
     if tree_view == 'byggdelar':
-        return 'byggdel' in normalized
+        return normalized in {'assembly', 'byggdel', 'buildingpart'} or 'byggdel' in normalized
     if tree_view == 'utrymmen':
-        return 'utrymme' in normalized or 'rum' in normalized
+        return normalized in {'space', 'utrymme', 'rum', 'room'} or 'utrymme' in normalized or 'rum' in normalized
     if tree_view == 'system':
-        return 'system' in normalized
+        return normalized in {'system', 'systemobjekt', 'systemobject'} or 'system' in normalized
     return False
 
 
@@ -147,13 +228,13 @@ def build_tree_root_nodes(root_objects, view_config):
                     'type': type_name,
                     'direction': direction,
                     'data': linked_object_data,
-                    'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
-                    'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
+                    'kravtext': get_tree_requirement_text(linked_object),
+                    'beskrivning': get_tree_short_description(linked_object),
                     'files': collect_tree_files_for_object(linked_object)
                 })
 
-        for type_name in sorted(children_by_type.keys(), key=lambda name: name.lower()):
-            type_children = sorted(children_by_type[type_name], key=lambda item: (item.get('name') or '').lower())
+        for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
+            type_children = sorted(children_by_type[type_name], key=lambda item: natural_sort_key(item.get('name')))
             children.append({
                 'id': f'group-{root_object.id}-{type_name}',
                 'name': type_name,
@@ -171,13 +252,13 @@ def build_tree_root_nodes(root_objects, view_config):
             'name': root_display_name,
             'type': root_type_name,
             'data': root_data,
-            'kravtext': get_data_value_case_insensitive(root_data, 'kravtext'),
-            'beskrivning': get_data_value_case_insensitive(root_data, 'beskrivning'),
+            'kravtext': get_tree_requirement_text(root_object),
+            'beskrivning': get_tree_short_description(root_object),
             'files': collect_tree_files_for_object(root_object),
             'children': children
         })
 
-    return sorted(tree_nodes, key=lambda item: (item.get('name') or '').lower())
+    return sorted(tree_nodes, key=lambda item: natural_sort_key(item.get('name')))
 
 
 def is_document_object_type(type_name):
@@ -1006,11 +1087,16 @@ def duplicate_object(id):
                 if str(target_id).isdigit()
             ]
 
-        # Create a new version on the same BaseID by default.
-        source_base_id = normalize_base_id(source.main_id or source.id_full)
-        main_id = normalize_base_id(payload.get('main_id')) or source_base_id
+        # Duplication creates a new object series by default.
+        # Only reuse an existing BaseID when the client explicitly requests main_id.
+        requested_main_id = normalize_base_id(payload.get('main_id'))
         requested_version = payload.get('version')
-        version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
+        if requested_main_id:
+            main_id = requested_main_id
+            version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
+        else:
+            main_id = generate_base_id(object_type.name)
+            version = normalize_version(requested_version or 'v1')
         id_full = compose_full_id(main_id, version)
 
         if Object.query.filter_by(id_full=id_full).first():
@@ -1178,7 +1264,7 @@ def get_tree():
             category_groups[category_name].append(root_object)
 
         tree = []
-        for index, category_name in enumerate(sorted(category_groups.keys(), key=lambda name: name.lower()), start=1):
+        for index, category_name in enumerate(sorted(category_groups.keys(), key=natural_sort_key), start=1):
             category_roots = build_tree_root_nodes(category_groups[category_name], view_config)
             category_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key(category_name)) or f'kategori-{index}'
             tree.append({

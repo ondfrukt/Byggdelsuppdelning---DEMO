@@ -98,11 +98,7 @@ class ObjectDetailPanel {
         if (!Number.isFinite(listId) || listId <= 0) return value;
         const listMap = this.managedListDisplayByListId.get(listId);
         if (!listMap) return value;
-        const hasHierarchy = Number(options?.hierarchy_level_count || 0) > 1
-            || (Array.isArray(options?.hierarchy_level_labels) && options.hierarchy_level_labels.length > 1);
-
         const resolveHierarchyPath = (itemId) => {
-            if (!hasHierarchy) return '';
             const safeId = Number(itemId || 0);
             if (!Number.isFinite(safeId) || safeId <= 0) return '';
             const chain = [];

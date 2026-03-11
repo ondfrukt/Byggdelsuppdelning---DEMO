@@ -19,6 +19,11 @@ class ObjectListComponent {
         this.selectedObjectIds = new Set();
         this.filteredObjects = [];
         this.bulkTypeFieldsCache = {};
+        this.textCollator = new Intl.Collator('sv', {
+            sensitivity: 'base',
+            numeric: true,
+            ignorePunctuation: true
+        });
     }
     
     async render() {
@@ -152,7 +157,7 @@ class ObjectListComponent {
             }
 
             const available_fields = Array.from(fieldMap.values())
-                .sort((a, b) => a.display_name.localeCompare(b.display_name, 'sv'));
+                .sort((a, b) => this.textCollator.compare(String(a.display_name || ''), String(b.display_name || '')));
             const allFieldNames = available_fields.map(field => field.field_name);
             const preferredNameField =
                 allFieldNames.find(name => String(name).toLowerCase() === 'namn') ||
@@ -1087,7 +1092,7 @@ class ObjectListComponent {
             });
         }
 
-        return result.sort((a, b) => String(a.displayName).localeCompare(String(b.displayName), 'sv', { sensitivity: 'base' }));
+        return result.sort((a, b) => this.textCollator.compare(String(a.displayName || ''), String(b.displayName || '')));
     }
 
     renderBulkFieldInput(field) {

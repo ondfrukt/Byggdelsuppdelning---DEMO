@@ -101,13 +101,26 @@ function getRelationTypeLabel(type) {
 // Get object type color
 const OBJECT_TYPE_DEFAULT_COLORS = {
     'Byggdel': '#3498db',
+    'Assembly': '#3498db',
     'Produkt': '#2ecc71',
+    'Product': '#2ecc71',
     'Kravställning': '#e74c3c',
+    'Requirement': '#e74c3c',
     'Anslutning': '#f39c12',
+    'Connection': '#f39c12',
     'Ritningsobjekt': '#9b59b6',
     'Filobjekt': '#9b59b6',
+    'FileObject': '#9b59b6',
     'Egenskap': '#1abc9c',
-    'Anvisning': '#34495e'
+    'Property': '#8b5cf6',
+    'Anvisning': '#34495e',
+    'Instruction': '#34495e',
+    'Utrymme': '#0ea5e9',
+    'Space': '#0ea5e9',
+    'System': '#22c55e',
+    'Technical Specification': '#06b6d4',
+    'Technical Chapter': '#14b8a6',
+    'Module': '#84cc16'
 };
 
 const OBJECT_TYPE_COLOR_PALETTE = [

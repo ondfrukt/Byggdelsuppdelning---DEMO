@@ -3,6 +3,12 @@
  * Dynamically generates forms based on ObjectType fields
  */
 
+const objectFormTextCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
+
 class ObjectFormComponent {
     constructor(objectType, existingObject = null) {
         this.objectType = objectType;
@@ -116,15 +122,15 @@ class ObjectFormComponent {
     getManagedListHierarchyConfig(field) {
         const options = this.getManagedListFieldOptions(field);
         if (!options || options.parent_field_name) return null;
+        const listId = Number(options.list_id || 0);
+        if (!Number.isFinite(listId) || listId <= 0) return null;
 
-        const rawCount = Number(options.hierarchy_level_count || 0);
+        const maxDepth = this.getManagedListMaxDepth(listId);
+        if (!Number.isFinite(maxDepth) || maxDepth <= 0) return null;
         const labels = Array.isArray(options.hierarchy_level_labels)
             ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
             : [];
-        const hasHierarchy = rawCount > 1 || labels.length > 1;
-        if (!hasHierarchy) return null;
-        const inferredCount = rawCount > 1 ? rawCount : labels.length;
-        const levelCount = Math.min(8, Math.max(2, Number.isFinite(inferredCount) ? Math.floor(inferredCount) : 2));
+        const levelCount = Math.min(8, Math.max(1, Math.floor(maxDepth)));
 
         return {
             levelCount,
@@ -154,12 +160,39 @@ class ObjectFormComponent {
             children.sort((a, b) => {
                 const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
                 if (orderDiff !== 0) return orderDiff;
-                return String(a.label || a.value || '').localeCompare(String(b.label || b.value || ''), 'sv', { sensitivity: 'base' });
+                return objectFormTextCollator.compare(String(a.label || a.value || ''), String(b.label || b.value || ''));
             });
             childrenByParent.set(parentId, children);
         });
 
         return { byId, childrenByParent };
+    }
+
+    getManagedListMaxDepth(listId) {
+        const { byId } = this.buildManagedListItemMaps(listId);
+        if (!byId.size) return 1;
+
+        const depthById = new Map();
+        const computeDepth = (itemId, visiting = new Set()) => {
+            const safeId = Number(itemId || 0);
+            if (!Number.isFinite(safeId) || safeId <= 0 || !byId.has(safeId)) return 0;
+            if (depthById.has(safeId)) return depthById.get(safeId);
+            if (visiting.has(safeId)) return 1;
+            visiting.add(safeId);
+
+            const parentId = Number(byId.get(safeId)?.parent_item_id || 0);
+            const parentDepth = computeDepth(parentId, visiting);
+            const depth = Math.max(1, parentDepth + 1);
+            depthById.set(safeId, depth);
+            visiting.delete(safeId);
+            return depth;
+        };
+
+        let maxDepth = 1;
+        byId.forEach((_item, itemId) => {
+            maxDepth = Math.max(maxDepth, computeDepth(itemId));
+        });
+        return maxDepth;
     }
 
     getManagedListPathToItem(listId, itemId) {
@@ -330,57 +363,67 @@ class ObjectFormComponent {
                 const children = childrenByParent.get(Number(itemId || 0)) || [];
                 return children.some(child => child.is_active !== false);
             };
-
-            const ensureOptionValue = (selectEl, value) => {
-                const safeValue = String(value || '');
-                if (!safeValue) {
-                    selectEl.value = '';
-                    return false;
+            const clearSelectionsAfter = (startIndex) => {
+                for (let idx = startIndex; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
                 }
-                const exists = Array.from(selectEl.options).some(option => option.value === safeValue);
-                selectEl.value = exists ? safeValue : '';
-                return exists;
             };
-
-            labelContainer.innerHTML = hierarchy.labels.map((label, index) => `
-                <div class="form-group managed-list-hierarchy-level">
-                    <label for="field-${field.field_name}-level-${index + 1}">${escapeHtml(label)}</label>
-                    <select id="field-${field.field_name}-level-${index + 1}"
-                            class="form-control managed-list-hierarchy-select"
-                            data-level-index="${index}"
-                            ${field.is_required && index === 0 ? 'required' : ''}>
-                        <option value="">Välj...</option>
-                    </select>
-                </div>
-            `).join('');
-
-            const levelSelects = Array.from(labelContainer.querySelectorAll('.managed-list-hierarchy-select'));
-            if (!levelSelects.length) return;
 
             const refreshLevels = () => {
                 let parentId = 0;
+                const levelBlocks = [];
 
-                levelSelects.forEach((selectEl, index) => {
+                for (let index = 0; index < hierarchy.levelCount; index += 1) {
                     const children = childrenByParent.get(Number(parentId || 0)) || [];
-                    const optionsHtml = children
+                    const activeChildren = children
                         .filter(item => item.is_active !== false)
-                        .map(item => `<option value="${escapeHtml(String(item.id))}">${escapeHtml(item.label || item.value || '')}</option>`)
-                        .join('');
-                    selectEl.innerHTML = `<option value="">Välj...</option>${optionsHtml}`;
-
-                    const wasValid = ensureOptionValue(selectEl, selections[index]);
-                    if (!wasValid) {
-                        selections[index] = '';
+                        .map(item => ({
+                            id: Number(item.id),
+                            label: String(item.label || item.value || '').trim()
+                        }))
+                        .filter(item => Number.isFinite(item.id) && item.id > 0);
+                    if (!activeChildren.length) {
+                        clearSelectionsAfter(index);
+                        break;
                     }
 
-                    parentId = Number(selections[index] || 0);
-                    if (!Number.isFinite(parentId) || parentId <= 0) {
-                        parentId = 0;
-                        for (let tail = index + 1; tail < selections.length; tail += 1) {
-                            selections[tail] = '';
-                        }
+                    const selectedValue = String(selections[index] || '');
+                    const hasSelected = activeChildren.some(item => String(item.id) === selectedValue);
+                    const resolvedValue = hasSelected ? selectedValue : '';
+                    selections[index] = resolvedValue;
+                    if (!hasSelected) {
+                        clearSelectionsAfter(index + 1);
                     }
-                });
+
+                    const optionsHtml = activeChildren.map((item) => `
+                        <option value="${escapeHtml(String(item.id))}" ${String(item.id) === resolvedValue ? 'selected' : ''}>
+                            ${escapeHtml(item.label)}
+                        </option>
+                    `).join('');
+                    levelBlocks.push(`
+                        <div class="form-group managed-list-hierarchy-level">
+                            <label for="field-${field.field_name}-level-${index + 1}">${escapeHtml(hierarchy.labels[index] || `Nivå ${index + 1}`)}</label>
+                            <select id="field-${field.field_name}-level-${index + 1}"
+                                    class="form-control managed-list-hierarchy-select"
+                                    data-level-index="${index}"
+                                    ${field.is_required && index === 0 ? 'required' : ''}>
+                                <option value="">Välj...</option>
+                                ${optionsHtml}
+                            </select>
+                        </div>
+                    `);
+
+                    if (!resolvedValue) {
+                        break;
+                    }
+                    parentId = Number(resolvedValue);
+                    if (!hasActiveChildren(parentId)) {
+                        clearSelectionsAfter(index + 1);
+                        break;
+                    }
+                }
+
+                labelContainer.innerHTML = levelBlocks.join('');
 
                 const lastSelectedId = [...selections]
                     .reverse()
@@ -400,15 +443,31 @@ class ObjectFormComponent {
                 hiddenInput.value = String(lastSelectedId);
             };
 
-            levelSelects.forEach(selectEl => {
-                selectEl.addEventListener('change', () => {
-                    const levelIndex = Number(selectEl.dataset.levelIndex || 0);
-                    selections[levelIndex] = selectEl.value || '';
-                    for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
-                        selections[idx] = '';
-                    }
-                    refreshLevels();
-                });
+            labelContainer.addEventListener('change', (event) => {
+                const selectEl = event.target.closest('.managed-list-hierarchy-select');
+                if (!selectEl) return;
+                const levelIndex = Number(selectEl.dataset.levelIndex || 0);
+                if (!Number.isFinite(levelIndex) || levelIndex < 0) return;
+                if (levelIndex >= selections.length) return;
+                selections[levelIndex] = selectEl.value || '';
+                for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
+                }
+                refreshLevels();
+            });
+
+            labelContainer.addEventListener('input', (event) => {
+                const selectEl = event.target.closest('.managed-list-hierarchy-select');
+                if (!selectEl) return;
+                const levelIndex = Number(selectEl.dataset.levelIndex || 0);
+                if (!Number.isFinite(levelIndex) || levelIndex < 0) return;
+                if (levelIndex >= selections.length) return;
+                if (String(selections[levelIndex] || '') === String(selectEl.value || '')) return;
+                selections[levelIndex] = selectEl.value || '';
+                for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
+                }
+                refreshLevels();
             });
 
             refreshLevels();
@@ -456,9 +515,7 @@ class ObjectFormComponent {
                 nameInput.value = '';
                 return;
             }
-            const orderedParts = [partA, partB].sort((a, b) =>
-                a.localeCompare(b, 'sv', { sensitivity: 'base' })
-            );
+            const orderedParts = [partA, partB].sort((a, b) => objectFormTextCollator.compare(a, b));
             nameInput.value = `${orderedParts[0]} - ${orderedParts[1]}`;
         };
 

@@ -1,7 +1,41 @@
 #!/usr/bin/env python3
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+
+
+def _normalize_json(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return value
+    return value
+
+
+def _sqlite_date_to_iso(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text).date().isoformat()
+    except ValueError:
+        return text
+
+
+def _make_object_seed_key(row):
+    full_id = str(row['id_full'] or '').strip()
+    main_id = str(row['main_id'] or '').strip()
+    version = str(row['version'] or '').strip()
+
+    if full_id:
+        return f"id_full:{full_id}"
+    if main_id and version:
+        return f"main_version:{main_id}:{version}"
+    return f"legacy_id:{row['id']}"
 
 
 def export_defaults(db_path, output_path):
@@ -67,6 +101,86 @@ def export_defaults(db_path, output_path):
             'fields': fields,
         })
 
+    object_rows = cur.execute(
+        """
+        SELECT id, object_type_id, created_at, updated_at, created_by, status, version, main_id, id_full
+        FROM objects
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    objects = []
+    object_id_to_seed_key = {}
+    field_cache = {}
+
+    for object_row in object_rows:
+        object_type_name = id_to_name.get(object_row['object_type_id'])
+        if not object_type_name:
+            continue
+
+        if object_row['object_type_id'] not in field_cache:
+            field_cache[object_row['object_type_id']] = {
+                row['id']: {
+                    'field_name': row['field_name'],
+                    'field_type': row['field_type'],
+                }
+                for row in cur.execute(
+                    """
+                    SELECT id, field_name, field_type
+                    FROM object_fields
+                    WHERE object_type_id = ?
+                    """,
+                    (object_row['object_type_id'],),
+                ).fetchall()
+            }
+
+        object_seed_key = _make_object_seed_key(object_row)
+        object_id_to_seed_key[object_row['id']] = object_seed_key
+
+        data_rows = cur.execute(
+            """
+            SELECT field_id, value_text, value_number, value_date, value_boolean, value_json
+            FROM object_data
+            WHERE object_id = ?
+            ORDER BY field_id ASC
+            """,
+            (object_row['id'],),
+        ).fetchall()
+
+        data_payload = {}
+        for data_row in data_rows:
+            field_meta = field_cache[object_row['object_type_id']].get(data_row['field_id'])
+            if not field_meta:
+                continue
+
+            field_name = field_meta['field_name']
+            field_type = field_meta['field_type']
+            value = None
+            if field_type == 'number':
+                value = float(data_row['value_number']) if data_row['value_number'] is not None else None
+            elif field_type == 'date':
+                value = _sqlite_date_to_iso(data_row['value_date'])
+            elif field_type == 'boolean':
+                value = None if data_row['value_boolean'] is None else bool(data_row['value_boolean'])
+            else:
+                value_json = _normalize_json(data_row['value_json'])
+                value = value_json if value_json is not None else data_row['value_text']
+
+            data_payload[field_name] = value
+
+        objects.append({
+            'seed_key': object_seed_key,
+            'object_type': object_type_name,
+            'created_at': object_row['created_at'],
+            'updated_at': object_row['updated_at'],
+            'created_by': object_row['created_by'],
+            'status': object_row['status'],
+            'version': object_row['version'],
+            'main_id': object_row['main_id'],
+            'id_full': object_row['id_full'],
+            'data': data_payload,
+        })
+
     relation_type_rows = cur.execute(
         """
         SELECT id, key, display_name, description, source_object_type_id, target_object_type_id,
@@ -108,9 +222,35 @@ def export_defaults(db_path, output_path):
             'is_allowed': bool(rule['is_allowed']),
         })
 
+    relation_rows = cur.execute(
+        """
+        SELECT id, source_object_id, target_object_id, relation_type, description, relation_metadata, created_at
+        FROM object_relations
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    object_relations = []
+    for relation_row in relation_rows:
+        source_seed_key = object_id_to_seed_key.get(relation_row['source_object_id'])
+        target_seed_key = object_id_to_seed_key.get(relation_row['target_object_id'])
+        if not source_seed_key or not target_seed_key:
+            continue
+
+        object_relations.append({
+            'source_object_seed_key': source_seed_key,
+            'target_object_seed_key': target_seed_key,
+            'relation_type': relation_row['relation_type'],
+            'description': relation_row['description'],
+            'relation_metadata': _normalize_json(relation_row['relation_metadata']),
+            'created_at': relation_row['created_at'],
+        })
+
     payload = {
         'version': 1,
         'object_types': object_types,
+        'objects': objects,
+        'object_relations': object_relations,
         'relation_types': relation_types,
         'relation_type_rules': relation_type_rules,
     }

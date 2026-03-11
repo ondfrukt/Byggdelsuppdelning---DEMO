@@ -3,19 +3,22 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Force repository-root SQLite DB for all dev starts.
-# This must win over any inherited Render/Codespaces env vars.
-unset MAIN_DATABASE_URL
-unset RENDER_GIT_BRANCH
-export BRANCH_NAME="local"
-export DATABASE_URL="sqlite:////workspaces/Byggdelsuppdelning---DEMO/plm.db"
-export PORT="${PORT:-5000}"
+export START_TIMEOUT="${START_TIMEOUT:-45}"
 
-# If already running on this port, avoid duplicate startup.
-if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
-  echo "Dev server already running on port $PORT."
-  exit 0
-fi
+attempt=1
+max_attempts=3
 
-echo "Starting Flask dev server in foreground on http://0.0.0.0:$PORT"
-exec python -u app.py
+while (( attempt <= max_attempts )); do
+    if bash ./scripts/dev-server.sh ensure; then
+        exit 0
+    fi
+
+    if (( attempt == max_attempts )); then
+        echo "Dev server failed to start after ${max_attempts} attempts."
+        exit 1
+    fi
+
+    echo "Retrying dev server start (${attempt}/${max_attempts})..."
+    sleep 3
+    ((attempt+=1))
+done

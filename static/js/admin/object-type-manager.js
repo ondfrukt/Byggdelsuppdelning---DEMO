@@ -3,6 +3,12 @@
  * Manages object types and their fields
  */
 
+const objectTypeManagerTextCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
+
 class ObjectTypeManager {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
@@ -958,7 +964,7 @@ class ObjectTypeManager {
                 relation_type: activeRule?.relation_type || '',
                 is_blocked: allowedRules.length === 0
             };
-        }).sort((a, b) => String(a.pair_label).localeCompare(String(b.pair_label), 'sv'));
+        }).sort((a, b) => objectTypeManagerTextCollator.compare(String(a.pair_label || ''), String(b.pair_label || '')));
     }
 
     async updateRelationTypePairInline(pairKey, sourceObjectTypeId, targetObjectTypeId, relationType, options = {}) {
@@ -1847,11 +1853,11 @@ class ObjectTypeManager {
 
         const childCandidates = this.managedLists
             .filter(candidate => Number(candidate.id) !== listId && !childIds.has(Number(candidate.id)))
-            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'sv', { sensitivity: 'base' }));
+            .sort((a, b) => objectTypeManagerTextCollator.compare(String(a.name || ''), String(b.name || '')));
 
         const parentCandidates = this.managedLists
             .filter(candidate => Number(candidate.id) !== listId && !parentIds.has(Number(candidate.id)))
-            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'sv', { sensitivity: 'base' }));
+            .sort((a, b) => objectTypeManagerTextCollator.compare(String(a.name || ''), String(b.name || '')));
 
         return `
             <div class="managed-list-relation-admin">
@@ -1967,10 +1973,9 @@ class ObjectTypeManager {
             entries.sort((a, b) => {
                 const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
                 if (orderDiff !== 0) return orderDiff;
-                return String(a.display_value || a.value || '').localeCompare(
-                    String(b.display_value || b.value || ''),
-                    'sv',
-                    { sensitivity: 'base' }
+                return objectTypeManagerTextCollator.compare(
+                    String(a.display_value || a.value || ''),
+                    String(b.display_value || b.value || '')
                 );
             });
         });

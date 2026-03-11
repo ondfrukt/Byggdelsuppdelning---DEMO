@@ -109,7 +109,7 @@
       "name": "FileObject",
       "description": "Represents a file or document (e.g., drawing, specification, manual) used for documentation and traceability.",
       "icon": "fa-file-pdf",
-      "id_prefix": "OBJ",
+      "id_prefix": "FOBJ",
       "color": "#9b59b6",
       "is_system": true,
       "fields": [
@@ -268,6 +268,23 @@
           "help_text": "",
           "display_order": 4,
           "detail_width": null
+        },
+        {
+          "field_name": "produktkategori",
+          "display_name": "Produktkategori",
+          "field_type": "select",
+          "field_options": {
+            "source": "managed_list",
+            "list_id": 1
+          },
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": null,
+          "detail_width": null
         }
       ]
     },
@@ -378,7 +395,7 @@
           "is_detail_visible": true,
           "help_text": "",
           "display_order": 2,
-          "detail_width": 200
+          "detail_width": null
         },
         {
           "field_name": "requirement text",
@@ -493,6 +510,25 @@
       ]
     }
   ],
+  "objects": [
+    {
+      "seed_key": "id_full:PROD-1.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-09 12:14:13.119792",
+      "updated_at": "2026-03-11 09:41:38.671322",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-1",
+      "id_full": "PROD-1.v1",
+      "data": {
+        "namn": "Träregel",
+        "description - short": "Gjort av trä!",
+        "produktkategori": "7"
+      }
+    }
+  ],
+  "object_relations": [],
   "relation_types": [
     {
       "key": "applies_to",

@@ -4,6 +4,11 @@
  */
 
 const RELATION_BASKET_LIMIT = 200;
+const relationTextCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
 
 const relationModalState = {
     sourceId: null,
@@ -211,12 +216,12 @@ class RelationManagerComponent {
             const bObj = this.getLinkedObject(b);
             const aType = String(aObj?.object_type?.name || '');
             const bType = String(bObj?.object_type?.name || '');
-            const typeCompare = aType.localeCompare(bType, 'sv', { sensitivity: 'base' });
+            const typeCompare = relationTextCollator.compare(aType, bType);
             if (typeCompare !== 0) return typeCompare;
 
             const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.id_full || aObj?.id_full || '');
             const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.id_full || bObj?.id_full || '');
-            return aName.localeCompare(bName, 'sv', { sensitivity: 'base' });
+            return relationTextCollator.compare(aName, bName);
         });
 
         listContainer.innerHTML = `
@@ -481,7 +486,7 @@ function applyRelationTableFilters() {
             items = [...items].sort((a, b) => {
                 const aValue = String(getRelationCellValue(a, column) || '');
                 const bValue = String(getRelationCellValue(b, column) || '');
-                return aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' }) * directionMultiplier;
+                return relationTextCollator.compare(aValue, bValue) * directionMultiplier;
             });
         }
     }

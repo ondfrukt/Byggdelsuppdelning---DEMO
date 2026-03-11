@@ -127,7 +127,7 @@ def run_migration(_db):
             target_name = str(spec.get('target_object_type') or '').strip()
             source_id = object_type_ids.get(_norm(source_name))
             target_id = object_type_ids.get(_norm(target_name))
-            if not source_id or not target_id or source_id == target_id:
+            if not source_id or not target_id:
                 continue
 
             relation_type_key = str(spec.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE

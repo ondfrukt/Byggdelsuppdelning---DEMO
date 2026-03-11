@@ -12,6 +12,11 @@ window.currentSelectedObjectId = null;
 let detailHistory = [];
 let detailHistoryIndex = -1;
 const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
+const swedishNaturalCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
 window.currentDuplicateContext = null;
 window.currentCreateObjectRelations = [];
 
@@ -467,7 +472,7 @@ function applyDuplicateRowFiltersAndSort(rows) {
     filtered = [...filtered].sort((a, b) => {
         const aValue = getDuplicateRowFieldValue(a, sortField);
         const bValue = getDuplicateRowFieldValue(b, sortField);
-        const comparison = aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' });
+        const comparison = swedishNaturalCollator.compare(String(aValue || ''), String(bValue || ''));
         return sortDirection === 'asc' ? comparison : -comparison;
     });
 

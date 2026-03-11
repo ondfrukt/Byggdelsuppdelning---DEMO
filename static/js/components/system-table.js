@@ -18,6 +18,11 @@ class SystemTable {
         this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
         this.pendingFocusDescriptor = null;
         this.persistState = options.persistState !== false;
+        this.textCollator = new Intl.Collator('sv', {
+            sensitivity: 'base',
+            numeric: true,
+            ignorePunctuation: true
+        });
 
         const firstSortable = this.columns.find(col => col.sortable !== false);
         const defaultState = {
@@ -109,6 +114,10 @@ class SystemTable {
         const value = this.getCellValue(row, column);
         if (value === null || value === undefined) return '';
         return String(value);
+    }
+
+    compareValues(aValue, bValue) {
+        return this.textCollator.compare(String(aValue ?? ''), String(bValue ?? ''));
     }
 
     escape(value) {
@@ -256,7 +265,7 @@ class SystemTable {
                 items.sort((a, b) => {
                     const aValue = this.getCellTextForFilter(a, sortColumn);
                     const bValue = this.getCellTextForFilter(b, sortColumn);
-                    return aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' }) * direction;
+                    return this.compareValues(aValue, bValue) * direction;
                 });
             }
         }
