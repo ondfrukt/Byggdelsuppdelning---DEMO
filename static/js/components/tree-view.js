@@ -17,6 +17,7 @@ class TreeView {
         this.systemTable = null;
         this.onNodeClick = null;
         this.selectedObjectId = window.currentSelectedObjectId || null;
+        this.availableFields = [];
         this.columnVisibility = this.loadColumnVisibility();
         this.columnWidths = this.loadColumnWidths();
         this.columnOrder = this.loadColumnOrder();
@@ -26,6 +27,7 @@ class TreeView {
         this.pendingNodeClickTimer = null;
         this.hasLoadedData = false;
         this.draggedColumnField = null;
+        this.managedListDisplayByListId = new Map();
 
         this.restoreModeState(this.viewMode);
     }
@@ -46,10 +48,49 @@ class TreeView {
         }
     }
 
+    async loadAvailableFields() {
+        try {
+            const response = await fetch('/api/view-config/list-view');
+            if (!response.ok) {
+                throw new Error('Failed to load list view config');
+            }
+
+            const payload = await response.json();
+            const fieldMap = new Map();
+
+            Object.values(payload || {}).forEach(typeConfig => {
+                (typeConfig?.available_fields || []).forEach(field => {
+                    if (!field?.field_name) return;
+                    const normalizedFieldName = String(field.field_name);
+                    if (['id_full', 'object_type', 'created_at', 'files', 'files_indicator'].includes(normalizedFieldName)) {
+                        return;
+                    }
+                    if (!fieldMap.has(normalizedFieldName)) {
+                        fieldMap.set(normalizedFieldName, {
+                            field_name: normalizedFieldName,
+                            display_name: field.display_name || normalizedFieldName,
+                            field_type: field.field_type,
+                            field_options: field.field_options
+                        });
+                    }
+                });
+            });
+
+            this.availableFields = Array.from(fieldMap.values())
+                .sort((a, b) => String(a.display_name || '').localeCompare(String(b.display_name || ''), 'sv'));
+        } catch (error) {
+            console.error('Failed to load tree view available fields:', error);
+            this.availableFields = [];
+        }
+    }
+
     async render(options = {}) {
         if (!this.container) return;
 
         const scrollState = options.preserveScroll ? this.captureScrollState() : null;
+
+        await this.loadAvailableFields();
+        await this.preloadManagedListDisplayMaps();
 
         if (options.reloadData || !this.hasLoadedData) {
             await this.loadData();
@@ -259,12 +300,23 @@ class TreeView {
     }
 
     getAllColumns() {
+        const dynamicFields = (this.availableFields || [])
+            .filter(field => !['name', 'namn'].includes(String(field.field_name || '').toLowerCase()))
+            .map(field => ({
+                field: field.field_name,
+                label: field.display_name || field.field_name,
+                className: this.getDynamicColumnClass(field),
+                field_type: field.field_type,
+                field_options: field.field_options,
+                draggable: true
+            }));
+
         return [
             { field: 'name', label: 'Namn', className: 'col-name col-tree-name', draggable: false },
             { field: 'id', label: 'ID', className: 'col-id col-tree-id', draggable: true },
             { field: 'type', label: 'Typ', className: 'col-type col-tree-type', draggable: true },
-            { field: 'kravtext', label: 'Kravtext', className: 'col-description col-tree-kravtext', draggable: true },
-            { field: 'beskrivning', label: 'Beskrivning', className: 'col-description col-tree-beskrivning', draggable: true },
+            ...dynamicFields,
+            { field: 'created_at', label: 'Skapad', className: 'col-date col-tree-created-at', draggable: true },
             {
                 field: 'has_files',
                 label: '📎',
@@ -283,6 +335,20 @@ class TreeView {
                 draggable: true
             }
         ];
+    }
+
+    getDynamicColumnClass(field) {
+        const fieldName = String(field?.field_name || '').toLowerCase();
+        const fieldType = String(field?.field_type || '').toLowerCase();
+
+        if (fieldName.includes('beskrivning') || fieldName.includes('description')) return 'col-description';
+        if (fieldName.includes('namn') || fieldName.includes('name')) return 'col-name';
+        if (fieldName.includes('id')) return 'col-id';
+        if (fieldType === 'textarea' || fieldType === 'richtext') return 'col-description';
+        if (fieldType === 'date') return 'col-date';
+        if (fieldType === 'boolean') return 'col-status';
+        if (fieldType === 'number' || fieldType === 'decimal') return 'col-number';
+        return 'col-default';
     }
 
     getVisibleColumns() {
@@ -320,9 +386,24 @@ class TreeView {
                 }
                 this.saveColumnVisibility();
                 this.persistCurrentModeState();
-                this.render({ preserveScroll: true });
+                this.refreshVisibleColumns();
             });
         });
+    }
+
+    refreshVisibleColumns() {
+        if (!this.systemTable) {
+            this.render({ preserveScroll: true });
+            return;
+        }
+
+        const scrollState = this.captureScrollState();
+        this.systemTable.state = this.cloneTableState(this.tableState);
+        this.systemTable.setColumns(this.getVisibleColumns());
+
+        if (scrollState) {
+            this.restoreScrollState(scrollState);
+        }
     }
 
     loadColumnVisibility() {
@@ -504,11 +585,12 @@ class TreeView {
             if (column.field === 'type') {
                 return `<td class="${className}"${style}>${table.renderTypeBadge(node.type || '')}</td>`;
             }
-            if (column.field === 'kravtext') {
-                return `<td class="${className}"${style}>${table.highlightText(node.kravtext || '', 'kravtext', { preserveLineBreaks: true })}</td>`;
-            }
-            if (column.field === 'beskrivning') {
-                return `<td class="${className}"${style}>${table.highlightText(node.beskrivning || '', 'beskrivning', { preserveLineBreaks: true })}</td>`;
+            if (column.field === 'created_at') {
+                const createdAtValue = this.getNodeFieldValue(node, 'created_at');
+                const formattedDate = typeof formatDate === 'function'
+                    ? formatDate(createdAtValue)
+                    : String(createdAtValue || '');
+                return `<td class="${className}"${style}>${table.highlightText(formattedDate || '', 'created_at')}</td>`;
             }
             if (column.field === 'has_files') {
                 return `<td class="${className}"${style} data-value="${fileCount}">${fileCount > 0 ? `<span title="${fileCount} fil(er) kopplade">📎</span>` : ''}</td>`;
@@ -516,6 +598,11 @@ class TreeView {
             if (column.field === 'files') {
                 return `<td class="${className}"${style}>${this.renderFiles(files, table)}</td>`;
             }
+
+            const rawValue = this.getNodeFieldValue(node, column.field);
+            const stringValue = this.formatNodeDisplayValue(rawValue, column);
+            const preserveLineBreaks = String(column.field_type || '').toLowerCase() === 'textarea';
+            return `<td class="${className}"${style}>${table.highlightText(stringValue, column.field, { preserveLineBreaks })}</td>`;
 
             return `<td class="${className}"${style}></td>`;
         }).join('');
@@ -589,20 +676,161 @@ class TreeView {
         return Object.values(state.columnSearches || {}).some(value => String(value || '').trim() !== '');
     }
 
-    getNodeSearchValue(node, field) {
+    getNodeFieldValue(node, field) {
         if (field === 'name') return node?.name || '';
-        if (field === 'id') return `${node?.id_full || ''}`.trim();
+        if (field === 'id') return node?.id_full || '';
         if (field === 'type') return node?.type || '';
-        if (field === 'kravtext') return node?.kravtext || '';
-        if (field === 'beskrivning') return node?.beskrivning || '';
+        if (field === 'created_at') {
+            return node?.created_at
+                || node?.createdAt
+                || node?.data?.created_at
+                || node?.data?.createdAt
+                || '';
+        }
         if (field === 'has_files') return Array.isArray(node?.files) && node.files.length > 0 ? '1' : '';
         if (field === 'files') {
             if (!Array.isArray(node?.files)) return '';
-            return node.files
-                .map(file => file?.description || file?.original_filename || file?.filename || '')
-                .join(' ');
+            return node.files.map(file => file?.description || file?.original_filename || file?.filename || '').join(' ');
         }
-        return '';
+        if (Object.prototype.hasOwnProperty.call(node || {}, field)) {
+            return node?.[field];
+        }
+        return node?.data?.[field] ?? '';
+    }
+
+    formatNodeFieldValue(value) {
+        if (Array.isArray(value)) {
+            return value.map(item => String(item ?? '')).join(', ');
+        }
+        if (value && typeof value === 'object') {
+            return JSON.stringify(value);
+        }
+        return String(value ?? '');
+    }
+
+    formatNodeDisplayValue(value, column = null) {
+        const fieldType = String(column?.field_type || '').toLowerCase();
+        const resolvedValue = this.resolveFieldDisplayValue(value, column);
+        const formattedValue = this.formatNodeFieldValue(resolvedValue);
+
+        if (fieldType === 'richtext' && /<[^>]+>/.test(formattedValue)) {
+            return typeof stripHtmlTags === 'function'
+                ? stripHtmlTags(formattedValue)
+                : formattedValue.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+        }
+
+        return formattedValue;
+    }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            const parsed = JSON.parse(rawOptions);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    parseFieldOptions(rawOptions) {
+        if (Array.isArray(rawOptions)) return rawOptions;
+        if (typeof rawOptions !== 'string') return [];
+        return rawOptions
+            .split(',')
+            .map(option => option.trim())
+            .filter(Boolean);
+    }
+
+    async preloadManagedListDisplayMaps() {
+        this.managedListDisplayByListId = new Map();
+
+        const managedListIds = (this.availableFields || [])
+            .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
+            .map(field => this.normalizeFieldOptions(field?.field_options))
+            .filter(options => options?.source === 'managed_list')
+            .map(options => Number(options?.list_id))
+            .filter(listId => Number.isFinite(listId) && listId > 0);
+
+        const uniqueListIds = Array.from(new Set(managedListIds));
+        await Promise.all(uniqueListIds.map(async (listId) => {
+            try {
+                const payload = await ManagedListsAPI.getById(listId, true, true);
+                const items = Array.isArray(payload?.items) ? payload.items : [];
+                const byId = new Map();
+                const byValue = new Map();
+
+                items.forEach(item => {
+                    const itemId = Number(item?.id || 0);
+                    const valueKey = String(item?.value || '').trim();
+                    const label = String(item?.display_value || item?.label || item?.value || '').trim();
+                    if (!label) return;
+                    if (Number.isFinite(itemId) && itemId > 0) {
+                        byId.set(itemId, label);
+                    }
+                    if (valueKey) {
+                        byValue.set(valueKey, label);
+                    }
+                });
+
+                this.managedListDisplayByListId.set(listId, { byId, byValue });
+            } catch (_error) {
+                // Ignore lookup failures and fall back to raw values.
+            }
+        }));
+    }
+
+    resolveFieldDisplayValue(value, column = null) {
+        const fieldType = String(column?.field_type || '').toLowerCase();
+        if (fieldType !== 'select') return value;
+
+        const options = this.normalizeFieldOptions(column?.field_options);
+        if (options?.source === 'managed_list') {
+            const listId = Number(options.list_id);
+            const listMap = this.managedListDisplayByListId.get(listId);
+            if (!listMap) return value;
+
+            const resolveSingle = (rawValue) => {
+                if (rawValue === null || rawValue === undefined || rawValue === '') return rawValue;
+                const asNumber = Number(rawValue);
+                if (Number.isFinite(asNumber) && listMap.byId.has(asNumber)) {
+                    return listMap.byId.get(asNumber);
+                }
+                const asText = String(rawValue).trim();
+                if (asText && listMap.byValue.has(asText)) {
+                    return listMap.byValue.get(asText);
+                }
+                return rawValue;
+            };
+
+            if (Array.isArray(value)) return value.map(resolveSingle);
+            if (typeof value === 'string' && value.includes(',')) {
+                return value.split(',').map(part => resolveSingle(part.trim()));
+            }
+            return resolveSingle(value);
+        }
+
+        const configuredOptions = this.parseFieldOptions(column?.field_options)
+            .map(option => String(option ?? '').trim())
+            .filter(Boolean);
+        if (!configuredOptions.length) return value;
+
+        const configuredMap = new Map(configuredOptions.map(option => [option, option]));
+        const resolveConfigured = (rawValue) => {
+            const key = String(rawValue ?? '').trim();
+            return configuredMap.get(key) || rawValue;
+        };
+
+        if (Array.isArray(value)) return value.map(resolveConfigured);
+        if (typeof value === 'string' && value.includes(',')) {
+            return value.split(',').map(part => resolveConfigured(part.trim()));
+        }
+        return resolveConfigured(value);
+    }
+
+    getNodeSearchValue(node, field) {
+        return this.formatNodeFieldValue(this.getNodeFieldValue(node, field));
     }
 
     nodeMatchesActiveSearch(node, table) {
@@ -611,7 +839,7 @@ class TreeView {
         const columnTerms = Object.entries(searchState.columnSearches || {})
             .filter(([, value]) => String(value || '').trim() !== '');
 
-        const searchableFields = ['name', 'id', 'type', 'kravtext', 'beskrivning', 'files', 'has_files'];
+        const searchableFields = this.getAllColumns().map(column => column.field);
         const globalMatches = globalTerms.every(term => searchableFields.some(field =>
             String(this.getNodeSearchValue(node, field) || '').toLowerCase().includes(term)
         ));
@@ -694,18 +922,8 @@ class TreeView {
     }
 
     getComparableNodeValue(node, sortField) {
-        if (sortField === 'name') return node?.name || '';
-        if (sortField === 'id') return node?.id_full || '';
-        if (sortField === 'type') return node?.type || '';
-        if (sortField === 'kravtext') return node?.kravtext || '';
-        if (sortField === 'beskrivning') return node?.beskrivning || '';
         if (sortField === 'has_files') return Array.isArray(node?.files) ? node.files.length : 0;
-        if (sortField === 'files') {
-            return Array.isArray(node?.files)
-                ? node.files.map(file => file?.description || file?.original_filename || file?.filename || '').join(' ')
-                : '';
-        }
-        return '';
+        return this.getNodeSearchValue(node, sortField);
     }
 
     findNodeById(nodes, nodeId) {
@@ -763,6 +981,8 @@ class TreeView {
         treeTableBody.addEventListener('mousedown', (e) => {
             const node = e.target.closest('.tree-node');
             if (!node || node.dataset.hasChildren !== 'true') return;
+            const cell = e.target.closest('td');
+            if (!this.isNameColumnCell(cell)) return;
             if (e.detail < 2) return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
             e.preventDefault();
@@ -782,11 +1002,7 @@ class TreeView {
 
                 const nodeId = parseInt(idLink.dataset.nodeId, 10);
                 const nodeType = idLink.dataset.nodeType;
-                this.setSelectedObjectId(nodeId);
-
-                if (this.onNodeClick) {
-                    this.onNodeClick(nodeId, nodeType);
-                }
+                this.activateObjectRow(nodeId, nodeType);
                 return;
             }
 
@@ -800,22 +1016,52 @@ class TreeView {
             }
 
             const node = e.target.closest('.tree-node');
-            if (!node || node.dataset.hasChildren !== 'true') return;
+            if (!node) return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
-            if (e.detail > 1) return;
-            this.scheduleNodeExpansion(node.dataset.nodeId);
+
+            const cell = e.target.closest('td');
+            const isNameCell = this.isNameColumnCell(cell);
+            const hasChildren = node.dataset.hasChildren === 'true';
+            const nodeType = node.dataset.nodeType || '';
+            const nodeId = parseInt(node.dataset.nodeId, 10);
+
+            if (isNameCell) {
+                if (!hasChildren || e.detail > 1) return;
+                this.scheduleNodeExpansion(node.dataset.nodeId);
+                return;
+            }
+
+            if (!Number.isFinite(nodeId) || !nodeType) return;
+            e.preventDefault();
+            e.stopPropagation();
+            this.activateObjectRow(nodeId, nodeType);
         });
 
         treeTableBody.addEventListener('dblclick', (e) => {
             const node = e.target.closest('.tree-node');
             if (!node || node.dataset.hasChildren !== 'true') return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
+            const cell = e.target.closest('td');
+            if (!this.isNameColumnCell(cell)) return;
 
             e.preventDefault();
             e.stopPropagation();
             this.cancelPendingNodeExpansion();
             this.toggleSubtreeExpansion(node.dataset.nodeId);
         });
+    }
+
+    isNameColumnCell(cell) {
+        if (!cell) return false;
+        return cell.dataset.columnKey === 'name' || cell.classList.contains('col-tree-name');
+    }
+
+    activateObjectRow(nodeId, nodeType) {
+        if (!Number.isFinite(Number(nodeId)) || !nodeType) return;
+        this.setSelectedObjectId(nodeId);
+        if (this.onNodeClick) {
+            this.onNodeClick(Number(nodeId), nodeType);
+        }
     }
 
     enableColumnResizing() {

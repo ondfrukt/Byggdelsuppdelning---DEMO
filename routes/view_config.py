@@ -149,7 +149,8 @@ def get_list_view_config():
                     'field_name': field.field_name,
                     'display_name': field.display_name or field.field_name,
                     'field_type': field.field_type,
-                    'is_table_visible': field.is_table_visible
+                    'is_table_visible': field.is_table_visible,
+                    'field_options': field.field_options
                 }
                 for field in sorted(obj_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
                 if field.is_table_visible
@@ -269,12 +270,13 @@ def get_list_view_config_by_type(object_type_id):
         
         # Get all available fields for this object type
         available_fields = [
-            {
-                'field_name': field.field_name,
-                'display_name': field.display_name or field.field_name,
-                'field_type': field.field_type,
-                'is_table_visible': field.is_table_visible
-            }
+                {
+                    'field_name': field.field_name,
+                    'display_name': field.display_name or field.field_name,
+                    'field_type': field.field_type,
+                    'is_table_visible': field.is_table_visible,
+                    'field_options': field.field_options
+                }
             for field in sorted(object_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
             if field.is_table_visible
         ]

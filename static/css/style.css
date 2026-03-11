@@ -3692,6 +3692,7 @@ body.column-resize-active {
     flex: 1;
     min-height: 0;
     align-items: stretch;
+    overflow: hidden;
 }
 
 .object-list-wrapper {
@@ -3701,6 +3702,7 @@ body.column-resize-active {
     display: flex;
     flex-direction: column;
     margin-right: 10px;
+    overflow: hidden;
 }
 
 .detail-panel-overlay {

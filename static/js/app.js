@@ -191,7 +191,7 @@ async function loadObjectsView(options = {}) {
     window.treeViewActive = false;
     updateTreeToggleButtonLabel();
 
-    objectListWrapper.style.display = 'block';
+    objectListWrapper.style.display = 'flex';
     if (treeWrapper) treeWrapper.style.display = 'none';
     
     currentObjectListComponent = new ObjectListComponent('objects-container', objectType);
@@ -931,7 +931,7 @@ async function loadTreeViewPage() {
     updateTreeToggleButtonLabel();
 
     if (objectsWrapper) objectsWrapper.style.display = 'none';
-    treeWrapper.style.display = 'block';
+    treeWrapper.style.display = 'flex';
 
     // Initialize tree view if not already done
     if (!treeViewInstance) {

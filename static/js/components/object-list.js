@@ -20,15 +20,26 @@ class ObjectListComponent {
         this.selectionAnchorObjectId = null;
         this.filteredObjects = [];
         this.bulkTypeFieldsCache = {};
+        this.bulkTypeFieldsPromiseCache = {};
         this.resizeConfigSaveTimer = null;
         this.draggedColumnField = null;
         this.boundGlobalPointerHandler = null;
         this.boundGlobalKeyHandler = null;
+        this.managedListDisplayByListId = new Map();
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
             ignorePunctuation: true
         });
+    }
+
+    getBulkStatusOptions() {
+        return [
+            { value: 'In work', label: 'In work' },
+            { value: 'Released', label: 'Released' },
+            { value: 'Obsolete', label: 'Obsolete' },
+            { value: 'Canceled', label: 'Canceled' }
+        ];
     }
     
     async render() {
@@ -129,10 +140,12 @@ class ObjectListComponent {
             } else {
                 await this.loadGlobalViewConfig();
             }
+            await this.preloadManagedListDisplayMaps();
         } catch (error) {
             console.error('Failed to load view config:', error);
             this.viewConfig = null;
             this.typeDisplayFieldMap = {};
+            this.managedListDisplayByListId = new Map();
         }
     }
 
@@ -147,12 +160,13 @@ class ObjectListComponent {
                     if (!field || !field.field_name) return;
                     if (!fieldMap.has(field.field_name)) {
                         fieldMap.set(field.field_name, {
-                            field_name: field.field_name,
-                            display_name: field.display_name || field.field_name,
-                            field_type: field.field_type
-                        });
-                    }
-                });
+                        field_name: field.field_name,
+                        display_name: field.display_name || field.field_name,
+                        field_type: field.field_type,
+                        field_options: field.field_options
+                    });
+                }
+            });
             });
 
             if (!fieldMap.has('files')) {
@@ -870,6 +884,103 @@ class ObjectListComponent {
         // Get from object data
         return obj.data?.[fieldName] || '';
     }
+
+    getFieldDefinition(fieldName) {
+        const availableFields = Array.isArray(this.viewConfig?.available_fields) ? this.viewConfig.available_fields : [];
+        return availableFields.find(field => field?.field_name === fieldName) || null;
+    }
+
+    async preloadManagedListDisplayMaps() {
+        this.managedListDisplayByListId = new Map();
+
+        const availableFields = Array.isArray(this.viewConfig?.available_fields) ? this.viewConfig.available_fields : [];
+        const managedListIds = availableFields
+            .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
+            .map(field => this.normalizeFieldOptions(field?.field_options))
+            .filter(options => options?.source === 'managed_list')
+            .map(options => Number(options?.list_id))
+            .filter(listId => Number.isFinite(listId) && listId > 0);
+
+        const uniqueListIds = Array.from(new Set(managedListIds));
+        await Promise.all(uniqueListIds.map(async (listId) => {
+            try {
+                const payload = await ManagedListsAPI.getById(listId, true, true);
+                const items = Array.isArray(payload?.items) ? payload.items : [];
+                const byId = new Map();
+                const byValue = new Map();
+
+                items.forEach(item => {
+                    const itemId = Number(item?.id || 0);
+                    const valueKey = String(item?.value || '').trim();
+                    const label = String(item?.display_value || item?.label || item?.value || '').trim();
+                    if (!label) return;
+                    if (Number.isFinite(itemId) && itemId > 0) {
+                        byId.set(itemId, label);
+                    }
+                    if (valueKey) {
+                        byValue.set(valueKey, label);
+                    }
+                });
+
+                this.managedListDisplayByListId.set(listId, { byId, byValue });
+            } catch (_error) {
+                // Ignore lookup failures and fall back to raw values.
+            }
+        }));
+    }
+
+    resolveFieldDisplayValue(value, fieldName, column = null) {
+        const field = this.getFieldDefinition(fieldName) || column || {};
+        const fieldType = String(field?.field_type || '').toLowerCase();
+        if (fieldType !== 'select') return value;
+
+        const options = this.normalizeFieldOptions(field?.field_options);
+        if (options?.source === 'managed_list') {
+            const listId = Number(options.list_id);
+            const listMap = this.managedListDisplayByListId.get(listId);
+            if (!listMap) return value;
+
+            const resolveSingle = (rawValue) => {
+                if (rawValue === null || rawValue === undefined || rawValue === '') return rawValue;
+                const asNumber = Number(rawValue);
+                if (Number.isFinite(asNumber) && listMap.byId.has(asNumber)) {
+                    return listMap.byId.get(asNumber);
+                }
+                const asText = String(rawValue).trim();
+                if (asText && listMap.byValue.has(asText)) {
+                    return listMap.byValue.get(asText);
+                }
+                return rawValue;
+            };
+
+            if (Array.isArray(value)) {
+                return value.map(resolveSingle);
+            }
+            if (typeof value === 'string' && value.includes(',')) {
+                return value.split(',').map(part => resolveSingle(part.trim()));
+            }
+            return resolveSingle(value);
+        }
+
+        const configuredOptions = this.parseFieldOptions(field?.field_options)
+            .map(option => String(option ?? '').trim())
+            .filter(Boolean);
+        if (!configuredOptions.length) return value;
+
+        const configuredMap = new Map(configuredOptions.map(option => [option, option]));
+        const resolveConfigured = (rawValue) => {
+            const key = String(rawValue ?? '').trim();
+            return configuredMap.get(key) || rawValue;
+        };
+
+        if (Array.isArray(value)) {
+            return value.map(resolveConfigured);
+        }
+        if (typeof value === 'string' && value.includes(',')) {
+            return value.split(',').map(part => resolveConfigured(part.trim()));
+        }
+        return resolveConfigured(value);
+    }
     
     formatColumnValue(obj, fieldName, value, column = null) {
         if (fieldName === 'id_full') return `<strong>${this.highlightText(obj.id_full || value, fieldName)}</strong>`;
@@ -893,23 +1004,25 @@ class ObjectListComponent {
             }
         }
 
-        if (Array.isArray(value)) {
-            return this.highlightText(value.join(', '), fieldName);
+        const resolvedValue = this.resolveFieldDisplayValue(value, fieldName, column);
+
+        if (Array.isArray(resolvedValue)) {
+            return this.highlightText(resolvedValue.join(', '), fieldName);
         }
 
-        if (value && typeof value === 'object') {
-            return this.highlightText(JSON.stringify(value), fieldName);
+        if (resolvedValue && typeof resolvedValue === 'object') {
+            return this.highlightText(JSON.stringify(resolvedValue), fieldName);
         }
 
-        if (typeof value === 'string' && /<[^>]+>/.test(value)) {
-            return this.highlightText(stripHtmlTags(value), fieldName);
+        if (typeof resolvedValue === 'string' && /<[^>]+>/.test(resolvedValue)) {
+            return this.highlightText(stripHtmlTags(resolvedValue), fieldName);
         }
 
-        if (column?.field_type === 'textarea' && typeof value === 'string') {
-            return this.highlightText(value, fieldName, { preserveLineBreaks: true });
+        if (column?.field_type === 'textarea' && typeof resolvedValue === 'string') {
+            return this.highlightText(resolvedValue, fieldName, { preserveLineBreaks: true });
         }
 
-        return this.highlightText(value || '', fieldName);
+        return this.highlightText(resolvedValue || '', fieldName);
     }
 
     isLikelyFileField(fieldName) {
@@ -1266,16 +1379,70 @@ class ObjectListComponent {
             return this.bulkTypeFieldsCache[typeId];
         }
 
-        try {
-            const type = await ObjectTypesAPI.getById(typeId);
-            const fields = Array.isArray(type?.fields) ? type.fields : [];
-            this.bulkTypeFieldsCache[typeId] = fields;
-            return fields;
-        } catch (error) {
-            console.error(`Failed to load object type ${typeId} for bulk edit:`, error);
-            this.bulkTypeFieldsCache[typeId] = [];
-            return [];
+        if (this.bulkTypeFieldsPromiseCache[typeId]) {
+            return this.bulkTypeFieldsPromiseCache[typeId];
         }
+
+        this.bulkTypeFieldsPromiseCache[typeId] = (async () => {
+            try {
+                const type = await ObjectTypesAPI.getById(typeId);
+                const fields = Array.isArray(type?.fields) ? type.fields : [];
+                this.bulkTypeFieldsCache[typeId] = fields;
+                return fields;
+            } catch (error) {
+                console.error(`Failed to load object type ${typeId} for bulk edit:`, error);
+                this.bulkTypeFieldsCache[typeId] = [];
+                return [];
+            } finally {
+                delete this.bulkTypeFieldsPromiseCache[typeId];
+            }
+        })();
+
+        return this.bulkTypeFieldsPromiseCache[typeId];
+    }
+
+    getSelectedObjectsForBulkEdit(selectedIds = []) {
+        const objectById = new Map(
+            (Array.isArray(this.objects) ? this.objects : [])
+                .map(obj => [Number(obj?.id), obj])
+                .filter(([id]) => Number.isFinite(id))
+        );
+
+        const selectedObjects = [];
+        const missingIds = [];
+
+        selectedIds.forEach((id) => {
+            const numericId = Number(id);
+            if (!Number.isFinite(numericId)) return;
+            const object = objectById.get(numericId);
+            if (object) {
+                selectedObjects.push(object);
+            } else {
+                missingIds.push(numericId);
+            }
+        });
+
+        return { selectedObjects, missingIds };
+    }
+
+    async loadMissingObjectsForBulkEdit(missingIds = []) {
+        if (!Array.isArray(missingIds) || !missingIds.length) {
+            return { loadedObjects: [], failedIds: [] };
+        }
+
+        const loadedObjects = [];
+        const failedIds = [];
+        const settled = await Promise.allSettled(missingIds.map(id => ObjectsAPI.getById(id)));
+
+        settled.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value) {
+                loadedObjects.push(result.value);
+            } else {
+                failedIds.push(missingIds[index]);
+            }
+        });
+
+        return { loadedObjects, failedIds };
     }
 
     async buildBulkEditableFields(selectedObjects) {
@@ -1297,6 +1464,20 @@ class ObjectListComponent {
         }
 
         const result = [];
+
+        const statusValues = selectedObjects.map(obj => obj?.status || 'In work');
+        const allStatusesEqual = statusValues.every(value => this.valuesEqual(value, statusValues[0]));
+        result.push({
+            key: '__status__',
+            fieldName: 'status',
+            displayName: 'Status',
+            fieldType: 'select',
+            options: this.getBulkStatusOptions(),
+            value: allStatusesEqual ? statusValues[0] : null,
+            varies: !allStatusesEqual,
+            isMetadataField: true
+        });
+
         for (const key of commonKeys) {
             const defs = fieldMaps.map(map => map.get(key)).filter(Boolean);
             if (!defs.length) continue;
@@ -1414,16 +1595,9 @@ class ObjectListComponent {
         }
 
         try {
-            const selectedObjects = [];
-            const failedIds = [];
-            const settled = await Promise.allSettled(selectedIds.map(id => ObjectsAPI.getById(id)));
-            settled.forEach((result, index) => {
-                if (result.status === 'fulfilled' && result.value) {
-                    selectedObjects.push(result.value);
-                    return;
-                }
-                failedIds.push(selectedIds[index]);
-            });
+            const { selectedObjects: localSelectedObjects, missingIds } = this.getSelectedObjectsForBulkEdit(selectedIds);
+            const { loadedObjects, failedIds } = await this.loadMissingObjectsForBulkEdit(missingIds);
+            const selectedObjects = [...localSelectedObjects, ...loadedObjects];
 
             if (!selectedObjects.length) {
                 showToast('Kunde inte ladda markerade objekt', 'error');
@@ -1524,13 +1698,16 @@ class ObjectListComponent {
                     });
 
                     changes.forEach(change => {
+                        if (change.key === '__status__') return;
                         const targetField = fields.find(field => this.normalizeFieldKey(field.field_name) === change.key);
                         if (!targetField) return;
                         currentData[targetField.field_name] = change.value;
                     });
 
+                    const statusChange = changes.find(change => change.key === '__status__');
+
                     await ObjectsAPI.update(obj.id, {
-                        status: obj.status,
+                        status: statusChange ? statusChange.value : obj.status,
                         data: currentData
                     });
                     updatedCount += 1;

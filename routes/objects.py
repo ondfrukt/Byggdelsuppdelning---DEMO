@@ -283,6 +283,49 @@ def resolve_managed_list_path(raw_value, list_id, cache):
     return list(reversed(path))
 
 
+def resolve_tree_field_display_value(field, raw_value, managed_list_cache=None):
+    if raw_value in (None, ''):
+        return raw_value
+    if not field:
+        return raw_value
+
+    field_type = str(getattr(field, 'field_type', '') or '').strip().lower()
+    if field_type != 'select':
+        return raw_value
+
+    field_options = normalize_field_options(getattr(field, 'field_options', None))
+    if not field_options:
+        return raw_value
+
+    if str(field_options.get('source') or '').strip().lower() == 'managed_list':
+        list_id = field_options.get('list_id')
+        path = resolve_managed_list_path(raw_value, list_id, managed_list_cache or {})
+        if path:
+            return ' > '.join(path)
+
+    return raw_value
+
+
+def build_tree_display_data(obj, managed_list_cache=None):
+    object_data = dict(obj.data or {})
+    if not obj or not obj.object_type:
+        return object_data
+
+    display_data = dict(object_data)
+    for field in obj.object_type.fields or []:
+        field_name = getattr(field, 'field_name', None)
+        if not field_name:
+            continue
+
+        raw_value = get_data_value_case_insensitive(object_data, field_name)
+        if raw_value in (None, ''):
+            continue
+
+        display_data[field_name] = resolve_tree_field_display_value(field, raw_value, managed_list_cache)
+
+    return display_data
+
+
 def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
     managed_list_cache = managed_list_cache if isinstance(managed_list_cache, dict) else {}
     object_data = obj.data or {}
@@ -312,7 +355,7 @@ def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
     return [fallback_label]
 
 
-def build_tree_root_nodes(root_objects, view_config):
+def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
     tree_nodes = []
     for root_object in root_objects:
         outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
@@ -332,7 +375,7 @@ def build_tree_root_nodes(root_objects, view_config):
                     children_by_type[type_name] = []
 
                 display_name = get_display_name(linked_object, type_name, view_config)
-                linked_object_data = linked_object.data or {}
+                linked_object_data = build_tree_display_data(linked_object, managed_list_cache)
 
                 children_by_type[type_name].append({
                     'id': str(linked_object.id),
@@ -340,6 +383,7 @@ def build_tree_root_nodes(root_objects, view_config):
                     'name': display_name,
                     'type': type_name,
                     'direction': direction,
+                    'created_at': linked_object.created_at.isoformat() if linked_object.created_at else None,
                     'data': linked_object_data,
                     'kravtext': get_tree_requirement_text(linked_object),
                     'beskrivning': get_tree_short_description(linked_object),
@@ -357,13 +401,14 @@ def build_tree_root_nodes(root_objects, view_config):
 
         root_type_name = root_object.object_type.name if root_object.object_type else 'Objekt'
         root_display_name = get_display_name(root_object, root_type_name, view_config)
-        root_data = root_object.data or {}
+        root_data = build_tree_display_data(root_object, managed_list_cache)
 
         tree_nodes.append({
             'id': str(root_object.id),
             'id_full': root_object.id_full,
             'name': root_display_name,
             'type': root_type_name,
+            'created_at': root_object.created_at.isoformat() if root_object.created_at else None,
             'data': root_data,
             'kravtext': get_tree_requirement_text(root_object),
             'beskrivning': get_tree_short_description(root_object),
@@ -399,13 +444,12 @@ def build_category_group_tree(root_objects, tree_view, view_config):
             group_data = tree_level[group_name]
             current_path = path_segments + [group_name]
             child_groups = serialize_group_nodes(group_data['children'], current_path)
-            object_nodes = build_tree_root_nodes(group_data['objects'], view_config)
             group_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key('-'.join(current_path))) or f'kategori-{index}'
             nodes.append({
                 'id': f"category-{tree_view}-{group_slug}-{index}",
                 'name': group_name,
                 'type': 'group',
-                'children': child_groups + object_nodes
+                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache)
             })
         return nodes
 
