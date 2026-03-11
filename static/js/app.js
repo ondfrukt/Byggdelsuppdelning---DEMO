@@ -12,6 +12,7 @@ window.currentSelectedObjectId = null;
 let detailHistory = [];
 let detailHistoryIndex = -1;
 const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
+let activeDetailPanelRequestId = 0;
 const swedishNaturalCollator = new Intl.Collator('sv', {
     sensitivity: 'base',
     numeric: true,
@@ -335,6 +336,20 @@ function ensureDetailHistoryControls() {
         duplicateBtn.addEventListener('click', () => duplicateCurrentDetailObject());
         actions.insertBefore(duplicateBtn, editBtn.nextSibling);
     }
+
+    let deleteBtn = document.getElementById('detail-nav-delete');
+    if (!deleteBtn) {
+        deleteBtn = document.createElement('button');
+        deleteBtn.id = 'detail-nav-delete';
+        deleteBtn.className = 'detail-panel-nav-btn detail-panel-nav-btn-danger';
+        deleteBtn.type = 'button';
+        deleteBtn.title = 'Ta bort objekt';
+        deleteBtn.setAttribute('aria-label', 'Ta bort objekt');
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = '🗑';
+        deleteBtn.addEventListener('click', () => deleteCurrentDetailObject());
+        actions.insertBefore(deleteBtn, duplicateBtn.nextSibling);
+    }
 }
 
 function updateDetailHistoryButtons() {
@@ -343,7 +358,8 @@ function updateDetailHistoryButtons() {
     const forwardBtn = document.getElementById('detail-nav-forward');
     const editBtn = document.getElementById('detail-nav-edit');
     const duplicateBtn = document.getElementById('detail-nav-duplicate');
-    if (!backBtn || !forwardBtn || !editBtn || !duplicateBtn) return;
+    const deleteBtn = document.getElementById('detail-nav-delete');
+    if (!backBtn || !forwardBtn || !editBtn || !duplicateBtn || !deleteBtn) return;
 
     const hasBack = detailHistoryIndex > 0;
     const hasForward = detailHistoryIndex >= 0 && detailHistoryIndex < detailHistory.length - 1;
@@ -352,11 +368,17 @@ function updateDetailHistoryButtons() {
     forwardBtn.disabled = !hasForward;
     editBtn.disabled = !hasCurrent;
     duplicateBtn.disabled = !hasCurrent;
+    deleteBtn.disabled = !hasCurrent;
 }
 
 function editCurrentDetailObject() {
     if (!Number.isFinite(currentObjectId)) return;
     editObject(currentObjectId);
+}
+
+function deleteCurrentDetailObject() {
+    if (!Number.isFinite(currentObjectId)) return;
+    deleteObject(currentObjectId);
 }
 
 async function duplicateCurrentDetailObject() {
@@ -918,6 +940,16 @@ async function loadTreeViewPage() {
         
         // Set up click handler
         treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
+            const panel = document.getElementById('detail-panel');
+            const normalizedObjectId = Number(objectId);
+            const currentDetailId = Number(window.currentSelectedObjectId);
+            const isSameObject = Number.isFinite(normalizedObjectId) && normalizedObjectId === currentDetailId;
+
+            if (isSameObject && panel?.classList.contains('active')) {
+                closeDetailPanel();
+                return;
+            }
+
             await openDetailPanel(objectId);
         });
     }
@@ -947,10 +979,14 @@ async function openDetailPanel(objectId, options = {}) {
     const panelBody = document.getElementById('detail-panel-body');
     
     if (!panel || !panelBody) return;
+
+    const requestId = ++activeDetailPanelRequestId;
     
     try {
+        const wasActive = panel.classList.contains('active');
+
         // If panel is closed and user opens a new object directly, start a fresh history chain.
-        if (!fromHistory && !panel.classList.contains('active')) {
+        if (!fromHistory && !wasActive) {
             resetDetailHistory();
         }
 
@@ -962,11 +998,18 @@ async function openDetailPanel(objectId, options = {}) {
 
         setSelectedDetailObject(objectId);
 
-        // Visa panel direkt och låt CSS hantera animationen
-        panel.classList.add('active');
+        // Only trigger the slide-in transition when opening a closed panel.
+        if (!wasActive) {
+            panel.classList.add('active');
+        }
         
         // Ladda objektdata
         const object = await ObjectsAPI.getById(objectId);
+        if (requestId !== activeDetailPanelRequestId) return;
+
+        if (!panel.classList.contains('active')) {
+            panel.classList.add('active');
+        }
         
         // Uppdatera panel-header (namn + kategori)
         updateDetailPanelHeader(object);
@@ -981,8 +1024,10 @@ async function openDetailPanel(objectId, options = {}) {
         
         // Rendera komponenten för det valda objektet
         await currentDetailPanelInstance.render(objectId);
+        if (requestId !== activeDetailPanelRequestId) return;
         
     } catch (error) {
+        if (requestId !== activeDetailPanelRequestId) return;
         console.error('Failed to load object detail:', error);
         showToast('Kunde inte ladda objektdetaljer', 'error');
         closeDetailPanel();
@@ -991,6 +1036,7 @@ async function openDetailPanel(objectId, options = {}) {
 
 // Close detail panel
 function closeDetailPanel() {
+    activeDetailPanelRequestId += 1;
     const panel = document.getElementById('detail-panel');
     const panelTitle = document.getElementById('detail-panel-title');
     const panelCategory = document.getElementById('detail-panel-category');

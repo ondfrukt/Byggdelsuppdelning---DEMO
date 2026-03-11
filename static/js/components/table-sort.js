@@ -32,7 +32,16 @@ class TableSort {
             indicator.innerHTML = '↕';
             header.appendChild(indicator);
             
-            header.addEventListener('click', () => {
+            header.addEventListener('click', (event) => {
+                if (event.target?.closest?.('.column-resize-handle')) {
+                    return;
+                }
+                if (header.dataset.suppressResizeClick === 'true') {
+                    delete header.dataset.suppressResizeClick;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return;
+                }
                 this.sortByColumn(header.cellIndex, header);
             });
         });

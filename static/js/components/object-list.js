@@ -17,8 +17,13 @@ class ObjectListComponent {
         this.columnSearches = {}; // Store search terms per column
         this.typeDisplayFieldMap = {};
         this.selectedObjectIds = new Set();
+        this.selectionAnchorObjectId = null;
         this.filteredObjects = [];
         this.bulkTypeFieldsCache = {};
+        this.resizeConfigSaveTimer = null;
+        this.draggedColumnField = null;
+        this.boundGlobalPointerHandler = null;
+        this.boundGlobalKeyHandler = null;
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -37,11 +42,11 @@ class ObjectListComponent {
                            placeholder="Sök..." 
                            class="search-input"
                            value="${this.searchTerm}">
-                    <button class="btn btn-primary btn-sm bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" disabled>
-                        Koppla markerade (0)
+                    <button class="btn-icon bulk-selection-action bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" type="button" disabled style="display: none;" title="Koppla markerade objekt" aria-label="Koppla markerade objekt">
+                        🔗
                     </button>
-                    <button class="btn btn-secondary btn-sm bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" disabled>
-                        Redigera markerade (0)
+                    <button class="btn-icon bulk-selection-action bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" type="button" disabled style="display: none;" title="Redigera markerade objekt" aria-label="Redigera markerade objekt">
+                        ✏️
                     </button>
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
                         ⚙️ Kolumner
@@ -102,6 +107,8 @@ class ObjectListComponent {
                 this.openBulkEditModal();
             });
         }
+
+        this.attachGlobalSelectionListeners();
     }
     
     async loadViewConfig() {
@@ -189,7 +196,7 @@ class ObjectListComponent {
             this.viewConfig = {
                 available_fields,
                 visible_columns: baseVisibleColumns,
-                column_order: [
+                column_order: this.loadGlobalColumnOrder() || [
                     'id_full',
                     'object_type',
                     ...(preferredNameField ? [preferredNameField] : []),
@@ -197,7 +204,7 @@ class ObjectListComponent {
                     ...remainingFieldNames,
                     'created_at'
                 ],
-                column_widths: {}
+                column_widths: this.loadGlobalColumnWidths()
             };
         } catch (error) {
             console.error('Failed to load global view config:', error);
@@ -259,6 +266,7 @@ class ObjectListComponent {
         const tbody = document.getElementById(`table-body-${this.containerId}`);
         const thead = document.getElementById(`table-headers-${this.containerId}`);
         const searchRow = document.getElementById(`table-search-row-${this.containerId}`);
+        const table = this.container?.querySelector('.data-table');
         
         if (!this.objects || this.objects.length === 0) {
             this.filteredObjects = [];
@@ -269,38 +277,56 @@ class ObjectListComponent {
         
         // Get visible columns from config or use defaults
         const columns = this.getVisibleColumns();
-        const colCount = columns.length;
+        const renderableColumns = columns.map(col => {
+            const colClass = this.getColumnClass(col);
+            return {
+                key: col.field_name,
+                className: colClass,
+                resizable: true
+            };
+        });
+
+        if (table) {
+            table.style.width = '';
+            table.style.minWidth = '';
+            table.style.maxWidth = '';
+            table.innerHTML = `
+                ${this.renderTableColgroup(renderableColumns)}
+                <thead>
+                    <tr id="table-headers-${this.containerId}"></tr>
+                    <tr id="table-search-row-${this.containerId}" class="column-search-row"></tr>
+                </thead>
+                <tbody id="table-body-${this.containerId}">
+                    <tr><td colspan="${renderableColumns.length}" class="loading">Laddar objekt...</td></tr>
+                </tbody>
+            `;
+        }
+
+        const updatedThead = document.getElementById(`table-headers-${this.containerId}`);
+        const updatedSearchRow = document.getElementById(`table-search-row-${this.containerId}`);
+        const updatedTbody = document.getElementById(`table-body-${this.containerId}`);
+        const activeTbody = updatedTbody || tbody;
+        const activeThead = updatedThead || thead;
+        const activeSearchRow = updatedSearchRow || searchRow;
         
         // Render headers with sortable attributes and column classes
-        thead.innerHTML = columns.map(col => {
+        activeThead.innerHTML = columns.map(col => {
             const colClass = this.getColumnClass(col);
-            const width = this.getColumnWidth(col, colClass);
-            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" ${widthStyle} class="resizable-column ${colClass}">
+            return `<th data-sortable data-sort-type="${this.getSortType(col)}" data-field="${col.field_name}" data-column-key="${col.field_name}" data-draggable-column="true" draggable="true" class="resizable-column draggable-column ${colClass}">
                 ${col.display_name}
             </th>`;
         }).join('');
-        thead.insertAdjacentHTML('afterbegin', `
-            <th class="col-select">
-                <input type="checkbox" id="select-all-${this.containerId}" aria-label="Markera alla rader i listan">
-            </th>
-        `);
         
         // Render search row with column classes
-        searchRow.innerHTML = columns.map(col => {
+        activeSearchRow.innerHTML = columns.map(col => {
             const colClass = this.getColumnClass(col);
-            const width = this.getColumnWidth(col, colClass);
-            const widthStyle = width ? `style="width: ${width}px; min-width: ${width}px;"` : '';
-            if (col.field_name === 'actions') {
-                return `<th ${widthStyle} class="${colClass}"></th>`;
-            }
             if (col.field_name === 'files_indicator') {
                 const checked = this.columnSearches.files_indicator === '1' ? 'checked' : '';
-                return `<th ${widthStyle} class="${colClass}" title="Visa endast objekt med filer">
+                return `<th data-column-key="${col.field_name}" class="${colClass}" title="Visa endast objekt med filer">
                     <input type="checkbox" class="column-paperclip-filter" data-field="files_indicator" ${checked}>
                 </th>`;
             }
-            return `<th ${widthStyle} class="${colClass}">
+            return `<th data-column-key="${col.field_name}" class="${colClass}">
                 <input type="text" 
                        class="column-search-input" 
                        placeholder="Sök..."
@@ -308,31 +334,22 @@ class ObjectListComponent {
                        value="${this.columnSearches[col.field_name] || ''}">
             </th>`;
         }).join('');
-        searchRow.insertAdjacentHTML('afterbegin', '<th class="col-select"></th>');
         
         // Attach column search listeners
-        searchRow.querySelectorAll('.column-search-input').forEach(input => {
+        activeSearchRow.querySelectorAll('.column-search-input').forEach(input => {
             input.addEventListener('input', (e) => {
                 const field = e.target.getAttribute('data-field');
                 this.columnSearches[field] = e.target.value;
                 this.renderFilteredObjects();
             });
         });
-        searchRow.querySelectorAll('.column-paperclip-filter').forEach(input => {
+        activeSearchRow.querySelectorAll('.column-paperclip-filter').forEach(input => {
             input.addEventListener('change', (e) => {
                 const field = e.target.getAttribute('data-field');
                 this.columnSearches[field] = e.target.checked ? '1' : '';
                 this.renderFilteredObjects();
             });
         });
-
-        const selectAllCheckbox = document.getElementById(`select-all-${this.containerId}`);
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('click', (event) => event.stopPropagation());
-            selectAllCheckbox.addEventListener('change', (event) => {
-                this.toggleSelectAllFiltered(event.target.checked);
-            });
-        }
         
         this.renderFilteredObjects();
         
@@ -378,19 +395,13 @@ class ObjectListComponent {
         tbody.innerHTML = filteredObjects.map(obj => `
             <tr
                 data-object-id="${obj.id}"
-                class="${String(obj.id) === selectedObjectId ? 'selected-object-row' : ''}"
+                class="${[
+                    this.selectedObjectIds.has(Number(obj.id)) ? 'multi-selected-row' : '',
+                    String(obj.id) === selectedObjectId ? 'active-detail-row' : ''
+                ].filter(Boolean).join(' ')}"
                 aria-selected="${String(obj.id) === selectedObjectId ? 'true' : 'false'}"
-                onclick="viewObjectDetail(${obj.id})"
                 style="cursor: pointer;"
             >
-                <td class="col-select" onclick="event.stopPropagation()">
-                    <input
-                        type="checkbox"
-                        class="row-select-checkbox"
-                        data-object-id="${obj.id}"
-                        ${this.selectedObjectIds.has(Number(obj.id)) ? 'checked' : ''}
-                        aria-label="Markera objekt ${escapeHtml(obj.id_full || obj.id_full || String(obj.id))}">
-                </td>
                 ${columns.map(col => {
                     const value = this.getColumnValue(obj, col.field_name);
                     const displayValue = this.formatColumnValue(obj, col.field_name, value, col);
@@ -401,18 +412,14 @@ class ObjectListComponent {
             </tr>
         `).join('');
 
-        tbody.querySelectorAll('.row-select-checkbox').forEach(checkbox => {
-            checkbox.addEventListener('click', (event) => event.stopPropagation());
-            checkbox.addEventListener('change', (event) => {
-                const objectId = Number(event.target.dataset.objectId);
-                if (!Number.isFinite(objectId)) return;
-                if (event.target.checked) {
-                    this.selectedObjectIds.add(objectId);
-                } else {
-                    this.selectedObjectIds.delete(objectId);
+        tbody.querySelectorAll('tr[data-object-id]').forEach(row => {
+            row.addEventListener('mousedown', (event) => {
+                if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                    event.preventDefault();
                 }
-                this.updateBulkRelationButton();
-                this.updateSelectAllState();
+            });
+            row.addEventListener('click', (event) => {
+                this.handleRowClick(event, row);
             });
         });
         
@@ -433,11 +440,111 @@ class ObjectListComponent {
             this.tableSortInstance = new TableSort(table.id);
         }
 
+        this.enableColumnResizing(table);
+        this.enableColumnReordering(table);
+
         if (typeof window.applySelectedRowHighlight === 'function') {
             window.applySelectedRowHighlight();
         }
         this.updateBulkRelationButton();
         this.updateSelectAllState();
+    }
+
+    enableColumnResizing(table) {
+        if (!table || typeof makeTableColumnsResizable !== 'function') return;
+
+        makeTableColumnsResizable({
+            table,
+            minWidth: 48,
+            fixedLayout: true,
+            headerSelector: 'thead tr:first-child th[data-column-key]',
+            getColumnKey: (header) => header?.dataset?.columnKey || '',
+            getInitialWidth: (field) => this.getInitialResizableWidth(field),
+            onResizeEnd: (field, width) => {
+                this.persistColumnWidth(field, width);
+            }
+        });
+    }
+
+    enableColumnReordering(table) {
+        if (!table) return;
+
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th[data-draggable-column="true"]'));
+        headers.forEach((header) => {
+            header.addEventListener('dragstart', (event) => {
+                if (event.target?.closest?.('.column-resize-handle')) {
+                    event.preventDefault();
+                    return;
+                }
+                const field = header.dataset.field || '';
+                if (!field) return;
+                this.draggedColumnField = field;
+                header.classList.add('column-dragging');
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', field);
+                }
+            });
+
+            header.addEventListener('dragend', () => {
+                this.draggedColumnField = null;
+                table.querySelectorAll('th.column-drop-before, th.column-drop-after, th.column-dragging').forEach((node) => {
+                    node.classList.remove('column-drop-before', 'column-drop-after', 'column-dragging');
+                });
+            });
+
+            header.addEventListener('dragover', (event) => {
+                if (!this.draggedColumnField || this.draggedColumnField === header.dataset.field) return;
+                event.preventDefault();
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                header.classList.toggle('column-drop-before', insertBefore);
+                header.classList.toggle('column-drop-after', !insertBefore);
+            });
+
+            header.addEventListener('dragleave', () => {
+                header.classList.remove('column-drop-before', 'column-drop-after');
+            });
+
+            header.addEventListener('drop', (event) => {
+                if (!this.draggedColumnField) return;
+                event.preventDefault();
+                const targetField = header.dataset.field || '';
+                if (!targetField || targetField === this.draggedColumnField) return;
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                this.moveColumn(this.draggedColumnField, targetField, insertBefore);
+            });
+        });
+    }
+
+    moveColumn(sourceField, targetField, insertBefore) {
+        if (!sourceField || !targetField || sourceField === targetField) return;
+        if (!this.viewConfig) return;
+
+        const currentOrder = Array.isArray(this.viewConfig.column_order) ? [...this.viewConfig.column_order] : [];
+        const reorderable = currentOrder.filter(field => field !== 'files_indicator');
+        const sourceIndex = reorderable.indexOf(sourceField);
+        const targetIndex = reorderable.indexOf(targetField);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+
+        reorderable.splice(sourceIndex, 1);
+        let destinationIndex = reorderable.indexOf(targetField);
+        if (destinationIndex < 0) return;
+        if (!insertBefore) destinationIndex += 1;
+        reorderable.splice(destinationIndex, 0, sourceField);
+
+        this.viewConfig.column_order = reorderable;
+        this.persistViewConfig();
+        this.renderObjects();
+    }
+
+    renderTableColgroup(columns = []) {
+        return `<colgroup data-object-list-colgroup="true">
+            ${columns.map(column => {
+                return `<col data-column-key="${escapeHtml(column.key)}">`;
+            }).join('')}
+        </colgroup>`;
     }
     
     getVisibleColumns() {
@@ -452,37 +559,42 @@ class ObjectListComponent {
                 ...lockedColumns,
                 { field_name: 'namn', display_name: 'Namn' },
                 { field_name: 'created_at', display_name: 'Skapad' },
-                { field_name: 'files_indicator', display_name: '📎' },
-                { field_name: 'actions', display_name: 'Åtgärder' }
+                { field_name: 'files_indicator', display_name: '📎' }
             ];
         }
         
         const visible_columns = this.viewConfig.visible_columns || [];
         const available_fields = this.viewConfig.available_fields || [];
-        const column_order = this.viewConfig.column_order || [];
-        
-        // Build columns based on configuration
-        const columns = [...lockedColumns];
-        const lockedFieldNames = new Set(lockedColumns.map(col => col.field_name));
-        
-        // Add columns in specified order
-        for (const fieldName of column_order) {
-            if (lockedFieldNames.has(fieldName)) continue;
-            const colConfig = visible_columns.find(c => c.field_name === fieldName);
-            if (!colConfig || !colConfig.visible) continue;
-            
-            if (fieldName === 'created_at') {
-                columns.push({ field_name: 'created_at', display_name: 'Skapad' });
-            } else {
-                const field = available_fields.find(f => f.field_name === fieldName);
-                if (field) {
-                    columns.push({
-                        field_name: field.field_name,
-                        display_name: field.display_name,
-                        field_type: field.field_type
-                    });
-                }
+        const column_order = Array.isArray(this.viewConfig.column_order) ? [...this.viewConfig.column_order] : [];
+        const columns = [];
+        const fieldMap = new Map([
+            ['id_full', { field_name: 'id_full', display_name: 'ID' }],
+            ['object_type', { field_name: 'object_type', display_name: 'Typ' }],
+            ['created_at', { field_name: 'created_at', display_name: 'Skapad' }],
+            ...available_fields.map(field => [field.field_name, {
+                field_name: field.field_name,
+                display_name: field.display_name,
+                field_type: field.field_type
+            }])
+        ]);
+        const alwaysVisibleFields = new Set(lockedColumns.map(col => col.field_name));
+        const appendedFields = new Set();
+
+        ['id_full', 'object_type'].forEach((fieldName) => {
+            if (!column_order.includes(fieldName)) {
+                column_order.push(fieldName);
             }
+        });
+
+        for (const fieldName of column_order) {
+            if (fieldName === 'files_indicator' || appendedFields.has(fieldName)) continue;
+            const colConfig = visible_columns.find(c => c.field_name === fieldName);
+            if (!alwaysVisibleFields.has(fieldName) && (!colConfig || !colConfig.visible)) continue;
+
+            const column = fieldMap.get(fieldName);
+            if (!column) continue;
+            columns.push(column);
+            appendedFields.add(fieldName);
         }
 
         // Place paperclip column immediately before files column when present.
@@ -494,9 +606,6 @@ class ObjectListComponent {
             columns.push({ field_name: 'files_indicator', display_name: '📎' });
         }
 
-        // Keep actions column last.
-        columns.push({ field_name: 'actions', display_name: 'Åtgärder' });
-        
         return columns;
     }
     
@@ -514,7 +623,6 @@ class ObjectListComponent {
             'updated_at': 'col-date',
             'status': 'col-status',
             'version': 'col-status',
-            'actions': 'col-actions',
             'files_indicator': 'col-paperclip',
             'object_type': 'col-type',
             'display_name': 'col-name',
@@ -553,22 +661,123 @@ class ObjectListComponent {
     
     getColumnWidth(column, colClass = null) {
         if (!this.viewConfig || !this.viewConfig.column_widths) return null;
-
-        // Keep standard columns CSS-driven for easier maintenance in style.css
-        const cssControlledClasses = new Set([
-            'col-id',
-            'col-type',
-            'col-date',
-            'col-status',
-            'col-actions',
-            'col-number',
-            'col-name',
-            'col-description'
-        ]);
         const resolvedClass = colClass || this.getColumnClass(column);
-        if (cssControlledClasses.has(resolvedClass)) return null;
+        return this.viewConfig.column_widths[column.field_name]
+            || this.viewConfig.column_widths[resolvedClass]
+            || null;
+    }
 
-        return this.viewConfig.column_widths[column.field_name] || null;
+    getGlobalColumnWidthStorageKey() {
+        return `object-list-column-widths:${this.containerId}`;
+    }
+
+    getGlobalColumnOrderStorageKey() {
+        return `object-list-column-order:${this.containerId}`;
+    }
+
+    loadGlobalColumnWidths() {
+        try {
+            const raw = localStorage.getItem(this.getGlobalColumnWidthStorageKey());
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
+    loadGlobalColumnOrder() {
+        try {
+            const raw = localStorage.getItem(this.getGlobalColumnOrderStorageKey());
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    saveGlobalColumnWidths() {
+        if (!this.viewConfig?.column_widths) return;
+        try {
+            localStorage.setItem(
+                this.getGlobalColumnWidthStorageKey(),
+                JSON.stringify(this.viewConfig.column_widths)
+            );
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    saveGlobalColumnOrder() {
+        if (!Array.isArray(this.viewConfig?.column_order)) return;
+        try {
+            localStorage.setItem(
+                this.getGlobalColumnOrderStorageKey(),
+                JSON.stringify(this.viewConfig.column_order)
+            );
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    getPersistedColumnWidth(fieldName) {
+        if (fieldName === '__select__') return 42;
+        const width = Number(this.viewConfig?.column_widths?.[fieldName]);
+        return Number.isFinite(width) && width > 0 ? width : null;
+    }
+
+    getInitialResizableWidth(fieldName) {
+        if (fieldName === '__select__') return 42;
+        if (fieldName === 'files_indicator') return 20;
+        return null;
+    }
+
+    persistColumnWidth(fieldName, width) {
+        if (!fieldName || !Number.isFinite(width)) return;
+        if (fieldName === '__select__') return;
+        if (!this.viewConfig) {
+            this.viewConfig = { column_widths: {} };
+        }
+        if (!this.viewConfig.column_widths || typeof this.viewConfig.column_widths !== 'object') {
+            this.viewConfig.column_widths = {};
+        }
+
+        this.viewConfig.column_widths[fieldName] = Math.round(width);
+        this.persistViewConfig();
+    }
+
+    persistViewConfig() {
+        if (this.selectedType && this.viewConfig?.object_type_id) {
+            this.scheduleListViewConfigSave();
+            return;
+        }
+        this.saveGlobalColumnWidths();
+        this.saveGlobalColumnOrder();
+    }
+
+    scheduleListViewConfigSave() {
+        if (this.resizeConfigSaveTimer) {
+            clearTimeout(this.resizeConfigSaveTimer);
+        }
+
+        this.resizeConfigSaveTimer = setTimeout(async () => {
+            this.resizeConfigSaveTimer = null;
+            try {
+                await fetchAPI('/view-config/list-view', {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        [this.selectedType]: {
+                            object_type_id: this.viewConfig.object_type_id,
+                            column_order: this.viewConfig.column_order,
+                            column_widths: this.viewConfig.column_widths
+                        }
+                    })
+                });
+            } catch (error) {
+                console.error('Failed to persist object list column widths:', error);
+            }
+        }, 250);
     }
     
     getSortType(col) {
@@ -587,10 +796,6 @@ class ObjectListComponent {
         if (fieldName === 'created_at') {
             return value || '';
         }
-        if (fieldName === 'actions') {
-            return '';
-        }
-
         if (Array.isArray(value)) {
             return value.map(item => this.normalizeSortableText(item)).join(' ');
         }
@@ -611,13 +816,52 @@ class ObjectListComponent {
         const stripped = /<[^>]+>/.test(asString) ? stripHtmlTags(asString) : asString;
         return stripped.replace(/\s+/g, ' ').trim();
     }
+
+    escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    getActiveSearchTerms(fieldName) {
+        const terms = [];
+        const globalTerm = String(this.searchTerm || '').trim();
+        const columnTerm = String(this.columnSearches?.[fieldName] || '').trim();
+
+        if (globalTerm) {
+            terms.push(...globalTerm.split(/\s+/).filter(Boolean));
+        }
+        if (columnTerm) {
+            terms.push(...columnTerm.split(/\s+/).filter(Boolean));
+        }
+
+        return [...new Set(terms)];
+    }
+
+    highlightText(value, fieldName, options = {}) {
+        const text = String(value ?? '');
+        const preserveLineBreaks = options.preserveLineBreaks === true;
+        const escapedText = escapeHtml(text);
+        const terms = this.getActiveSearchTerms(fieldName);
+
+        if (!text || !terms.length) {
+            return preserveLineBreaks ? escapedText.replace(/\r?\n/g, '<br>') : escapedText;
+        }
+
+        let highlighted = escapedText;
+        terms.forEach((term) => {
+            const escapedTerm = this.escapeRegExp(term);
+            if (!escapedTerm) return;
+            const regex = new RegExp(`(${escapedTerm})`, 'gi');
+            highlighted = highlighted.replace(regex, '<mark class="search-highlight">$1</mark>');
+        });
+
+        return preserveLineBreaks ? highlighted.replace(/\r?\n/g, '<br>') : highlighted;
+    }
     
     getColumnValue(obj, fieldName) {
         if (fieldName === 'id_full') return obj.id_full || obj.id_full;
         if (fieldName === 'object_type') return obj.object_type?.name || '';
         if (fieldName === 'files') return Array.isArray(obj.files) ? obj.files : [];
         if (fieldName === 'created_at') return obj.created_at;
-        if (fieldName === 'actions') return '';
         if (fieldName === 'files_indicator') {
             const count = this.getObjectFileCount(obj);
             return count > 0 ? count : 0;
@@ -628,10 +872,10 @@ class ObjectListComponent {
     }
     
     formatColumnValue(obj, fieldName, value, column = null) {
-        if (fieldName === 'id_full') return `<strong>${obj.id_full || value}</strong>`;
+        if (fieldName === 'id_full') return `<strong>${this.highlightText(obj.id_full || value, fieldName)}</strong>`;
         if (fieldName === 'object_type') {
             return `<span class="object-type-badge" style="background-color: ${getObjectTypeColor(value)}">
-                ${value || 'N/A'}
+                ${this.highlightText(value || 'N/A', fieldName)}
             </span>`;
         }
         if (fieldName === 'created_at') return formatDate(value);
@@ -642,19 +886,6 @@ class ObjectListComponent {
             }
             return '';
         }
-        if (fieldName === 'actions') {
-            return `
-                <div onclick="event.stopPropagation()" style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="icon-btn edit" onclick="editObject(${obj.id})" title="Redigera" aria-label="Redigera objekt ${obj.id_full || obj.id_full}">
-                        ✏️
-                    </button>
-                    <button class="icon-btn delete" onclick="deleteObject(${obj.id})" title="Ta bort" aria-label="Ta bort objekt ${obj.id_full || obj.id_full}">
-                        🗑️
-                    </button>
-                </div>
-            `;
-        }
-
         if (this.isLikelyFileField(fieldName)) {
             const fileLinks = this.renderFileLinks(value);
             if (fileLinks) {
@@ -663,22 +894,22 @@ class ObjectListComponent {
         }
 
         if (Array.isArray(value)) {
-            return escapeHtml(value.join(', '));
+            return this.highlightText(value.join(', '), fieldName);
         }
 
         if (value && typeof value === 'object') {
-            return escapeHtml(JSON.stringify(value));
+            return this.highlightText(JSON.stringify(value), fieldName);
         }
 
         if (typeof value === 'string' && /<[^>]+>/.test(value)) {
-            return escapeHtml(stripHtmlTags(value));
+            return this.highlightText(stripHtmlTags(value), fieldName);
         }
 
         if (column?.field_type === 'textarea' && typeof value === 'string') {
-            return escapeHtml(value).replace(/\r?\n/g, '<br>');
+            return this.highlightText(value, fieldName, { preserveLineBreaks: true });
         }
 
-        return escapeHtml(value || '');
+        return this.highlightText(value || '', fieldName);
     }
 
     isLikelyFileField(fieldName) {
@@ -703,7 +934,7 @@ class ObjectListComponent {
             const previewClass = isPdf ? ' js-pdf-preview-link' : '';
             const previewAttr = isPdf ? ` data-preview-url="${safeUrl}"` : '';
             const docIdAttr = entry.documentId ? ` data-document-id="${entry.documentId}"` : '';
-            return `<a href="${safeUrl}" class="object-file-link${previewClass}"${previewAttr}${docIdAttr} target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${displayName}</a>`;
+            return `<a href="${safeUrl}" class="object-file-link${previewClass}"${previewAttr}${docIdAttr} target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">${this.highlightText(entry.label || 'Dokument', 'files')}</a>`;
         }).join('<br>');
     }
 
@@ -938,6 +1169,7 @@ class ObjectListComponent {
         
         this.viewConfig.visible_columns = visible_columns;
         this.viewConfig.column_order = column_order;
+        this.persistViewConfig();
         this.renderObjects();
     }
     
@@ -1335,7 +1567,143 @@ class ObjectListComponent {
             }
         });
 
+        const lastVisible = (this.filteredObjects || []).map(obj => Number(obj.id)).filter(id => Number.isFinite(id)).at(-1) || null;
+        this.selectionAnchorObjectId = checked ? lastVisible : null;
         this.renderFilteredObjects();
+    }
+
+    attachGlobalSelectionListeners() {
+        if (this.boundGlobalPointerHandler) {
+            document.removeEventListener('mousedown', this.boundGlobalPointerHandler, true);
+        }
+        if (this.boundGlobalKeyHandler) {
+            document.removeEventListener('keydown', this.boundGlobalKeyHandler, true);
+        }
+
+        this.boundGlobalPointerHandler = (event) => {
+            if (!this.container) return;
+            if (this.container.contains(event.target)) return;
+            if (event.target?.closest?.('#detail-panel')) return;
+            if (event.target?.closest?.('.modal')) return;
+            if (event.target?.closest?.('.modal-overlay')) return;
+            if (event.target?.closest?.('#tree-view-wrapper')) return;
+            if (event.target?.closest?.('#tree-view-container')) return;
+            this.clearRowSelection({ closeDetail: true });
+        };
+
+        this.boundGlobalKeyHandler = (event) => {
+            if (event.key !== 'Escape') return;
+            this.clearRowSelection({ closeDetail: true });
+        };
+
+        document.addEventListener('mousedown', this.boundGlobalPointerHandler, true);
+        document.addEventListener('keydown', this.boundGlobalKeyHandler, true);
+    }
+
+    clearRowSelection(options = {}) {
+        const closeDetail = options.closeDetail !== false;
+        const hadSelections = this.selectedObjectIds.size > 0 || Number.isFinite(Number(window.currentSelectedObjectId));
+
+        this.selectedObjectIds.clear();
+        this.selectionAnchorObjectId = null;
+
+        if (closeDetail) {
+            if (typeof closeDetailPanel === 'function') {
+                closeDetailPanel();
+            } else if (typeof setSelectedDetailObject === 'function') {
+                setSelectedDetailObject(null);
+            } else {
+                window.currentSelectedObjectId = null;
+            }
+        }
+
+        if (hadSelections) {
+            this.renderFilteredObjects();
+        } else {
+            this.updateBulkRelationButton();
+            this.updateSelectAllState();
+        }
+    }
+
+    handleRowClick(event, row) {
+        const objectId = Number(row?.dataset?.objectId);
+        if (!Number.isFinite(objectId)) return;
+        const currentDetailId = Number(window.currentSelectedObjectId);
+
+        const isModifierSelection = event.shiftKey || event.ctrlKey || event.metaKey;
+        if (!isModifierSelection) {
+            if (currentDetailId === objectId) {
+                this.clearRowSelection({ closeDetail: true });
+                return;
+            }
+            this.selectedObjectIds = new Set([objectId]);
+            this.selectionAnchorObjectId = objectId;
+            if (typeof setSelectedDetailObject === 'function') {
+                setSelectedDetailObject(objectId);
+            } else {
+                window.currentSelectedObjectId = objectId;
+            }
+            this.renderFilteredObjects();
+            viewObjectDetail(objectId);
+            return;
+        }
+
+        event.preventDefault();
+
+        if (event.shiftKey) {
+            this.selectRangeTo(objectId, event.ctrlKey || event.metaKey);
+            if (typeof setSelectedDetailObject === 'function') {
+                setSelectedDetailObject(objectId);
+            } else {
+                window.currentSelectedObjectId = objectId;
+            }
+            this.renderFilteredObjects();
+            viewObjectDetail(objectId);
+            return;
+        }
+
+        const shouldSelect = !this.selectedObjectIds.has(objectId);
+        if (shouldSelect) {
+            this.selectedObjectIds.add(objectId);
+        } else {
+            this.selectedObjectIds.delete(objectId);
+        }
+        this.selectionAnchorObjectId = objectId;
+        if (typeof setSelectedDetailObject === 'function') {
+            setSelectedDetailObject(objectId);
+        } else {
+            window.currentSelectedObjectId = objectId;
+        }
+        this.renderFilteredObjects();
+        viewObjectDetail(objectId);
+    }
+
+    selectRangeTo(objectId, preserveExistingSelection = false) {
+        const visibleIds = (this.filteredObjects || [])
+            .map(obj => Number(obj.id))
+            .filter(id => Number.isFinite(id));
+        if (!visibleIds.length) return;
+
+        const anchorId = Number.isFinite(Number(this.selectionAnchorObjectId))
+            ? Number(this.selectionAnchorObjectId)
+            : objectId;
+        const anchorIndex = visibleIds.indexOf(anchorId);
+        const targetIndex = visibleIds.indexOf(objectId);
+        if (anchorIndex < 0 || targetIndex < 0) {
+            this.selectionAnchorObjectId = objectId;
+            return;
+        }
+
+        const [start, end] = anchorIndex <= targetIndex
+            ? [anchorIndex, targetIndex]
+            : [targetIndex, anchorIndex];
+
+        if (!preserveExistingSelection) {
+            this.selectedObjectIds.clear();
+        }
+
+        visibleIds.slice(start, end + 1).forEach(id => this.selectedObjectIds.add(id));
+        this.selectionAnchorObjectId = anchorId;
     }
 
     updateSelectAllState() {
@@ -1364,11 +1732,15 @@ class ObjectListComponent {
         const selectedCount = this.selectedObjectIds.size;
         if (bulkRelateBtn) {
             bulkRelateBtn.disabled = selectedCount === 0;
-            bulkRelateBtn.textContent = `Koppla markerade (${selectedCount})`;
+            bulkRelateBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
+            bulkRelateBtn.title = selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt';
+            bulkRelateBtn.setAttribute('aria-label', selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt');
         }
         if (bulkEditBtn) {
             bulkEditBtn.disabled = selectedCount === 0;
-            bulkEditBtn.textContent = `Redigera markerade (${selectedCount})`;
+            bulkEditBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
+            bulkEditBtn.title = selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt';
+            bulkEditBtn.setAttribute('aria-label', selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt');
         }
     }
 

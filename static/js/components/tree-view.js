@@ -1,6 +1,6 @@
 /**
  * TreeView Component
- * Displays hierarchical tree structure of objects
+ * Displays hierarchical tree structure of objects using the shared SystemTable pattern.
  */
 
 class TreeView {
@@ -10,24 +10,26 @@ class TreeView {
         this.viewMode = this.loadViewMode();
         this.modeStateStorageKey = 'tree-view-mode-states';
         this.defaultColumnSearches = this.getDefaultColumnSearches();
+        this.defaultTableState = this.getDefaultTableState();
         this.modeStates = this.loadModeStates();
         this.expandedNodes = new Set();
+        this.tableState = this.cloneTableState(this.defaultTableState);
+        this.systemTable = null;
         this.onNodeClick = null;
-        this.tableSortInstance = null;
         this.selectedObjectId = window.currentSelectedObjectId || null;
-        this.columnSearches = { ...this.defaultColumnSearches };
-        this.restoreModeState(this.viewMode);
         this.columnVisibility = this.loadColumnVisibility();
+        this.columnWidths = this.loadColumnWidths();
+        this.columnOrder = this.loadColumnOrder();
         this.renderedTreeData = [];
         this.searchExpandedNodes = new Set();
-        this.searchDebounceTimer = null;
-        this.searchDebounceMs = 350;
         this.nodeClickDelayMs = 220;
         this.pendingNodeClickTimer = null;
-        this.searchFocusState = null;
         this.hasLoadedData = false;
+        this.draggedColumnField = null;
+
+        this.restoreModeState(this.viewMode);
     }
-    
+
     async loadData() {
         try {
             const params = new URLSearchParams({ view: this.viewMode });
@@ -43,7 +45,7 @@ class TreeView {
             throw error;
         }
     }
-    
+
     async render(options = {}) {
         if (!this.container) return;
 
@@ -52,13 +54,6 @@ class TreeView {
         if (options.reloadData || !this.hasLoadedData) {
             await this.loadData();
         }
-
-        const filteredData = this.getFilteredTreeData();
-        this.renderedTreeData = filteredData;
-        const visibleColumns = this.getVisibleColumns();
-        const treeHtml = filteredData.length
-            ? filteredData.map(node => this.renderNode(node, 0, visibleColumns)).join('')
-            : `<tr><td colspan="${visibleColumns.length}" class="empty-state">${this.escapeHtml(this.getEmptyStateText())}</td></tr>`;
 
         this.container.innerHTML = `
             <div class="tree-view">
@@ -78,40 +73,58 @@ class TreeView {
                         <div id="tree-column-toggles"></div>
                     </div>
                 </div>
-                <div class="table-container tree-table-container">
-                    <table class="tree-table" id="tree-table">
-                        <thead>
-                            <tr>
-                                ${visibleColumns.map(column => this.renderHeaderCell(column)).join('')}
-                            </tr>
-                            <tr class="tree-search-row">
-                                ${visibleColumns.map(column => this.renderSearchCell(column)).join('')}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${treeHtml}
-                        </tbody>
-                    </table>
-                </div>
+                <div id="tree-system-table"></div>
             </div>
         `;
 
         this.renderColumnConfig();
+        this.renderTable();
         this.attachEventListeners();
         this.applySelectionToDOM();
-        if (options.preserveSearchFocus) {
-            this.restoreSearchFocus();
-        }
+
         if (scrollState) {
             this.restoreScrollState(scrollState);
         }
-        
-        // Tree view sorting is intentionally disabled.
-        this.tableSortInstance = null;
+    }
+
+    renderTable() {
+        if (typeof SystemTable !== 'function') {
+            throw new Error('SystemTable is not available');
+        }
+
+        this.systemTable = new SystemTable({
+            containerId: 'tree-system-table',
+            tableId: `tree-system-table-${this.viewMode}`,
+            columns: this.getVisibleColumns(),
+            rows: [],
+            getRows: (table) => this.getRenderedRows(table),
+            renderRow: (row, index, table) => this.renderTableRow(row, index, table),
+            emptyText: this.getEmptyStateText(),
+            globalSearch: true,
+            columnSearch: true,
+            persistState: false,
+            initialState: this.tableState,
+            tableClassName: 'tree-table',
+            containerClassName: 'tree-table-container',
+            onStateChange: (state) => {
+                this.tableState = this.cloneTableState(state);
+                this.persistCurrentModeState();
+            },
+            onRender: (table) => {
+                this.systemTable = table;
+                this.tableState = this.cloneTableState(table.state);
+                this.persistCurrentModeState();
+                this.applySelectionToDOM();
+                this.enableColumnResizing();
+                this.enableColumnReordering();
+            }
+        });
+
+        this.systemTable.render();
     }
 
     captureScrollState() {
-        const scrollContainer = this.container?.querySelector('.tree-table-container');
+        const scrollContainer = this.container?.querySelector('#tree-system-table .table-container');
         if (!scrollContainer) return null;
 
         return {
@@ -121,7 +134,7 @@ class TreeView {
     }
 
     restoreScrollState(scrollState) {
-        const scrollContainer = this.container?.querySelector('.tree-table-container');
+        const scrollContainer = this.container?.querySelector('#tree-system-table .table-container');
         if (!scrollContainer || !scrollState) return;
 
         scrollContainer.scrollTop = Number(scrollState.top) || 0;
@@ -137,6 +150,28 @@ class TreeView {
             beskrivning: '',
             files: '',
             has_files: ''
+        };
+    }
+
+    getDefaultTableState() {
+        return {
+            search: '',
+            columnSearches: { ...this.defaultColumnSearches },
+            sortField: 'name',
+            sortDirection: 'asc'
+        };
+    }
+
+    cloneTableState(state) {
+        const source = state && typeof state === 'object' ? state : {};
+        return {
+            search: String(source.search || ''),
+            columnSearches: {
+                ...this.defaultColumnSearches,
+                ...(source.columnSearches || {})
+            },
+            sortField: source.sortField || this.defaultTableState.sortField,
+            sortDirection: source.sortDirection === 'desc' ? 'desc' : 'asc'
         };
     }
 
@@ -185,7 +220,7 @@ class TreeView {
 
         this.modeStates[mode] = {
             expandedNodes: Array.from(this.expandedNodes || []),
-            columnSearches: { ...(this.columnSearches || {}) }
+            tableState: this.cloneTableState(this.systemTable?.state || this.tableState)
         };
         this.saveModeStates();
     }
@@ -194,20 +229,13 @@ class TreeView {
         const state = this.modeStates?.[mode];
         if (!state || typeof state !== 'object') {
             this.expandedNodes = new Set();
-            this.columnSearches = { ...this.defaultColumnSearches };
+            this.tableState = this.cloneTableState(this.defaultTableState);
             return;
         }
 
         const expandedNodes = Array.isArray(state.expandedNodes) ? state.expandedNodes : [];
-        const columnSearches = state.columnSearches && typeof state.columnSearches === 'object'
-            ? state.columnSearches
-            : {};
-
         this.expandedNodes = new Set(expandedNodes.map(item => String(item)));
-        this.columnSearches = {
-            ...this.defaultColumnSearches,
-            ...columnSearches
-        };
+        this.tableState = this.cloneTableState(state.tableState);
     }
 
     applyDefaultExpansion() {
@@ -230,61 +258,54 @@ class TreeView {
         return 'Inga byggdelar ännu';
     }
 
-    getVisibleColumns() {
-        const columns = [
-            { id: 'name', label: 'Namn' },
-            { id: 'id', label: 'ID' },
-            { id: 'type', label: 'Typ' },
-            { id: 'kravtext', label: 'Kravtext' },
-            { id: 'beskrivning', label: 'Beskrivning' },
-            { id: 'has_files', label: '📎', paperclip: true },
-            { id: 'files', label: 'Filer' }
+    getAllColumns() {
+        return [
+            { field: 'name', label: 'Namn', className: 'col-name col-tree-name', draggable: false },
+            { field: 'id', label: 'ID', className: 'col-id col-tree-id', draggable: true },
+            { field: 'type', label: 'Typ', className: 'col-type col-tree-type', draggable: true },
+            { field: 'kravtext', label: 'Kravtext', className: 'col-description col-tree-kravtext', draggable: true },
+            { field: 'beskrivning', label: 'Beskrivning', className: 'col-description col-tree-beskrivning', draggable: true },
+            {
+                field: 'has_files',
+                label: '📎',
+                className: 'col-paperclip col-tree-has-files',
+                searchType: 'checkbox',
+                value: (row) => row?.fileCount || 0,
+                draggable: true
+            },
+            {
+                field: 'files',
+                label: 'Filer',
+                className: 'col-name col-tree-files',
+                value: (row) => (Array.isArray(row?.files) ? row.files.map(file =>
+                    file?.description || file?.original_filename || file?.filename || ''
+                ).join(' ') : ''),
+                draggable: true
+            }
         ];
-        return columns.filter(column => this.columnVisibility[column.id] !== false);
     }
 
-    renderHeaderCell(column) {
-        const classNames = this.getTreeColumnClassNames(column);
-        const extraClass = classNames.length ? ` class="${classNames.join(' ')}"` : '';
-        return `<th${extraClass}>${this.escapeHtml(column.label)}</th>`;
-    }
+    getVisibleColumns() {
+        const allColumns = this.getAllColumns();
+        const fieldMap = new Map(allColumns.map(column => [column.field, column]));
+        const orderedFields = this.getResolvedColumnOrder();
 
-    renderSearchCell(column) {
-        if (column.id === 'has_files') {
-            const checked = this.columnSearches.has_files === '1' ? 'checked' : '';
-            return `<th class="col-paperclip" title="Visa endast objekt med filer">
-                <input type="checkbox" class="tree-column-search-input tree-paperclip-filter" data-field="has_files" ${checked}>
-            </th>`;
-        }
-        const classNames = this.getTreeColumnClassNames(column);
-        const extraClass = classNames.length ? ` class="${classNames.join(' ')}"` : '';
-        return `<th${extraClass}><input type="text" class="tree-column-search-input" data-field="${column.id}" placeholder="Sök..." value="${this.escapeHtml(this.columnSearches[column.id] || '')}"></th>`;
-    }
-
-    getTreeColumnClassNames(column) {
-        const classes = [];
-        if (column?.paperclip) classes.push('col-paperclip');
-        if (column?.id) classes.push(`col-${column.id}`);
-        return classes;
+        return orderedFields
+            .map(field => fieldMap.get(field))
+            .filter(column => column && this.columnVisibility[column.field] !== false)
+            .map(column => ({
+                ...column,
+                width: this.getColumnWidth(column.field)
+            }));
     }
 
     renderColumnConfig() {
         const container = this.container?.querySelector('#tree-column-toggles');
         if (!container) return;
 
-        const columns = [
-            { id: 'name', label: 'Namn' },
-            { id: 'id', label: 'ID' },
-            { id: 'type', label: 'Typ' },
-            { id: 'kravtext', label: 'Kravtext' },
-            { id: 'beskrivning', label: 'Beskrivning' },
-            { id: 'has_files', label: '📎' },
-            { id: 'files', label: 'Filer' }
-        ];
-
-        container.innerHTML = columns.map(column => `
+        container.innerHTML = this.getAllColumns().map(column => `
             <label class="column-toggle">
-                <input type="checkbox" data-column-id="${column.id}" ${this.columnVisibility[column.id] !== false ? 'checked' : ''}>
+                <input type="checkbox" data-column-id="${column.field}" ${this.columnVisibility[column.field] !== false ? 'checked' : ''}>
                 ${this.escapeHtml(column.label)}
             </label>
         `).join('');
@@ -294,11 +315,12 @@ class TreeView {
                 const columnId = event.target.getAttribute('data-column-id');
                 if (!columnId) return;
                 this.columnVisibility[columnId] = event.target.checked;
-                if (!event.target.checked) {
-                    this.columnSearches[columnId] = '';
+                if (!event.target.checked && this.tableState.columnSearches[columnId] !== undefined) {
+                    this.tableState.columnSearches[columnId] = '';
                 }
                 this.saveColumnVisibility();
-                this.render();
+                this.persistCurrentModeState();
+                this.render({ preserveScroll: true });
             });
         });
     }
@@ -322,111 +344,217 @@ class TreeView {
         }
     }
 
-    renderNode(node, level, visibleColumns) {
-        const hasChildren = node.children && node.children.length > 0;
-        const forceExpanded = this.hasActiveSearch() && this.searchExpandedNodes.has(String(node.id));
-        const isExpanded = forceExpanded || this.expandedNodes.has(node.id);
-        const indent = level * 12; // Reduced indentation (~25% less) for denser hierarchy
-        
-        let html = '';
-        
-        if (node.type === 'group') {
-            const cellsHtml = visibleColumns.map((column, index) => {
-                const classNames = this.getTreeColumnClassNames(column);
-                const classAttr = classNames.length ? ` class="${classNames.join(' ')}"` : '';
-                if (index !== 0) {
-                    return `<td${classAttr}></td>`;
-                }
-                return `
-                    <td${classAttr} style="padding-left: ${indent}px">
-                        ${hasChildren ? `
-                            <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
-                                ${isExpanded ? '▼' : '▶'}
-                            </span>
-                        ` : '<span class="tree-spacer"></span>'}
-                        <span class="tree-label tree-label-group">${this.highlightMatch(node.name, 'name')} <span class="tree-count">(${node.children?.length || 0})</span></span>
-                    </td>
-                `;
-            }).join('');
-
-            html += `
-                <tr class="tree-node tree-node-group ${hasChildren ? 'has-children' : ''}" data-node-id="${node.id}" data-has-children="${hasChildren}" data-tree-level="${level}">
-                    ${cellsHtml}
-                </tr>
-            `;
-        } else {
-            const kravtext = this.highlightMatch(node.kravtext || '', 'kravtext');
-            const beskrivning = this.highlightMatch(node.beskrivning || '', 'beskrivning');
-            const files = Array.isArray(node.files) ? node.files : [];
-            const hasFiles = files.length > 0;
-            const filesHtml = this.renderFiles(files);
-            const isSelected = String(this.selectedObjectId ?? '') === String(node.id);
-
-            const cellsHtml = visibleColumns.map(column => {
-                const classNames = this.getTreeColumnClassNames(column);
-                const classAttr = classNames.length ? ` class="${classNames.join(' ')}"` : '';
-                if (column.id === 'name') {
-                    return `
-                        <td${classAttr} style="padding-left: ${indent}px">
-                            ${hasChildren ? `
-                                <span class="tree-toggle ${isExpanded ? 'expanded' : ''}">
-                                    ${isExpanded ? '▼' : '▶'}
-                                </span>
-                            ` : '<span class="tree-spacer"></span>'}
-                            <span class="tree-label">${this.highlightMatch(node.name, 'name')}</span>
-                        </td>
-                    `;
-                }
-                if (column.id === 'id') {
-                    const displayId = node.id_full || node.id_full || '';
-                    return `<td${classAttr}>${displayId ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${node.id}" data-node-type="${node.type}">${this.highlightMatch(displayId, 'id')}</a>` : ''}</td>`;
-                }
-                if (column.id === 'type') {
-                    return `<td${classAttr}>${this.renderTypeBadge(node.type || '')}</td>`;
-                }
-                if (column.id === 'kravtext') {
-                    return `<td${classAttr}>${kravtext}</td>`;
-                }
-                if (column.id === 'beskrivning') {
-                    return `<td${classAttr}>${beskrivning}</td>`;
-                }
-                if (column.id === 'has_files') {
-                    return `<td class="col-paperclip" data-value="${hasFiles ? files.length : 0}">${hasFiles ? `<span title="${files.length} fil(er) kopplade">📎</span>` : ''}</td>`;
-                }
-                if (column.id === 'files') {
-                    return `<td${classAttr}>${filesHtml}</td>`;
-                }
-                return `<td${classAttr}></td>`;
-            }).join('');
-
-            html += `
-                <tr class="tree-node ${hasChildren ? 'has-children' : ''} ${isSelected ? 'tree-node-selected' : ''}" data-node-id="${node.id}" data-node-type="${node.type}" data-has-children="${hasChildren}" data-tree-level="${level}" aria-selected="${isSelected ? 'true' : 'false'}">
-                    ${cellsHtml}
-                </tr>
-            `;
-        }
-        
-        // Render children if expanded
-        if (hasChildren && isExpanded) {
-            node.children.forEach(child => {
-                html += this.renderNode(child, level + 1, visibleColumns);
-            });
-        }
-        
-        return html;
+    getColumnWidthStorageKey() {
+        return 'tree-view-column-widths-v2';
     }
 
-    renderFiles(files) {
+    getColumnOrderStorageKey() {
+        return 'tree-view-column-order-v1';
+    }
+
+    loadColumnWidths() {
+        try {
+            const raw = localStorage.getItem(this.getColumnWidthStorageKey());
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
+    saveColumnWidths() {
+        try {
+            localStorage.setItem(this.getColumnWidthStorageKey(), JSON.stringify(this.columnWidths || {}));
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    loadColumnOrder() {
+        try {
+            const raw = localStorage.getItem(this.getColumnOrderStorageKey());
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (_error) {
+            return {};
+        }
+    }
+
+    saveColumnOrder() {
+        try {
+            localStorage.setItem(this.getColumnOrderStorageKey(), JSON.stringify(this.columnOrder || {}));
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    getResolvedColumnOrder() {
+        const defaultOrder = this.getAllColumns().map(column => column.field);
+        const storedOrder = Array.isArray(this.columnOrder?.[this.viewMode]) ? this.columnOrder[this.viewMode] : [];
+        const validFields = new Set(defaultOrder);
+        const sanitizedStoredOrder = storedOrder.filter(field => validFields.has(field) && field !== 'name');
+        const missingFields = defaultOrder.filter(field => field !== 'name' && !sanitizedStoredOrder.includes(field));
+        return ['name', ...sanitizedStoredOrder, ...missingFields];
+    }
+
+    persistColumnOrder(order) {
+        if (!Array.isArray(order)) return;
+        if (!this.columnOrder || typeof this.columnOrder !== 'object') {
+            this.columnOrder = {};
+        }
+
+        this.columnOrder[this.viewMode] = ['name', ...order.filter(field => field && field !== 'name')];
+        this.saveColumnOrder();
+    }
+
+    getColumnWidth(columnId) {
+        const modeWidths = this.columnWidths?.[this.viewMode];
+        const width = Number(modeWidths?.[columnId]);
+        return Number.isFinite(width) && width > 0 ? width : null;
+    }
+
+    persistColumnWidth(columnId, width) {
+        if (!columnId || !Number.isFinite(width)) return;
+        if (!this.columnWidths || typeof this.columnWidths !== 'object') {
+            this.columnWidths = {};
+        }
+        if (!this.columnWidths[this.viewMode] || typeof this.columnWidths[this.viewMode] !== 'object') {
+            this.columnWidths[this.viewMode] = {};
+        }
+        this.columnWidths[this.viewMode][columnId] = Math.round(width);
+        this.saveColumnWidths();
+    }
+
+    getRenderedRows(table) {
+        const sortedData = this.sortTreeNodes(this.getFilteredTreeData(table), table);
+        this.renderedTreeData = sortedData;
+
+        const rows = [];
+        sortedData.forEach(node => this.flattenTree(node, 0, rows));
+        return rows;
+    }
+
+    flattenTree(node, level, rows) {
+        if (!node) return;
+
+        const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+        const forceExpanded = this.hasActiveSearch() && this.searchExpandedNodes.has(String(node.id));
+        const isExpanded = forceExpanded || this.expandedNodes.has(String(node.id));
+
+        const files = Array.isArray(node.files) ? node.files : [];
+        rows.push({
+            node,
+            level,
+            isGroup: node.type === 'group',
+            hasChildren,
+            isExpanded,
+            forceExpanded,
+            files,
+            fileCount: files.length
+        });
+
+        if (hasChildren && isExpanded) {
+            node.children.forEach(child => this.flattenTree(child, level + 1, rows));
+        }
+    }
+
+    renderTableRow(row, index, table) {
+        const { node, level, isGroup, hasChildren, isExpanded, files, fileCount } = row;
+        const isSelected = !isGroup && String(this.selectedObjectId ?? '') === String(node.id);
+        const rowClasses = [
+            'tree-node',
+            isGroup ? 'tree-node-group' : '',
+            hasChildren ? 'has-children' : '',
+            isSelected ? 'tree-node-selected' : ''
+        ].filter(Boolean).join(' ');
+
+        const rowAttrs = [
+            `data-row-index="${index}"`,
+            `data-node-id="${this.escapeHtml(node.id)}"`,
+            `data-has-children="${hasChildren}"`,
+            `data-tree-level="${level}"`,
+            isGroup ? '' : `data-node-type="${this.escapeHtml(node.type)}"`,
+            !isGroup ? `aria-selected="${isSelected ? 'true' : 'false'}"` : ''
+        ].filter(Boolean).join(' ');
+
+        const cellsHtml = table.columns.map(column => {
+            const className = column.className || 'col-default';
+            const style = table.getColumnStyle(column);
+
+            if (isGroup) {
+                if (column.field !== 'name') {
+                    return `<td class="${className}"${style}></td>`;
+                }
+
+                return `<td class="${className}"${style}>${this.renderNameCell(row, table, true)}</td>`;
+            }
+
+            if (column.field === 'name') {
+                return `<td class="${className}"${style}>${this.renderNameCell(row, table, false)}</td>`;
+            }
+            if (column.field === 'id') {
+                const displayId = node.id_full || '';
+                const content = displayId
+                    ? `<a href="javascript:void(0)" class="tree-id-link" data-node-id="${this.escapeHtml(node.id)}" data-node-type="${this.escapeHtml(node.type)}">${table.highlightText(displayId, 'id')}</a>`
+                    : '';
+                return `<td class="${className}"${style}>${content}</td>`;
+            }
+            if (column.field === 'type') {
+                return `<td class="${className}"${style}>${table.renderTypeBadge(node.type || '')}</td>`;
+            }
+            if (column.field === 'kravtext') {
+                return `<td class="${className}"${style}>${table.highlightText(node.kravtext || '', 'kravtext', { preserveLineBreaks: true })}</td>`;
+            }
+            if (column.field === 'beskrivning') {
+                return `<td class="${className}"${style}>${table.highlightText(node.beskrivning || '', 'beskrivning', { preserveLineBreaks: true })}</td>`;
+            }
+            if (column.field === 'has_files') {
+                return `<td class="${className}"${style} data-value="${fileCount}">${fileCount > 0 ? `<span title="${fileCount} fil(er) kopplade">📎</span>` : ''}</td>`;
+            }
+            if (column.field === 'files') {
+                return `<td class="${className}"${style}>${this.renderFiles(files, table)}</td>`;
+            }
+
+            return `<td class="${className}"${style}></td>`;
+        }).join('');
+
+        return `<tr class="${rowClasses}" ${rowAttrs}>${cellsHtml}</tr>`;
+    }
+
+    renderNameCell(row, table, isGroup) {
+        const indent = row.level * 12;
+        const toggle = row.hasChildren
+            ? `<span class="tree-toggle ${row.isExpanded ? 'expanded' : ''}">${row.isExpanded ? '▼' : '▶'}</span>`
+            : '<span class="tree-spacer"></span>';
+
+        if (isGroup) {
+            return `
+                <div class="tree-cell-content" style="padding-left: ${indent}px">
+                    ${toggle}
+                    <span class="tree-label tree-label-group">${table.highlightText(row.node.name || '', 'name')} <span class="tree-count">(${row.node.children?.length || 0})</span></span>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="tree-cell-content" style="padding-left: ${indent}px">
+                ${toggle}
+                <span class="tree-label">${table.highlightText(row.node.name || '', 'name')}</span>
+            </div>
+        `;
+    }
+
+    renderFiles(files, table) {
         if (!Array.isArray(files) || files.length === 0) {
             return '';
         }
 
-        const fileSearchTerm = this.columnSearches.files || '';
-
         return files
             .map(file => {
                 const rawFileDescription = file.description || file.original_filename || file.filename || 'Dokument';
-                const fileDescription = this.highlightByTerm(rawFileDescription, fileSearchTerm);
+                const fileDescription = table.highlightText(rawFileDescription, 'files');
                 const fileTitle = this.escapeHtml(rawFileDescription);
                 const rawFileUrl = `/api/objects/documents/${file.id}/download`;
                 const isPdf = this.isPdfEntry(file);
@@ -446,15 +574,6 @@ class TreeView {
         return mimeType === 'application/pdf' || name.endsWith('.pdf');
     }
 
-    renderTypeBadge(typeName) {
-        const rawType = String(typeName || '');
-        const color = typeof getObjectTypeColor === 'function'
-            ? getObjectTypeColor(rawType)
-            : '#95a5a6';
-        const label = this.highlightMatch(rawType, 'type');
-        return `<span class="object-type-badge" style="background-color: ${color};">${label}</span>`;
-    }
-
     escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -464,50 +583,15 @@ class TreeView {
             .replace(/'/g, '&#39;');
     }
 
-    escapeHtmlWithLineBreaks(value) {
-        return this.escapeHtml(value).replace(/\r?\n/g, '<br>');
-    }
-
-    escapeRegExp(value) {
-        return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    highlightMatch(value, field) {
-        return this.highlightByTerm(value, this.columnSearches[field] || '');
-    }
-
-    highlightByTerm(value, term) {
-        const text = String(value ?? '');
-        const trimmedTerm = String(term || '').trim();
-        if (!trimmedTerm) {
-            return this.escapeHtmlWithLineBreaks(text);
-        }
-
-        const pattern = new RegExp(this.escapeRegExp(trimmedTerm), 'ig');
-        let result = '';
-        let lastIndex = 0;
-        let match = pattern.exec(text);
-
-        while (match) {
-            const start = match.index;
-            const end = start + match[0].length;
-            result += this.escapeHtmlWithLineBreaks(text.slice(lastIndex, start));
-            result += `<mark class="tree-search-hit">${this.escapeHtmlWithLineBreaks(text.slice(start, end))}</mark>`;
-            lastIndex = end;
-            match = pattern.exec(text);
-        }
-
-        result += this.escapeHtmlWithLineBreaks(text.slice(lastIndex));
-        return result;
-    }
-
     hasActiveSearch() {
-        return Object.values(this.columnSearches).some(value => String(value || '').trim() !== '');
+        const state = this.systemTable?.state || this.tableState;
+        if (String(state.search || '').trim() !== '') return true;
+        return Object.values(state.columnSearches || {}).some(value => String(value || '').trim() !== '');
     }
 
     getNodeSearchValue(node, field) {
         if (field === 'name') return node?.name || '';
-        if (field === 'id') return `${node?.id_full || ''} ${node?.id_full || ''}`.trim();
+        if (field === 'id') return `${node?.id_full || ''}`.trim();
         if (field === 'type') return node?.type || '';
         if (field === 'kravtext') return node?.kravtext || '';
         if (field === 'beskrivning') return node?.beskrivning || '';
@@ -521,28 +605,37 @@ class TreeView {
         return '';
     }
 
-    nodeMatchesActiveSearch(node) {
-        const activeFields = Object.entries(this.columnSearches).filter(([, value]) => String(value || '').trim() !== '');
-        if (!activeFields.length) return true;
+    nodeMatchesActiveSearch(node, table) {
+        const searchState = table?.state || this.tableState;
+        const globalTerms = String(searchState.search || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
+        const columnTerms = Object.entries(searchState.columnSearches || {})
+            .filter(([, value]) => String(value || '').trim() !== '');
 
-        return activeFields.every(([field, term]) => {
+        const searchableFields = ['name', 'id', 'type', 'kravtext', 'beskrivning', 'files', 'has_files'];
+        const globalMatches = globalTerms.every(term => searchableFields.some(field =>
+            String(this.getNodeSearchValue(node, field) || '').toLowerCase().includes(term)
+        ));
+
+        if (!globalMatches) return false;
+
+        return columnTerms.every(([field, term]) => {
             const searchValue = this.getNodeSearchValue(node, field);
             return String(searchValue || '').toLowerCase().includes(String(term).trim().toLowerCase());
         });
     }
 
-    filterTreeNode(node) {
+    filterTreeNode(node, table) {
         const children = Array.isArray(node?.children) ? node.children : [];
         const filteredChildren = [];
 
         children.forEach(child => {
-            const filteredChild = this.filterTreeNode(child);
+            const filteredChild = this.filterTreeNode(child, table);
             if (filteredChild) {
                 filteredChildren.push(filteredChild);
             }
         });
 
-        const nodeMatches = this.nodeMatchesActiveSearch(node);
+        const nodeMatches = this.nodeMatchesActiveSearch(node, table);
         const keepNode = nodeMatches || filteredChildren.length > 0;
         if (!keepNode) return null;
 
@@ -556,7 +649,7 @@ class TreeView {
         };
     }
 
-    getFilteredTreeData() {
+    getFilteredTreeData(table) {
         if (!this.hasActiveSearch()) {
             this.searchExpandedNodes = new Set();
             return this.data;
@@ -564,8 +657,55 @@ class TreeView {
 
         this.searchExpandedNodes = new Set();
         return this.data
-            .map(node => this.filterTreeNode(node))
+            .map(node => this.filterTreeNode(node, table))
             .filter(node => node !== null);
+    }
+
+    sortTreeNodes(nodes, table) {
+        if (!Array.isArray(nodes)) return [];
+
+        const sortField = table?.state?.sortField;
+        if (!sortField) {
+            return nodes.map(node => ({
+                ...node,
+                children: this.sortTreeNodes(node.children || [], table)
+            }));
+        }
+
+        const direction = table?.state?.sortDirection === 'desc' ? -1 : 1;
+        const sorted = [...nodes].sort((a, b) => this.compareNodes(a, b, sortField, direction, table));
+
+        return sorted.map(node => ({
+            ...node,
+            children: this.sortTreeNodes(node.children || [], table)
+        }));
+    }
+
+    compareNodes(a, b, sortField, direction, table) {
+        const aIsGroup = a?.type === 'group';
+        const bIsGroup = b?.type === 'group';
+        if (aIsGroup !== bIsGroup) {
+            return aIsGroup ? -1 : 1;
+        }
+
+        const aValue = this.getComparableNodeValue(a, sortField);
+        const bValue = this.getComparableNodeValue(b, sortField);
+        return table.compareValues(aValue, bValue) * direction;
+    }
+
+    getComparableNodeValue(node, sortField) {
+        if (sortField === 'name') return node?.name || '';
+        if (sortField === 'id') return node?.id_full || '';
+        if (sortField === 'type') return node?.type || '';
+        if (sortField === 'kravtext') return node?.kravtext || '';
+        if (sortField === 'beskrivning') return node?.beskrivning || '';
+        if (sortField === 'has_files') return Array.isArray(node?.files) ? node.files.length : 0;
+        if (sortField === 'files') {
+            return Array.isArray(node?.files)
+                ? node.files.map(file => file?.description || file?.original_filename || file?.filename || '').join(' ')
+                : '';
+        }
+        return '';
     }
 
     findNodeById(nodes, nodeId) {
@@ -593,23 +733,21 @@ class TreeView {
         node.children.forEach(child => this.collectExpandableNodeIds(child, ids));
         return ids;
     }
-    
+
     attachEventListeners() {
         const viewModeButtons = this.container.querySelectorAll('.tree-view-mode-btn[data-view-mode]');
-        if (viewModeButtons.length > 0) {
-            viewModeButtons.forEach(button => {
-                button.addEventListener('click', async () => {
-                    const nextMode = button.dataset.viewMode;
-                    if (!['byggdelar', 'utrymmen', 'system'].includes(nextMode)) return;
-                    if (nextMode === this.viewMode) return;
-                    this.persistCurrentModeState();
-                    this.viewMode = nextMode;
-                    this.saveViewMode();
-                    this.restoreModeState(nextMode);
-                    await this.render({ reloadData: true });
-                });
+        viewModeButtons.forEach(button => {
+            button.addEventListener('click', async () => {
+                const nextMode = button.dataset.viewMode;
+                if (!['byggdelar', 'utrymmen', 'system'].includes(nextMode)) return;
+                if (nextMode === this.viewMode) return;
+                this.persistCurrentModeState();
+                this.viewMode = nextMode;
+                this.saveViewMode();
+                this.restoreModeState(nextMode);
+                await this.render({ reloadData: true });
             });
-        }
+        });
 
         const configButton = this.container.querySelector('#tree-column-config-btn');
         const configPanel = this.container.querySelector('#tree-column-config-panel');
@@ -619,54 +757,12 @@ class TreeView {
             });
         }
 
-        // Column search
-        this.container.querySelectorAll('.tree-column-search-input').forEach(input => {
-            input.addEventListener('input', (event) => {
-                const field = event.target.getAttribute('data-field');
-                if (!field || !(field in this.columnSearches)) return;
-                this.columnSearches[field] = (event.target.value || '');
-                this.searchFocusState = {
-                    field,
-                    start: event.target.selectionStart ?? String(event.target.value || '').length,
-                    end: event.target.selectionEnd ?? String(event.target.value || '').length
-                };
-
-                if (this.searchDebounceTimer) {
-                    clearTimeout(this.searchDebounceTimer);
-                }
-
-                this.searchDebounceTimer = setTimeout(() => {
-                    this.searchDebounceTimer = null;
-                    this.persistCurrentModeState();
-                    this.render({ preserveSearchFocus: true, preserveScroll: true });
-                }, this.searchDebounceMs);
-            });
-        });
-        this.container.querySelectorAll('.tree-paperclip-filter').forEach(input => {
-            input.addEventListener('change', (event) => {
-                const field = event.target.getAttribute('data-field');
-                if (!field || !(field in this.columnSearches)) return;
-                this.columnSearches[field] = event.target.checked ? '1' : '';
-                this.searchFocusState = null;
-
-                if (this.searchDebounceTimer) {
-                    clearTimeout(this.searchDebounceTimer);
-                }
-                this.searchDebounceTimer = setTimeout(() => {
-                    this.searchDebounceTimer = null;
-                    this.persistCurrentModeState();
-                    this.render({ preserveScroll: true });
-                }, this.searchDebounceMs);
-            });
-        });
-
-        const treeTableBody = this.container.querySelector('#tree-table tbody');
+        const treeTableBody = this.container.querySelector('#tree-system-table tbody');
         if (!treeTableBody) return;
 
         treeTableBody.addEventListener('mousedown', (e) => {
             const node = e.target.closest('.tree-node');
-            if (!node) return;
-            if (node.dataset.hasChildren !== 'true') return;
+            if (!node || node.dataset.hasChildren !== 'true') return;
             if (e.detail < 2) return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
             e.preventDefault();
@@ -704,17 +800,15 @@ class TreeView {
             }
 
             const node = e.target.closest('.tree-node');
-            if (!node) return;
-            if (node.dataset.hasChildren !== 'true') return;
+            if (!node || node.dataset.hasChildren !== 'true') return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
-            if (e.detail > 1) return; // Double-click handled separately.
+            if (e.detail > 1) return;
             this.scheduleNodeExpansion(node.dataset.nodeId);
         });
 
         treeTableBody.addEventListener('dblclick', (e) => {
             const node = e.target.closest('.tree-node');
-            if (!node) return;
-            if (node.dataset.hasChildren !== 'true') return;
+            if (!node || node.dataset.hasChildren !== 'true') return;
             if (e.target.closest('a, button, input, textarea, select, label')) return;
 
             e.preventDefault();
@@ -722,6 +816,101 @@ class TreeView {
             this.cancelPendingNodeExpansion();
             this.toggleSubtreeExpansion(node.dataset.nodeId);
         });
+    }
+
+    enableColumnResizing() {
+        const table = this.container?.querySelector('#tree-system-table .data-table');
+        if (!table || typeof makeTableColumnsResizable !== 'function') return;
+
+        makeTableColumnsResizable({
+            table,
+            minWidth: 48,
+            fixedLayout: true,
+            headerSelector: 'thead tr:first-child th[data-column-key]',
+            getColumnKey: (header) => header?.dataset?.columnKey || '',
+            getInitialWidth: (columnId) => this.getColumnWidth(columnId),
+            onResizeEnd: (columnId, width) => {
+                this.persistColumnWidth(columnId, width);
+            }
+        });
+    }
+
+    enableColumnReordering() {
+        const table = this.container?.querySelector('#tree-system-table .data-table');
+        if (!table) return;
+
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th[data-draggable-column="true"]'));
+        headers.forEach((header) => {
+            header.addEventListener('dragstart', (event) => {
+                if (event.target?.closest?.('.column-resize-handle')) {
+                    event.preventDefault();
+                    return;
+                }
+
+                const field = header.dataset.field || '';
+                if (!field || field === 'name') {
+                    event.preventDefault();
+                    return;
+                }
+
+                this.draggedColumnField = field;
+                header.classList.add('column-dragging');
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', field);
+                }
+            });
+
+            header.addEventListener('dragend', () => {
+                this.draggedColumnField = null;
+                table.querySelectorAll('th.column-drop-before, th.column-drop-after, th.column-dragging').forEach((node) => {
+                    node.classList.remove('column-drop-before', 'column-drop-after', 'column-dragging');
+                });
+            });
+
+            header.addEventListener('dragover', (event) => {
+                const targetField = header.dataset.field || '';
+                if (!this.draggedColumnField || !targetField || this.draggedColumnField === targetField || targetField === 'name') return;
+                event.preventDefault();
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                header.classList.toggle('column-drop-before', insertBefore);
+                header.classList.toggle('column-drop-after', !insertBefore);
+            });
+
+            header.addEventListener('dragleave', () => {
+                header.classList.remove('column-drop-before', 'column-drop-after');
+            });
+
+            header.addEventListener('drop', (event) => {
+                if (!this.draggedColumnField) return;
+                event.preventDefault();
+                const targetField = header.dataset.field || '';
+                if (!targetField || targetField === this.draggedColumnField || targetField === 'name') return;
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                this.moveColumn(this.draggedColumnField, targetField, insertBefore);
+            });
+        });
+    }
+
+    moveColumn(sourceField, targetField, insertBefore) {
+        if (!sourceField || !targetField || sourceField === targetField) return;
+        if (sourceField === 'name' || targetField === 'name') return;
+
+        const currentOrder = this.getResolvedColumnOrder().filter(field => field !== 'name');
+        const sourceIndex = currentOrder.indexOf(sourceField);
+        const targetIndex = currentOrder.indexOf(targetField);
+        if (sourceIndex < 0 || targetIndex < 0) return;
+
+        currentOrder.splice(sourceIndex, 1);
+        let destinationIndex = currentOrder.indexOf(targetField);
+        if (destinationIndex < 0) return;
+        if (!insertBefore) destinationIndex += 1;
+        currentOrder.splice(destinationIndex, 0, sourceField);
+
+        this.persistColumnOrder(currentOrder);
+        this.render({ preserveScroll: true });
     }
 
     scheduleNodeExpansion(nodeId) {
@@ -742,10 +931,11 @@ class TreeView {
 
     toggleNodeExpansion(nodeId) {
         if (!nodeId) return;
-        if (this.expandedNodes.has(nodeId)) {
-            this.expandedNodes.delete(nodeId);
+        const normalizedId = String(nodeId);
+        if (this.expandedNodes.has(normalizedId)) {
+            this.expandedNodes.delete(normalizedId);
         } else {
-            this.expandedNodes.add(nodeId);
+            this.expandedNodes.add(normalizedId);
         }
         this.persistCurrentModeState();
         this.render({ preserveScroll: true });
@@ -754,7 +944,7 @@ class TreeView {
     toggleSubtreeExpansion(nodeId) {
         if (!nodeId) return;
 
-        const sourceTree = this.renderedTreeData || this.getFilteredTreeData();
+        const sourceTree = this.renderedTreeData || this.getFilteredTreeData(this.systemTable);
         const nodeData = this.findNodeById(sourceTree, nodeId);
         const expandableIds = this.collectExpandableNodeIds(nodeData, []);
         if (!expandableIds.length) return;
@@ -768,23 +958,9 @@ class TreeView {
         this.persistCurrentModeState();
         this.render({ preserveScroll: true });
     }
-    
+
     setNodeClickHandler(handler) {
         this.onNodeClick = handler;
-    }
-
-    restoreSearchFocus() {
-        if (!this.searchFocusState?.field || !this.container) return;
-
-        const selector = `.tree-column-search-input[data-field="${this.searchFocusState.field}"]`;
-        const input = this.container.querySelector(selector);
-        if (!input) return;
-
-        input.focus();
-        const maxLen = String(input.value || '').length;
-        const start = Math.max(0, Math.min(this.searchFocusState.start ?? maxLen, maxLen));
-        const end = Math.max(start, Math.min(this.searchFocusState.end ?? maxLen, maxLen));
-        input.setSelectionRange(start, end);
     }
 
     setSelectedObjectId(objectId) {
@@ -801,7 +977,7 @@ class TreeView {
             node.setAttribute('aria-selected', isSelected ? 'true' : 'false');
         });
     }
-    
+
     async refresh() {
         await this.render({ reloadData: true });
     }

@@ -339,6 +339,211 @@ function sanitizeRichTextHtml(html) {
     return template.innerHTML.trim();
 }
 
+function applyResizableColumnWidth(table, columnIndex, width) {
+    if (!table || !Number.isFinite(columnIndex) || !Number.isFinite(width)) return;
+    const safeWidth = Math.max(40, Math.round(width));
+    const col = ensureResizableTableCol(table, columnIndex);
+    if (col) {
+        col.style.width = `${safeWidth}px`;
+        col.style.minWidth = `${safeWidth}px`;
+        col.style.maxWidth = `${safeWidth}px`;
+    }
+
+    const rows = table.querySelectorAll('tr');
+    rows.forEach((row) => {
+        const cell = row.children[columnIndex];
+        if (!cell) return;
+        cell.style.width = `${safeWidth}px`;
+        cell.style.minWidth = `${safeWidth}px`;
+        cell.style.maxWidth = `${safeWidth}px`;
+        cell.style.boxSizing = 'border-box';
+    });
+}
+
+function getResizableTableHeaders(table, headerSelector) {
+    if (!table) return [];
+    return Array.from(table.querySelectorAll(headerSelector || 'thead tr:first-child th'));
+}
+
+function ensureResizableTableColgroup(table) {
+    if (!table) return null;
+
+    let colgroup = table.querySelector(':scope > colgroup[data-resizable-columns="true"]');
+    if (!colgroup) {
+        colgroup = document.createElement('colgroup');
+        colgroup.dataset.resizableColumns = 'true';
+        table.insertBefore(colgroup, table.firstChild);
+    }
+
+    return colgroup;
+}
+
+function ensureResizableTableCol(table, columnIndex) {
+    if (!table || !Number.isFinite(columnIndex)) return null;
+    const headers = getResizableTableHeaders(table);
+    const colgroup = ensureResizableTableColgroup(table);
+    if (!colgroup) return null;
+
+    while (colgroup.children.length < headers.length) {
+        colgroup.appendChild(document.createElement('col'));
+    }
+    while (colgroup.children.length > headers.length) {
+        colgroup.removeChild(colgroup.lastChild);
+    }
+
+    return colgroup.children[columnIndex] || null;
+}
+
+function setResizableTableWidth(table) {
+    if (!table) return;
+    const headers = getResizableTableHeaders(table);
+    const totalWidth = headers.reduce((sum, header) => sum + Math.round(header.getBoundingClientRect().width || 0), 0);
+    if (totalWidth > 0) {
+        table.style.width = `${totalWidth}px`;
+        table.style.minWidth = `${totalWidth}px`;
+        table.style.maxWidth = `${totalWidth}px`;
+    }
+}
+
+function freezeResizableTableColumns(table, options = {}) {
+    if (!table) return;
+    const headerSelector = options.headerSelector || 'thead tr:first-child th';
+    const getColumnKey = typeof options.getColumnKey === 'function'
+        ? options.getColumnKey
+        : (header) => header?.dataset?.field || header?.dataset?.columnId || '';
+    const getInitialWidth = typeof options.getInitialWidth === 'function'
+        ? options.getInitialWidth
+        : () => null;
+    const minWidth = Number.isFinite(options.minWidth) ? options.minWidth : 60;
+    const headers = getResizableTableHeaders(table, headerSelector);
+
+    ensureResizableTableColgroup(table);
+
+    headers.forEach((header, columnIndex) => {
+        const columnKey = getColumnKey(header, columnIndex);
+        const persistedWidth = columnKey
+            ? Number(getInitialWidth(columnKey, header, columnIndex))
+            : NaN;
+        const measuredWidth = Math.round(header.getBoundingClientRect().width || 0);
+        const targetWidth = Number.isFinite(persistedWidth) && persistedWidth > 0
+            ? persistedWidth
+            : Math.max(minWidth, measuredWidth);
+
+        applyResizableColumnWidth(table, columnIndex, targetWidth);
+    });
+
+    setResizableTableWidth(table);
+}
+
+function makeTableColumnsResizable(options = {}) {
+    const table = options.table;
+    if (!table) return null;
+
+    const headerSelector = options.headerSelector || 'thead tr:first-child th';
+    const minWidth = Number.isFinite(options.minWidth) ? options.minWidth : 60;
+    const fixedLayout = options.fixedLayout === true;
+    const onResizeEnd = typeof options.onResizeEnd === 'function' ? options.onResizeEnd : null;
+    const getColumnKey = typeof options.getColumnKey === 'function'
+        ? options.getColumnKey
+        : (header) => header?.dataset?.field || header?.dataset?.columnId || '';
+    const getInitialWidth = typeof options.getInitialWidth === 'function'
+        ? options.getInitialWidth
+        : () => null;
+
+    freezeResizableTableColumns(table, {
+        headerSelector,
+        getColumnKey,
+        getInitialWidth,
+        minWidth
+    });
+
+    if (fixedLayout) {
+        table.style.tableLayout = 'fixed';
+    }
+
+    const headers = getResizableTableHeaders(table, headerSelector);
+    headers.forEach((header, columnIndex) => {
+        if (!header || header.dataset.resizable === 'false') return;
+
+        const columnKey = getColumnKey(header, columnIndex);
+        if (!columnKey) return;
+
+        if (!header.dataset.resizeClickGuardBound) {
+            header.addEventListener('click', (event) => {
+                if (header.dataset.suppressResizeClick !== 'true') return;
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                delete header.dataset.suppressResizeClick;
+            }, true);
+            header.dataset.resizeClickGuardBound = 'true';
+        }
+
+        let handle = header.querySelector('.column-resize-handle');
+        if (!handle) {
+            handle = document.createElement('span');
+            handle.className = 'column-resize-handle';
+            handle.setAttribute('role', 'separator');
+            handle.setAttribute('aria-orientation', 'vertical');
+            handle.setAttribute('aria-label', `Ändra bredd på kolumn ${columnKey}`);
+            header.appendChild(handle);
+        }
+
+        handle.onmousedown = null;
+        handle.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const startX = event.clientX;
+            const startWidth = header.getBoundingClientRect().width;
+            let hasDragged = false;
+
+            const onMouseMove = (moveEvent) => {
+                if (Math.abs(moveEvent.clientX - startX) > 2) {
+                    hasDragged = true;
+                }
+                const nextWidth = Math.max(minWidth, startWidth + (moveEvent.clientX - startX));
+                applyResizableColumnWidth(table, columnIndex, nextWidth);
+                setResizableTableWidth(table);
+                document.body.classList.add('column-resize-active');
+            };
+
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                document.body.classList.remove('column-resize-active');
+
+                const finalWidth = Math.max(minWidth, Math.round(header.getBoundingClientRect().width));
+                applyResizableColumnWidth(table, columnIndex, finalWidth);
+                setResizableTableWidth(table);
+                if (hasDragged) {
+                    header.dataset.suppressResizeClick = 'true';
+                }
+                if (onResizeEnd) {
+                    onResizeEnd(columnKey, finalWidth, header, columnIndex);
+                }
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp, { once: true });
+        });
+        handle.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+        });
+    });
+
+    return {
+        headers,
+        refresh() {
+            makeTableColumnsResizable(options);
+        }
+    };
+}
+
+window.makeTableColumnsResizable = makeTableColumnsResizable;
+
 function isPdfUrl(url) {
     if (!url) return false;
     const cleanUrl = String(url).split('?')[0].split('#')[0].toLowerCase();
