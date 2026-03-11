@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem
 from utils.auto_id_generator import (
     generate_base_id,
     compose_full_id,
@@ -199,6 +199,119 @@ def get_tree_view_category_value(obj, tree_view):
     return 'Okategoriserad'
 
 
+def normalize_field_options(raw_options):
+    if not raw_options:
+        return None
+    if isinstance(raw_options, dict):
+        return raw_options
+    if not isinstance(raw_options, str):
+        return None
+    try:
+        parsed = json.loads(raw_options)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def get_category_field_definition(obj, tree_view):
+    if not obj or not obj.object_type:
+        return None
+
+    alias_keys = {normalize_lookup_key(alias) for alias in get_tree_view_category_aliases(tree_view)}
+    for field in obj.object_type.fields or []:
+        field_name = normalize_lookup_key(field.field_name)
+        display_name = normalize_lookup_key(field.display_name)
+        if field_name in alias_keys or display_name in alias_keys:
+            return field
+    return None
+
+
+def get_managed_list_lookup(list_id, cache):
+    safe_list_id = int(list_id or 0)
+    if safe_list_id <= 0:
+        return None
+
+    if safe_list_id in cache:
+        return cache[safe_list_id]
+
+    items = ManagedListItem.query.filter_by(list_id=safe_list_id).all()
+    by_id = {}
+    by_value = {}
+    for item in items:
+        item_id = int(item.id or 0)
+        label = str(item.resolve_display_value() or item.label or item.value or '').strip()
+        value_key = str(item.value or '').strip()
+        if item_id > 0 and label:
+            by_id[item_id] = {
+                'label': label,
+                'parent_item_id': int(item.parent_item_id or 0) or None
+            }
+        if value_key and label:
+            by_value[value_key] = item_id
+
+    lookup = {'by_id': by_id, 'by_value': by_value}
+    cache[safe_list_id] = lookup
+    return lookup
+
+
+def resolve_managed_list_path(raw_value, list_id, cache):
+    lookup = get_managed_list_lookup(list_id, cache)
+    if not lookup:
+        return []
+
+    item_id = None
+    numeric_value = int(raw_value) if str(raw_value or '').strip().isdigit() else None
+    if numeric_value and numeric_value in lookup['by_id']:
+        item_id = numeric_value
+    else:
+        item_id = lookup['by_value'].get(str(raw_value or '').strip())
+
+    if not item_id:
+        return []
+
+    path = []
+    visited = set()
+    current_id = item_id
+    while current_id and current_id in lookup['by_id'] and current_id not in visited:
+        visited.add(current_id)
+        item = lookup['by_id'][current_id]
+        label = str(item.get('label') or '').strip()
+        if label:
+            path.append(label)
+        current_id = item.get('parent_item_id')
+
+    return list(reversed(path))
+
+
+def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
+    managed_list_cache = managed_list_cache if isinstance(managed_list_cache, dict) else {}
+    object_data = obj.data or {}
+    category_field = get_category_field_definition(obj, tree_view)
+    raw_value = None
+    if category_field:
+        raw_value = get_data_value_case_insensitive(object_data, category_field.field_name)
+        if raw_value in (None, '') and category_field.display_name:
+            raw_value = get_data_value_case_insensitive(object_data, category_field.display_name)
+
+    if raw_value not in (None, '') and category_field:
+        field_options = normalize_field_options(category_field.field_options)
+        if (
+            str(category_field.field_type or '').lower() == 'select'
+            and field_options
+            and str(field_options.get('source') or '').strip().lower() == 'managed_list'
+        ):
+            list_id = field_options.get('list_id')
+            path = resolve_managed_list_path(raw_value, list_id, managed_list_cache)
+            if path:
+                return path
+
+    fallback_value = get_tree_view_category_value(obj, tree_view)
+    if isinstance(fallback_value, str) and '>' in fallback_value:
+        return [segment.strip() for segment in fallback_value.split('>') if segment.strip()]
+    fallback_label = str(fallback_value or '').strip() or 'Okategoriserad'
+    return [fallback_label]
+
+
 def build_tree_root_nodes(root_objects, view_config):
     tree_nodes = []
     for root_object in root_objects:
@@ -259,6 +372,44 @@ def build_tree_root_nodes(root_objects, view_config):
         })
 
     return sorted(tree_nodes, key=lambda item: natural_sort_key(item.get('name')))
+
+
+def build_category_group_tree(root_objects, tree_view, view_config):
+    managed_list_cache = {}
+    category_tree = {}
+
+    for root_object in root_objects:
+        path = get_tree_view_category_path(root_object, tree_view, managed_list_cache)
+        current_children = category_tree
+        current_group = None
+        for segment in path:
+            current_group = current_children.setdefault(segment, {
+                'children': {},
+                'objects': []
+            })
+            current_children = current_group['children']
+        if current_group is None:
+            continue
+        current_group['objects'].append(root_object)
+
+    def serialize_group_nodes(tree_level, path_segments=None):
+        path_segments = path_segments or []
+        nodes = []
+        for index, group_name in enumerate(sorted(tree_level.keys(), key=natural_sort_key), start=1):
+            group_data = tree_level[group_name]
+            current_path = path_segments + [group_name]
+            child_groups = serialize_group_nodes(group_data['children'], current_path)
+            object_nodes = build_tree_root_nodes(group_data['objects'], view_config)
+            group_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key('-'.join(current_path))) or f'kategori-{index}'
+            nodes.append({
+                'id': f"category-{tree_view}-{group_slug}-{index}",
+                'name': group_name,
+                'type': 'group',
+                'children': child_groups + object_nodes
+            })
+        return nodes
+
+    return serialize_group_nodes(category_tree)
 
 
 def is_document_object_type(type_name):
@@ -1256,25 +1407,7 @@ def get_tree():
             # For system view, system objects themselves should be top-level nodes.
             return jsonify(build_tree_root_nodes(root_objects, view_config)), 200
 
-        category_groups = {}
-        for root_object in root_objects:
-            category_name = get_tree_view_category_value(root_object, tree_view)
-            if category_name not in category_groups:
-                category_groups[category_name] = []
-            category_groups[category_name].append(root_object)
-
-        tree = []
-        for index, category_name in enumerate(sorted(category_groups.keys(), key=natural_sort_key), start=1):
-            category_roots = build_tree_root_nodes(category_groups[category_name], view_config)
-            category_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key(category_name)) or f'kategori-{index}'
-            tree.append({
-                'id': f'category-{tree_view}-{category_slug}-{index}',
-                'name': category_name,
-                'type': 'group',
-                'children': category_roots
-            })
-
-        return jsonify(tree), 200
+        return jsonify(build_category_group_tree(root_objects, tree_view, view_config)), 200
     except Exception as e:
         logger.error(f"Error getting tree: {str(e)}")
         return jsonify({'error': 'Failed to get tree'}), 500
