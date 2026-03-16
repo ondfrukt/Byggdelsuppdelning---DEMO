@@ -53,7 +53,7 @@ Systemet kretsar kring objekt av olika typer. Varje objekttyp kan ha egna fält,
 
 ## Seedad standarddata
 
-Vid ny uppsättning seedas standarddata från [defaults/plm-defaults.json](/workspaces/Byggdelsuppdelning---DEMO/defaults/plm-defaults.json). Filen innehåller i nuläget 13 fördefinierade objekttyper:
+Vid ny uppsättning seedas standarddata från [defaults/plm-defaults.json](/workspaces/Byggdelsuppdelning---DEMO/defaults/plm-defaults.json). Filen innehåller i nuläget 12 objekttyper:
 
 - `Assembly`
 - `Connection`
@@ -66,10 +66,9 @@ Vid ny uppsättning seedas standarddata från [defaults/plm-defaults.json](/work
 - `Space`
 - `System`
 - `Technical Chapter`
-- `TCBL`
 - `Technical Specification`
 
-Utöver objekttyper seedas även fält, relationstyper, relationsregler och exempeldata.
+Utöver objekttyper seedas även fält, relationstyper, relationsregler och exempeldata. Den aktuella exporten innehåller just nu 146 objekt och 207 objektrelationer.
 
 ## Viktiga API-ytor
 
