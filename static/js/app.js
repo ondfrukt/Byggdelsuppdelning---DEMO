@@ -1233,7 +1233,9 @@ async function showCreateFileObjectModal() {
 
     try {
         const types = await ObjectTypesAPI.getAll();
-        const fileObjectTypeRef = (types || []).find(type => (type.name || '').toLowerCase().trim() === 'filobjekt');
+        const normalizeTypeName = (typeName) => String(typeName || '').toLowerCase().replace(/\s+/g, '').trim();
+        const isFileObjectTypeName = (typeName) => ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalizeTypeName(typeName));
+        const fileObjectTypeRef = (types || []).find(type => isFileObjectTypeName(type?.name));
         if (!fileObjectTypeRef) {
             showToast('Kunde inte hitta objekttypen Filobjekt', 'error');
             return;

@@ -29,9 +29,13 @@ class FileUploadComponent {
         this.batchFileRowIdSeq = 1;
     }
 
+    normalizeTypeName(typeName) {
+        return String(typeName || '').toLowerCase().replace(/\s+/g, '').trim();
+    }
+
     isFileObjectType(typeName) {
-        const normalized = (typeName || '').toLowerCase().trim();
-        return normalized === 'filobjekt';
+        const normalized = this.normalizeTypeName(typeName);
+        return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
     }
 
     async loadCurrentObject() {
@@ -408,7 +412,7 @@ class FileUploadComponent {
     }
 
     findDocumentObjectType(objectTypes) {
-        return objectTypes.find(type => (type.name || '').toLowerCase().trim() === 'filobjekt') || null;
+        return objectTypes.find(type => this.isFileObjectType(type?.name)) || null;
     }
 
     async loadLinkedBusinessObjects() {

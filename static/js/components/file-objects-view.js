@@ -10,9 +10,13 @@ class FileObjectsViewComponent {
         this.searchTerm = '';
     }
 
+    normalizeTypeName(typeName) {
+        return String(typeName || '').toLowerCase().replace(/\s+/g, '').trim();
+    }
+
     isFileObjectTypeName(typeName) {
-        const normalized = (typeName || '').toLowerCase().trim();
-        return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+        const normalized = this.normalizeTypeName(typeName);
+        return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
     }
 
     getDisplayName(obj) {

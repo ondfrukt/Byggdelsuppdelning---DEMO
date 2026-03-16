@@ -26,11 +26,22 @@ class ObjectListComponent {
         this.boundGlobalPointerHandler = null;
         this.boundGlobalKeyHandler = null;
         this.managedListDisplayByListId = new Map();
+        this.bulkManagedMultiImportTableByField = {};
+        this.bulkManagedMultiImportRowsByField = {};
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
             ignorePunctuation: true
         });
+    }
+
+    normalizeTypeName(typeName) {
+        return String(typeName || '').toLowerCase().replace(/\s+/g, '').trim();
+    }
+
+    isFileObjectType(typeName) {
+        const normalized = this.normalizeTypeName(typeName);
+        return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
     }
 
     getBulkStatusOptions() {
@@ -256,10 +267,7 @@ class ObjectListComponent {
             this.objects = await ObjectsAPI.getAll(filters);
             // Keep file objects out of the generic "Objekt" view; they belong in the dedicated Filobjekt view.
             if (!this.selectedType) {
-                this.objects = this.objects.filter(obj => {
-                    const typeName = String(obj?.object_type?.name || '').toLowerCase().trim();
-                    return typeName !== 'filobjekt' && typeName !== 'ritningsobjekt';
-                });
+                this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
             }
             const validIds = new Set(this.objects.map(obj => Number(obj.id)));
             this.selectedObjectIds = new Set(
@@ -1342,6 +1350,245 @@ class ObjectListComponent {
         return JSON.stringify(a) === JSON.stringify(b);
     }
 
+    isManagedListField(field) {
+        const options = this.normalizeFieldOptions(field?.field_options || field?.options);
+        return Boolean(options) && String(options.source || '').trim().toLowerCase() === 'managed_list';
+    }
+
+    looksLikeMultiSelectValue(rawValue) {
+        if (Array.isArray(rawValue)) return true;
+        return Boolean(rawValue && typeof rawValue === 'object' && Array.isArray(rawValue.selected_ids));
+    }
+
+    isMultiSelectField(field) {
+        if (field?.isMultiSelect === true) return true;
+        if (String(field?.field_type || '').toLowerCase() !== 'select') return false;
+        const options = this.normalizeFieldOptions(field?.field_options || field?.options);
+        return Boolean(options) && String(options.selection_mode || 'single').trim().toLowerCase() === 'multi';
+    }
+
+    getMultiSelectComparableValue(rawValue) {
+        let values = [];
+        if (Array.isArray(rawValue)) {
+            values = rawValue;
+        } else if (rawValue && typeof rawValue === 'object') {
+            values = Array.isArray(rawValue.selected_ids) ? rawValue.selected_ids : [];
+        } else if (typeof rawValue === 'string') {
+            values = rawValue.split(',').map(part => part.trim()).filter(Boolean);
+        } else if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+            values = [rawValue];
+        }
+
+        return Array.from(new Set(values
+            .map(value => String(value || '').trim())
+            .filter(Boolean)))
+            .sort(this.textCollator.compare);
+    }
+
+    getComparableFieldValue(field, rawValue) {
+        if (!field) return rawValue;
+        if (this.isMultiSelectField(field)) {
+            return this.getMultiSelectComparableValue(rawValue);
+        }
+        if (this.isManagedListField(field) && rawValue && typeof rawValue === 'object') {
+            if (rawValue.selected_id !== undefined && rawValue.selected_id !== null) {
+                return String(rawValue.selected_id);
+            }
+        }
+        return rawValue;
+    }
+
+    fieldValuesEqual(field, a, b) {
+        return this.valuesEqual(
+            this.getComparableFieldValue(field, a),
+            this.getComparableFieldValue(field, b)
+        );
+    }
+
+    getComparableInputValue(field, rawValue) {
+        const normalized = this.getComparableFieldValue(field, rawValue);
+        if (this.isMultiSelectField(field)) {
+            return Array.isArray(normalized) ? normalized : [];
+        }
+        return normalized;
+    }
+
+    getBulkPayloadValue(field, rawValue) {
+        if (!field) return rawValue;
+        if (this.isMultiSelectField(field)) {
+            return this.getMultiSelectComparableValue(rawValue);
+        }
+        if (this.isManagedListField(field) && rawValue && typeof rawValue === 'object') {
+            if (rawValue.selected_id !== undefined && rawValue.selected_id !== null) {
+                return String(rawValue.selected_id);
+            }
+        }
+        return rawValue;
+    }
+
+    getFieldIdentityMatcher(field, candidateField) {
+        if (!field || !candidateField) return false;
+        const sourceTemplateId = Number(field.field_template_id || 0);
+        const candidateTemplateId = Number(candidateField.field_template_id || 0);
+        if (sourceTemplateId > 0 && candidateTemplateId > 0) {
+            return sourceTemplateId === candidateTemplateId;
+        }
+
+        const sourceOptions = this.normalizeFieldOptions(field.field_options || field.options) || {};
+        const candidateOptions = this.normalizeFieldOptions(candidateField.field_options || candidateField.options) || {};
+        return (
+            String(candidateField.field_type || '').toLowerCase() === String(field.fieldType || field.field_type || '').toLowerCase()
+            && this.normalizeFieldKey(candidateField.field_name) === this.normalizeFieldKey(field.fieldName || field.field_name)
+            && Number(candidateOptions.list_id || 0) === Number(sourceOptions.list_id || 0)
+        );
+    }
+
+    getObjectDisplayNameForImport(obj) {
+        return obj?.data?.Namn || obj?.data?.namn || obj?.data?.Name || obj?.data?.name || obj?.id_full || `Objekt ${obj?.id || ''}`;
+    }
+
+    async loadBulkManagedMultiImportRows(field, selectedObjects = []) {
+        const selectedIds = new Set((selectedObjects || []).map(obj => Number(obj?.id)).filter(id => Number.isFinite(id)));
+        const objectTypes = await ObjectTypesAPI.getAll(true);
+        const compatibleTypes = (objectTypes || []).map(type => {
+            const candidateField = (type.fields || []).find(item => this.getFieldIdentityMatcher(field, item));
+            return candidateField ? { type, candidateField } : null;
+        }).filter(Boolean);
+
+        const rows = [];
+        for (const entry of compatibleTypes) {
+            const { type, candidateField } = entry;
+            let objects = [];
+            try {
+                objects = await ObjectsAPI.getAll({ type: type.name });
+            } catch (error) {
+                console.error('Failed to load candidate objects for bulk multi-import:', type.name, error);
+                continue;
+            }
+
+            objects.forEach(obj => {
+                if (selectedIds.has(Number(obj?.id))) return;
+                const rawValue = obj?.data?.[candidateField.field_name];
+                const comparableValues = this.getMultiSelectComparableValue(rawValue);
+                if (!comparableValues.length) return;
+                const labels = comparableValues.map(value => {
+                    const option = (field.options || []).find(item => String(item.value) === String(value));
+                    return option?.label || String(value);
+                });
+                rows.push({
+                    object_id: Number(obj.id),
+                    id_full: obj.id_full || 'N/A',
+                    type: obj.object_type?.name || type.name || 'N/A',
+                    name: this.getObjectDisplayNameForImport(obj),
+                    values: labels.join(', '),
+                    rawValue
+                });
+            });
+        }
+
+        return rows;
+    }
+
+    ensureBulkManagedMultiImportModal(field) {
+        const modalId = `bulk-managed-multi-import-modal-${field.key}`;
+        let modal = document.getElementById(modalId);
+        if (modal) return modal;
+
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'managed-multi-import-modal';
+        modal.innerHTML = `
+            <div class="managed-multi-import-backdrop" data-bulk-managed-multi-import-close="${escapeHtml(field.key)}"></div>
+            <div class="managed-multi-import-dialog" role="dialog" aria-modal="true" aria-labelledby="${escapeHtml(modalId)}-title">
+                <div class="modal-header">
+                    <h3 id="${escapeHtml(modalId)}-title">Hämta värden från annat objekt</h3>
+                    <button class="close-btn" type="button" data-bulk-managed-multi-import-close="${escapeHtml(field.key)}">&times;</button>
+                </div>
+                <div class="managed-multi-import-body">
+                    <p class="managed-multi-import-help">Sök upp ett objekt med samma fält och hämta dess valda värden.</p>
+                    <div id="${escapeHtml(modalId)}-table"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('[data-bulk-managed-multi-import-close]').forEach(button => {
+            button.addEventListener('click', () => this.closeBulkManagedMultiImportModal(field.key));
+        });
+
+        return modal;
+    }
+
+    closeBulkManagedMultiImportModal(fieldKey) {
+        const modal = document.getElementById(`bulk-managed-multi-import-modal-${fieldKey}`);
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    applyBulkManagedMultiImportedValues(field, rawValue) {
+        const wrapper = document.querySelector(`#bulk-edit-fields-container [data-managed-multi-field="${CSS.escape(field.key)}"]`);
+        if (!wrapper) return;
+        window.ManagedMultiSelect.setValues(wrapper, this.getMultiSelectComparableValue(rawValue));
+        this.closeBulkManagedMultiImportModal(field.key);
+        showToast('Värden hämtade från objekt', 'success');
+    }
+
+    async openBulkManagedMultiImportModal(field, selectedObjects = []) {
+        const modal = this.ensureBulkManagedMultiImportModal(field);
+        const containerId = `${modal.id}-table`;
+        modal.style.display = 'block';
+
+        this.bulkManagedMultiImportRowsByField[field.key] = await this.loadBulkManagedMultiImportRows(field, selectedObjects);
+        const rows = this.bulkManagedMultiImportRowsByField[field.key] || [];
+
+        this.bulkManagedMultiImportTableByField[field.key] = new SystemTable({
+            containerId,
+            tableId: `${modal.id}-system-table`,
+            persistState: false,
+            initialState: {
+                search: '',
+                columnSearches: {},
+                sortField: 'name',
+                sortDirection: 'asc'
+            },
+            columns: [
+                { field: 'id_full', label: 'ID', className: 'col-id' },
+                { field: 'type', label: 'Typ', className: 'col-type', badge: 'type' },
+                { field: 'name', label: 'Namn', className: 'col-name' },
+                { field: 'values', label: 'Beskrivning', className: 'col-description', multiline: true },
+                {
+                    field: 'actions',
+                    label: 'Actions',
+                    className: 'col-actions',
+                    sortable: false,
+                    searchable: false,
+                    render: (row) => `
+                        <button type="button" class="btn btn-primary btn-sm bulk-managed-multi-import-apply-btn" data-object-id="${row.object_id}">
+                            Använd
+                        </button>
+                    `
+                }
+            ],
+            rows,
+            emptyText: 'Inga objekt med valda värden hittades',
+            onRender: () => {
+                const host = document.getElementById(containerId);
+                if (!host) return;
+                host.querySelectorAll('.bulk-managed-multi-import-apply-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const objectId = Number(button.getAttribute('data-object-id') || 0);
+                        const row = rows.find(item => Number(item.object_id) === objectId);
+                        if (!row) return;
+                        this.applyBulkManagedMultiImportedValues(field, row.rawValue);
+                    });
+                });
+            }
+        });
+
+        this.bulkManagedMultiImportTableByField[field.key].render();
+    }
+
     async resolveSelectOptions(field) {
         const normalized = this.normalizeFieldOptions(field.field_options);
         if (normalized?.source === 'managed_list') {
@@ -1351,7 +1598,7 @@ class ObjectListComponent {
                 const managedList = await ManagedListsAPI.getById(listId, true, false);
                 return (managedList?.items || [])
                     .map(item => ({
-                        value: String(item.value || '').trim(),
+                        value: String(item.id || '').trim(),
                         label: String(item.display_value || item.value || '').trim()
                     }))
                     .filter(item => item.value);
@@ -1475,7 +1722,8 @@ class ObjectListComponent {
             options: this.getBulkStatusOptions(),
             value: allStatusesEqual ? statusValues[0] : null,
             varies: !allStatusesEqual,
-            isMetadataField: true
+            isMetadataField: true,
+            displayOrder: -1000
         });
 
         for (const key of commonKeys) {
@@ -1484,14 +1732,16 @@ class ObjectListComponent {
 
             const type = defs[0].field_type;
             if (defs.some(def => def.field_type !== type)) continue;
+            const fieldMeta = defs[0];
 
             const rawValues = selectedObjects.map((obj, objIndex) => {
                 const def = defs[objIndex] || defs[0];
                 return this.getDataValueCaseInsensitive(obj.data, def.field_name);
             });
 
-            const allEqual = rawValues.every(value => this.valuesEqual(value, rawValues[0]));
-            const fieldMeta = defs[0];
+            const isMultiSelect = defs.some(def => this.isMultiSelectField(def))
+                || rawValues.some(value => this.looksLikeMultiSelectValue(value));
+            const allEqual = rawValues.every(value => this.fieldValuesEqual(fieldMeta, value, rawValues[0]));
             const selectOptions = type === 'select' ? await this.resolveSelectOptions(fieldMeta) : [];
 
             result.push({
@@ -1499,13 +1749,23 @@ class ObjectListComponent {
                 fieldName: fieldMeta.field_name,
                 displayName: fieldMeta.display_name || fieldMeta.field_name,
                 fieldType: type,
+                displayOrder: Number.isFinite(Number(fieldMeta.display_order)) ? Number(fieldMeta.display_order) : 9999,
+                field_options: fieldMeta.field_options,
+                isMultiSelect,
                 options: selectOptions,
                 value: allEqual ? rawValues[0] : null,
                 varies: !allEqual
             });
         }
 
-        return result.sort((a, b) => this.textCollator.compare(String(a.displayName || ''), String(b.displayName || '')));
+        return result.sort((a, b) => {
+            const orderDiff = Number(a.displayOrder ?? 9999) - Number(b.displayOrder ?? 9999);
+            if (orderDiff !== 0) return orderDiff;
+            if (Boolean(a.isMetadataField) !== Boolean(b.isMetadataField)) {
+                return a.isMetadataField ? -1 : 1;
+            }
+            return this.textCollator.compare(String(a.displayName || ''), String(b.displayName || ''));
+        });
     }
 
     renderBulkFieldInput(field) {
@@ -1539,7 +1799,34 @@ class ObjectListComponent {
 
         if (field.fieldType === 'select') {
             const options = Array.isArray(field.options) ? field.options : [];
-            const currentValue = field.varies ? '' : (value ?? '');
+            if (this.isMultiSelectField(field)) {
+                const selectedValues = field.varies ? [] : this.getComparableInputValue(field, value);
+                return `
+                    <div class="form-group">
+                        <label for="${id}">${escapeHtml(field.displayName)}</label>
+                        ${window.ManagedMultiSelect.render({
+                            fieldName: field.key,
+                            inputId: id,
+                            inputName: field.fieldName || field.key,
+                            options,
+                            selectedValues,
+                            hiddenSelectClass: 'managed-multi-select-native bulk-edit-input bulk-edit-multiselect',
+                            hiddenSelectAttributes: {
+                                'data-field-key': field.key,
+                                'data-field-type': field.fieldType
+                            },
+                            searchPlaceholder: 'Sök och klicka för att lägga till flera val...',
+                            actions: [
+                                { key: 'import', label: 'Hämta', className: 'btn btn-secondary btn-sm' },
+                                { key: 'select-all', label: 'Alla', className: 'btn btn-secondary btn-sm' },
+                                { key: 'clear', label: 'Rensa', className: 'btn btn-secondary btn-sm' }
+                            ]
+                        })}
+                        <small class="form-help">${field.varies ? 'Varierar. Gör ett nytt val för att uppdatera alla markerade objekt.' : 'Gemensamt värde för markerade objekt.'}</small>
+                    </div>
+                `;
+            }
+            const currentValue = field.varies ? '' : (this.getComparableInputValue(field, value) ?? '');
             return `
                 <div class="form-group">
                     <label for="${id}">${escapeHtml(field.displayName)}</label>
@@ -1616,7 +1903,19 @@ class ObjectListComponent {
                 summary.textContent += suffix;
             }
             fieldsContainer.innerHTML = editableFields.map(field => this.renderBulkFieldInput(field)).join('');
-            const firstInput = fieldsContainer.querySelector('.bulk-edit-input');
+            window.ManagedMultiSelect.init(fieldsContainer, {
+                onAction: (action, wrapper) => {
+                    if (action !== 'import') return;
+                    const fieldKey = String(wrapper.getAttribute('data-managed-multi-field') || '').trim();
+                    const field = editableFields.find(item => String(item.key || '') === fieldKey);
+                    if (!field) return;
+                    this.openBulkManagedMultiImportModal(field, selectedObjects).catch(error => {
+                        console.error('Failed to open bulk managed multi import modal:', error);
+                        showToast('Kunde inte hämta objekt för import', 'error');
+                    });
+                }
+            });
+            const firstInput = fieldsContainer.querySelector('.managed-multi-select-search, .bulk-edit-input:not(.managed-multi-select-native)');
             if (firstInput) {
                 setTimeout(() => firstInput.focus(), 0);
             }
@@ -1655,6 +1954,12 @@ class ObjectListComponent {
             if (fieldType === 'boolean') {
                 if (rawValue === '') return;
                 parsedValue = rawValue === 'true';
+            } else if (fieldType === 'select' && this.isMultiSelectField(field)) {
+                const selectedValues = Array.from(input.selectedOptions || [])
+                    .map(option => String(option.value || '').trim())
+                    .filter(Boolean);
+                if (!selectedValues.length) return;
+                parsedValue = selectedValues;
             } else if (fieldType === 'number' || fieldType === 'decimal') {
                 if (rawValue === '') return;
                 const num = Number(rawValue);
@@ -1665,7 +1970,7 @@ class ObjectListComponent {
                 parsedValue = rawValue;
             }
 
-            if (!field.varies && this.valuesEqual(parsedValue, field.value)) return;
+            if (!field.varies && this.fieldValuesEqual(field, parsedValue, field.value)) return;
 
             changes.push({ key, value: parsedValue });
         });
@@ -1694,7 +1999,10 @@ class ObjectListComponent {
                     const currentData = {};
                     const fields = await this.getObjectTypeFields(obj);
                     fields.forEach(field => {
-                        currentData[field.field_name] = this.getDataValueCaseInsensitive(obj.data, field.field_name);
+                        currentData[field.field_name] = this.getBulkPayloadValue(
+                            field,
+                            this.getDataValueCaseInsensitive(obj.data, field.field_name)
+                        );
                     });
 
                     changes.forEach(change => {

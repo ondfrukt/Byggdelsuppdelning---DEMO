@@ -430,7 +430,21 @@ async function loadRelationCandidates() {
 
 function getRelationTableColumns() {
     const selectedType = relationModalState.objectTypes.find(type => type.name === relationModalState.selectedType);
-    const dynamicField = selectedType?.fields?.find(field => field.field_name !== 'namn' && field.field_name !== 'name');
+    const fields = Array.isArray(selectedType?.fields) ? selectedType.fields : [];
+    const normalizedDescriptionAliases = new Set([
+        'description',
+        'descriptions',
+        'description short',
+        'description - short',
+        'beskrivning',
+        'kort beskrivning'
+    ].map(alias => normalizeFieldKey(alias)));
+    const nonNameFields = fields.filter(field => !['namn', 'name'].includes(String(field?.field_name || '').toLowerCase()));
+    const dynamicField = nonNameFields.find(field => {
+        const fieldKey = normalizeFieldKey(field?.field_name);
+        const displayKey = normalizeFieldKey(field?.display_name);
+        return normalizedDescriptionAliases.has(fieldKey) || normalizedDescriptionAliases.has(displayKey);
+    }) || nonNameFields[0];
     const dynamicLabel = dynamicField?.display_name || 'Beskrivning';
 
     return [
@@ -441,12 +455,48 @@ function getRelationTableColumns() {
     ];
 }
 
+function getItemDataValueCaseInsensitive(item, fieldName) {
+    const data = item?.data;
+    if (!data || typeof data !== 'object' || !fieldName) return '';
+    if (Object.prototype.hasOwnProperty.call(data, fieldName)) {
+        return data[fieldName];
+    }
+
+    const normalizedFieldName = normalizeFieldKey(fieldName);
+    for (const [key, value] of Object.entries(data)) {
+        if (normalizeFieldKey(key) === normalizedFieldName) {
+            return value;
+        }
+    }
+
+    return '';
+}
+
+function getRelationDescriptionValue(item, preferredFieldName = null) {
+    const candidateFields = [
+        preferredFieldName,
+        'description - short',
+        'description',
+        'descriptions',
+        'beskrivning',
+        'kort beskrivning'
+    ].filter(Boolean);
+
+    for (const fieldName of candidateFields) {
+        const value = getItemDataValueCaseInsensitive(item, fieldName);
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            return String(value);
+        }
+    }
+
+    return '-';
+}
+
 function getRelationCellValue(item, column) {
     if (column.field === 'display_name') return getObjectDisplayName(item);
     if (column.field === 'type') return item.object_type?.name || '-';
     if (column.field === 'dynamic') {
-        if (column.dynamicFieldName) return String(item.data?.[column.dynamicFieldName] || '-');
-        return String(item.data?.beskrivning || item.data?.description || '-');
+        return getRelationDescriptionValue(item, column.dynamicFieldName);
     }
     return '';
 }
@@ -463,8 +513,7 @@ function applyRelationTableFilters() {
             item.object_type?.name || '',
             item.data?.namn || '',
             item.data?.name || '',
-            item.data?.beskrivning || '',
-            item.data?.description || ''
+            getRelationDescriptionValue(item)
         ];
 
         return searchableValues.some(value => String(value).toLowerCase().includes(globalTerm));
@@ -587,32 +636,28 @@ function renderRelationTable() {
     const startIndex = (relationModalState.page - 1) * relationModalState.perPage;
     const endIndex = startIndex + relationModalState.perPage;
     const pageItems = relationModalState.filteredItems.slice(startIndex, endIndex);
-
-    if (pageItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Inga objekt hittades.</td></tr>';
-        return;
-    }
-
-    tbody.innerHTML = pageItems.map(item => {
-        const inBasket = relationModalState.basket.some(b => b.id === item.id);
-        const dynamicValue = getRelationCellValue(item, columns[2]);
-        return `
-            <tr tabindex="0" role="button" class="relation-select-row" data-id="${item.id}" aria-label="Välj ${escapeHtml(getObjectDisplayName(item))}">
-                <td>${escapeHtml(getObjectDisplayName(item))}</td>
-                <td>${escapeHtml(item.object_type?.name || '-')}</td>
-                <td>${escapeHtml(String(dynamicValue))}</td>
-                <td>
-                    <button
-                        type="button"
-                        class="btn btn-primary btn-sm relation-add-btn ${inBasket ? 'is-added' : ''}"
-                        data-id="${item.id}"
-                        aria-label="${inBasket ? `Redan tillagd: ${escapeHtml(getObjectDisplayName(item))}` : `Lägg till ${escapeHtml(getObjectDisplayName(item))}`}"
-                        ${inBasket ? 'disabled' : ''}
-                    >${inBasket ? '✓' : '+'}</button>
-                </td>
-            </tr>
-        `;
-    }).join('');
+    tbody.innerHTML = pageItems.length === 0
+        ? '<tr><td colspan="4" class="empty-state">Inga objekt hittades.</td></tr>'
+        : pageItems.map(item => {
+            const inBasket = relationModalState.basket.some(b => b.id === item.id);
+            const dynamicValue = getRelationCellValue(item, columns[2]);
+            return `
+                <tr tabindex="0" role="button" class="relation-select-row" data-id="${item.id}" aria-label="Välj ${escapeHtml(getObjectDisplayName(item))}">
+                    <td>${escapeHtml(getObjectDisplayName(item))}</td>
+                    <td>${escapeHtml(item.object_type?.name || '-')}</td>
+                    <td>${escapeHtml(String(dynamicValue))}</td>
+                    <td>
+                        <button
+                            type="button"
+                            class="btn btn-primary btn-sm relation-add-btn ${inBasket ? 'is-added' : ''}"
+                            data-id="${item.id}"
+                            aria-label="${inBasket ? `Redan tillagd: ${escapeHtml(getObjectDisplayName(item))}` : `Lägg till ${escapeHtml(getObjectDisplayName(item))}`}"
+                            ${inBasket ? 'disabled' : ''}
+                        >${inBasket ? '✓' : '+'}</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
     header.querySelectorAll('th[data-sortable="true"]').forEach(headerCell => {
         headerCell.addEventListener('click', () => {
