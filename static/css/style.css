@@ -4120,7 +4120,7 @@ body.column-resize-active {
 .richtext-viewer-content table {
     width: 100%;
     border-collapse: collapse;
-    margin: 0.5rem 0;
+    margin: 0.15rem 0 0.4rem;
 }
 
 .detail-panel .richtext-value th,
@@ -4181,7 +4181,10 @@ body.column-resize-active {
 .richtext-viewer-content {
     padding: var(--spacing-lg);
     overflow: auto;
-    line-height: 1.6;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 11px;
+    line-height: 1.45;
+    zoom: 1.3;
 }
 
 .richtext-viewer-content p,

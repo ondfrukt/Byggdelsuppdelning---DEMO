@@ -143,7 +143,8 @@ def get_list_view_config():
         for obj_type in object_types:
             config = next((c for c in configs if c.object_type_id == obj_type.id), None)
             
-            # Get all available fields for this object type
+            # Expose all fields as selectable columns, but keep the table visibility flag
+            # as the source for default visible columns.
             available_fields = [
                 {
                     'field_name': field.field_name,
@@ -153,8 +154,8 @@ def get_list_view_config():
                     'field_options': field.field_options
                 }
                 for field in sorted(obj_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
-                if field.is_table_visible
             ]
+            default_table_fields = [field for field in available_fields if field.get('is_table_visible')]
             
             # Build default visible columns if not configured
             visible_columns = config.visible_columns if config and config.visible_columns else None
@@ -163,7 +164,7 @@ def get_list_view_config():
                 # Default: show ID, first 3 metadata fields, and created_at
                 visible_columns = []
                 visible_columns.append({'field_name': 'id_full', 'visible': True, 'width': 120})
-                for i, field in enumerate(available_fields[:3]):
+                for i, field in enumerate(default_table_fields[:3]):
                     visible_columns.append({
                         'field_name': field['field_name'],
                         'visible': True,
@@ -175,7 +176,7 @@ def get_list_view_config():
             column_order = _normalize_column_order(column_order)
             if not column_order:
                 # Default order: ID, metadata fields, created_at
-                column_order = ['id_full'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
+                column_order = ['id_full'] + [f['field_name'] for f in default_table_fields[:3]] + ['created_at']
             
             result[obj_type.name] = {
                 'object_type_id': obj_type.id,
@@ -268,7 +269,8 @@ def get_list_view_config_by_type(object_type_id):
         
         config = ViewConfiguration.query.filter_by(object_type_id=object_type_id).first()
         
-        # Get all available fields for this object type
+        # Expose all fields as selectable columns, but keep the table visibility flag
+        # as the source for default visible columns.
         available_fields = [
                 {
                     'field_name': field.field_name,
@@ -278,8 +280,8 @@ def get_list_view_config_by_type(object_type_id):
                     'field_options': field.field_options
                 }
             for field in sorted(object_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
-            if field.is_table_visible
         ]
+        default_table_fields = [field for field in available_fields if field.get('is_table_visible')]
         
         # Build default visible columns if not configured
         visible_columns = config.visible_columns if config and config.visible_columns else None
@@ -287,7 +289,7 @@ def get_list_view_config_by_type(object_type_id):
         if not visible_columns:
             visible_columns = []
             visible_columns.append({'field_name': 'id_full', 'visible': True, 'width': 120})
-            for i, field in enumerate(available_fields[:3]):
+            for i, field in enumerate(default_table_fields[:3]):
                 visible_columns.append({
                     'field_name': field['field_name'],
                     'visible': True,
@@ -298,7 +300,7 @@ def get_list_view_config_by_type(object_type_id):
         column_order = config.column_order if config and config.column_order else None
         column_order = _normalize_column_order(column_order)
         if not column_order:
-            column_order = ['id_full'] + [f['field_name'] for f in available_fields[:3]] + ['created_at']
+            column_order = ['id_full'] + [f['field_name'] for f in default_table_fields[:3]] + ['created_at']
         
         result = {
             'object_type_id': object_type.id,

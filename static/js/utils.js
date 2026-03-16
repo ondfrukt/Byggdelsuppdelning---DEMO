@@ -179,14 +179,25 @@ function sanitizeRichTextHtml(html) {
         'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'blockquote', 'a', 'img', 'table', 'thead', 'tbody', 'tfoot',
         'tr', 'td', 'th', 'caption', 'colgroup', 'col', 'hr',
-        'sup', 'sub', 'pre', 'code'
+        'sup', 'sub', 'pre', 'code', 's', 'strike', 'mark'
     ]);
     const allowedAttrs = {
         a: new Set(['href', 'target', 'rel']),
         span: new Set(['style']),
         p: new Set(['style']),
         div: new Set(['style']),
-        ul: new Set(['class']),
+        ol: new Set(['style', 'start', 'type']),
+        ul: new Set(['class', 'style']),
+        li: new Set(['style']),
+        h1: new Set(['style']),
+        h2: new Set(['style']),
+        h3: new Set(['style']),
+        h4: new Set(['style']),
+        h5: new Set(['style']),
+        h6: new Set(['style']),
+        blockquote: new Set(['style']),
+        pre: new Set(['style']),
+        code: new Set(['style']),
         img: new Set(['src', 'alt', 'title', 'style']),
         table: new Set(['style']),
         thead: new Set(['style']),
@@ -232,7 +243,10 @@ function sanitizeRichTextHtml(html) {
         'border-collapse',
         'vertical-align',
         'list-style-type',
+        'list-style-position',
         'white-space',
+        'page-break-before',
+        'page-break-after',
         'max-width',
         'width',
         'height'
@@ -242,6 +256,21 @@ function sanitizeRichTextHtml(html) {
     template.innerHTML = String(html);
 
     const sanitizeStyle = (styleValue, tagName = '') => {
+        const normalizeFontSize = (rawValue) => {
+            const value = String(rawValue || '').trim().toLowerCase();
+            const match = value.match(/^(-?\d*\.?\d+)(px|pt)$/);
+            if (!match) return value;
+
+            const amount = Number(match[1]);
+            const unit = match[2];
+            if (!Number.isFinite(amount)) return value;
+            if (unit === 'px') return `${amount}px`;
+
+            // Normalize Word-style point sizes to px so all content uses one visual scale.
+            const pxValue = Math.round((amount * 96 / 72) * 100) / 100;
+            return `${pxValue}px`;
+        };
+
         const chunks = String(styleValue || '')
             .split(';')
             .map(item => item.trim())
@@ -251,14 +280,19 @@ function sanitizeRichTextHtml(html) {
             const [rawProp, rawValue] = chunk.split(':');
             if (!rawProp || !rawValue) return;
             const prop = rawProp.trim().toLowerCase();
-            const value = rawValue.trim().toLowerCase();
+            const value = prop === 'font-size'
+                ? normalizeFontSize(rawValue)
+                : rawValue.trim().toLowerCase();
             if (!allowedStyleProps.has(prop)) return;
 
-            // Word-paste tends to inject paragraph spacing/line-height that makes content look double-spaced.
-            // Keep text emphasis/color styles, but normalize block-level spacing styles.
-            const isBlockTag = tagName === 'p' || tagName === 'div';
-            if (isBlockTag && ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'line-height'].includes(prop)) {
-                return;
+            // Keep most Word block formatting, but drop extreme spacing values that break layout.
+            const isSpacingProp = ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'line-height'].includes(prop);
+            if (isSpacingProp) {
+                const numericValues = Array.from(value.matchAll(/-?\d*\.?\d+/g))
+                    .map(match => Number(match[0]))
+                    .filter(number => Number.isFinite(number));
+                const hasExtremeSpacing = numericValues.some(number => Math.abs(number) > 120);
+                if (hasExtremeSpacing) return;
             }
 
             if (!/^[a-z0-9\s\-\(\),.%#"'\/+!]+$/.test(value)) return;
@@ -314,7 +348,7 @@ function sanitizeRichTextHtml(html) {
                             .split(/\s+/)
                             .map(item => item.trim())
                             .filter(Boolean);
-                        const safeClasses = classes.filter(className => className === 'dash-list');
+                        const safeClasses = classes.filter(className => className === 'dash-list' || /^mso/i.test(className));
                         if (safeClasses.length === 0) {
                             child.removeAttribute('class');
                         } else {

@@ -486,6 +486,58 @@
       ]
     },
     {
+      "name": "TCBL",
+      "description": "Represents a reusable content block within a technical chapter, typically holding a chapter number and rich text content.",
+      "icon": null,
+      "id_prefix": "TCBL",
+      "color": "#0f766e",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "kapitelnummer",
+          "display_name": "Chapter Number",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "AMA-style chapter or subchapter number.",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "innehall",
+          "display_name": "Content",
+          "field_type": "richtext",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": false,
+          "is_detail_visible": true,
+          "help_text": "Rich text content for the chapter block.",
+          "display_order": 3,
+          "detail_width": "full"
+        }
+      ]
+    },
+    {
       "name": "Technical Specification",
       "description": "Represents a container for technical specification content, grouping one or more technical chapters into a structured description.",
       "icon": null,
@@ -1189,9 +1241,21 @@
     },
     {
       "source_object_type": "Technical Chapter",
+      "target_object_type": "TCBL",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
       "target_object_type": "Assembly",
       "relation_type": "applies_to",
       "is_allowed": true
+    },
+    {
+      "source_object_type": "TCBL",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
     },
     {
       "source_object_type": "Technical Chapter",

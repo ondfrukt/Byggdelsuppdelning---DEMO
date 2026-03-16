@@ -750,6 +750,28 @@ class ObjectFormComponent {
         return win.getComputedStyle(node);
     }
 
+    captureTinyMceSelectionBookmark(editor) {
+        if (!editor?.selection) return null;
+        try {
+            return editor.selection.getBookmark(2, true);
+        } catch (error) {
+            console.warn('Failed to capture TinyMCE selection bookmark:', error);
+            return null;
+        }
+    }
+
+    restoreTinyMceSelectionBookmark(editor, bookmark) {
+        if (!editor?.selection || !bookmark) return false;
+        try {
+            editor.focus();
+            editor.selection.moveToBookmark(bookmark);
+            return true;
+        } catch (error) {
+            console.warn('Failed to restore TinyMCE selection bookmark:', error);
+            return false;
+        }
+    }
+
     normalizeTinyMceCopiedFormat(format) {
         if (!format) return null;
         return {
@@ -855,6 +877,22 @@ class ObjectFormComponent {
     }
 
     registerTinyMceFormatButtons(editor) {
+        editor.ui.registry.addMenuButton('textstyle', {
+            text: 'Stil',
+            fetch: (callback) => {
+                const selectionBookmark = this.captureTinyMceSelectionBookmark(editor);
+                const items = this.getRichTextTinyMceStyleFormats().map((item) => ({
+                    type: 'menuitem',
+                    text: item.title,
+                    onAction: () => {
+                        this.restoreTinyMceSelectionBookmark(editor, selectionBookmark);
+                        this.applyRichTextStyle(editor, item.format);
+                    }
+                }));
+                callback(items);
+            }
+        });
+
         editor.ui.registry.addButton('dashlist', {
             text: '- List',
             tooltip: 'Växla strecklista',
@@ -906,6 +944,138 @@ class ObjectFormComponent {
                 };
             }
         });
+    }
+
+    getRichTextTinyMceFormats() {
+        return {
+            standard_heading_1: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    marginTop: '12px',
+                    marginBottom: '4px'
+                }
+            },
+            standard_heading_2: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '12px',
+                    fontWeight: '400',
+                    fontStyle: 'italic',
+                    color: '#000000',
+                    marginTop: '10px',
+                    marginBottom: '4px'
+                }
+            },
+            standard_normal: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    marginTop: '4px',
+                    marginBottom: '2px'
+                }
+            },
+            standard_normal_adjustment: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    backgroundColor: '#CED4D9',
+                    marginTop: '4px',
+                    marginBottom: '2px'
+                }
+            },
+            standard_instruction: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'italic',
+                    color: '#ff0000',
+                    marginTop: '0',
+                    marginBottom: '4px'
+                }
+            }
+        };
+    }
+
+    getRichTextTinyMceStyleFormats() {
+        return [
+            { title: 'Rubrik 1 | 13px | Fet', format: 'standard_heading_1' },
+            { title: 'Rubrik 2 | 12px | Kursiv', format: 'standard_heading_2' },
+            { title: 'Normal | 11px | Regular', format: 'standard_normal' },
+            { title: 'Normal - anpassning', format: 'standard_normal_adjustment' },
+            { title: 'Anvisning | 11px | Kursiv | Rod', format: 'standard_instruction' }
+        ];
+    }
+
+    getRichTextEditorZoom() {
+        return 1.3;
+    }
+
+    applyRichTextStyle(editor, formatName) {
+        if (!editor || !formatName) return;
+        const formatDefinition = this.getRichTextTinyMceFormats()[formatName];
+        if (!formatDefinition) return;
+
+        const inlineFormatName = `inline_${formatName}`;
+        const textStyles = {
+            fontFamily: formatDefinition.styles.fontFamily,
+            fontSize: formatDefinition.styles.fontSize,
+            fontWeight: formatDefinition.styles.fontWeight,
+            fontStyle: formatDefinition.styles.fontStyle,
+            color: formatDefinition.styles.color,
+            textDecoration: formatDefinition.styles.textDecoration,
+            textDecorationColor: formatDefinition.styles.textDecorationColor,
+            backgroundColor: formatDefinition.styles.backgroundColor
+        };
+        const blockStyles = {
+            marginTop: formatDefinition.styles.marginTop,
+            marginBottom: formatDefinition.styles.marginBottom
+        };
+
+        editor.undoManager.transact(() => {
+            editor.formatter.register(inlineFormatName, {
+                inline: 'span',
+                styles: textStyles,
+                remove_similar: true
+            });
+
+            if (editor.selection && !editor.selection.isCollapsed()) {
+                editor.formatter.apply(inlineFormatName);
+                return;
+            }
+
+            const selectedBlocks = editor.selection?.getSelectedBlocks?.() || [];
+            const currentBlock = editor.dom.getParent(this.getTinyMceSelectionNode(editor), 'p,div,li,h1,h2,h3,h4,h5,h6,blockquote');
+            const targetBlocks = selectedBlocks.length > 0
+                ? selectedBlocks
+                : (currentBlock ? [currentBlock] : []);
+
+            targetBlocks.forEach((block) => {
+                Object.entries(textStyles).forEach(([prop, value]) => {
+                    editor.dom.setStyle(block, prop, value);
+                });
+                Object.entries(blockStyles).forEach(([prop, value]) => {
+                    editor.dom.setStyle(block, prop, value);
+                });
+            });
+        });
+
+        editor.nodeChanged();
     }
 
     captureFallbackFormat(editor) {
@@ -1024,21 +1194,26 @@ class ObjectFormComponent {
                 statusbar: true,
                 min_height: 240,
                 plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste autoresize nonbreaking',
-                toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
+                toolbar: 'undo redo | textstyle fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
                 toolbar_mode: 'sliding',
-                font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
-                font_family_formats: 'Arial=arial,helvetica,sans-serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif; Tahoma=tahoma,arial,helvetica,sans-serif; Courier New=courier new,courier,monospace',
+                formats: this.getRichTextTinyMceFormats(),
+                font_size_formats: '11px 13px',
+                font_family_formats: 'Arial=arial,helvetica,sans-serif',
                 paste_data_images: true,
                 paste_as_text: false,
+                paste_retain_style_properties: 'font-family font-size font-weight font-style text-decoration text-decoration-color color background-color',
                 paste_remove_styles_if_webkit: false,
                 paste_webkit_styles: 'all',
                 paste_merge_formats: true,
+                valid_styles: {
+                    '*': 'font-family,font-size,font-weight,font-style,text-decoration,text-decoration-color,color,background-color,text-align,line-height,margin-left,margin-right,margin-top,margin-bottom,padding-left,padding-right,padding-top,padding-bottom,list-style-type,list-style-position'
+                },
                 nonbreaking_force_tab: true,
                 automatic_uploads: false,
                 convert_urls: false,
                 browser_spellcheck: true,
                 contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-                content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
+                content_style: `body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.45; zoom: ${this.getRichTextEditorZoom()}; } p { margin: 6px 0 4px; } img { max-width: 100%; height: auto; } table { width: 100%; border-collapse: collapse; margin: 2px 0 4px; } th, td { border: 1px solid #d0d7de; padding: 0.35rem 0.5rem; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }`,
                 setup: (editor) => {
                     this.registerTinyMceFormatButtons(editor);
 
@@ -1184,22 +1359,27 @@ class ObjectFormComponent {
             statusbar: true,
             min_height: 420,
             plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste nonbreaking',
-            toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
+            toolbar: 'undo redo | textstyle fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
             toolbar_mode: 'sliding',
             resize: false,
-            font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
-            font_family_formats: 'Arial=arial,helvetica,sans-serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif; Tahoma=tahoma,arial,helvetica,sans-serif; Courier New=courier new,courier,monospace',
+            formats: this.getRichTextTinyMceFormats(),
+            font_size_formats: '11px 13px',
+            font_family_formats: 'Arial=arial,helvetica,sans-serif',
             paste_data_images: true,
             paste_as_text: false,
+            paste_retain_style_properties: 'font-family font-size font-weight font-style text-decoration color background-color',
             paste_remove_styles_if_webkit: false,
             paste_webkit_styles: 'all',
             paste_merge_formats: true,
+            valid_styles: {
+                '*': 'font-family,font-size,font-weight,font-style,text-decoration,color,background-color,text-align,line-height,margin-left,margin-right,margin-top,margin-bottom,padding-left,padding-right,padding-top,padding-bottom,list-style-type,list-style-position'
+            },
             nonbreaking_force_tab: true,
             automatic_uploads: false,
             convert_urls: false,
             browser_spellcheck: true,
             contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-            content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
+            content_style: `body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.45; zoom: ${this.getRichTextEditorZoom()}; } p { margin: 6px 0 4px; } img { max-width: 100%; height: auto; } table { width: 100%; border-collapse: collapse; margin: 2px 0 4px; } th, td { border: 1px solid #d0d7de; padding: 0.35rem 0.5rem; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }`,
             setup: (editor) => {
                 this.registerTinyMceFormatButtons(editor);
                 editor.on('change input undo redo keyup', () => {
