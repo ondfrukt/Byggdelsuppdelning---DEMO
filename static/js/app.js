@@ -8,6 +8,7 @@ let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
 let currentDetailPanelInstance = null;
 let currentFileObjectsViewComponent = null;
+let currentFileObjectsDetailPanelInstance = null;
 window.currentSelectedObjectId = null;
 let detailHistory = [];
 let detailHistoryIndex = -1;
@@ -89,7 +90,7 @@ async function switchView(viewName) {
             });
             break;
         case 'file-objects':
-            showView('objects-view');
+            showView('file-objects-view');
             await loadFileObjectsView();
             break;
         case 'tree':
@@ -199,13 +200,10 @@ async function loadObjectsView(options = {}) {
 }
 
 async function loadFileObjectsView() {
-    await loadObjectsView({
-        objectType: 'Filobjekt',
-        title: 'Filobjekt',
-        showCreateButton: true,
-        createButtonLabel: 'Lägg till filer',
-        createButtonAction: 'showCreateFileObjectModal()'
-    });
+    closeFileObjectDetailPanel();
+    currentFileObjectsDetailPanelInstance = null;
+    currentFileObjectsViewComponent = new FileObjectsViewComponent('file-objects-container');
+    await currentFileObjectsViewComponent.render();
 }
 
 // Toggle tree view
@@ -1810,6 +1808,62 @@ function goBack() {
 }
 
 async function openFileObjectFromList(objectId) {
-    await switchView('objects');
-    await openDetailPanel(objectId);
+    await openFileObjectDetailPanel(objectId);
+}
+
+async function openFileObjectDetailPanel(objectId) {
+    const panel = document.getElementById('file-objects-detail-panel');
+    const panelBody = document.getElementById('file-objects-detail-body');
+    const panelTitle = document.getElementById('file-objects-detail-title');
+    const panelCategory = document.getElementById('file-objects-detail-category');
+
+    if (!panel || !panelBody) return;
+
+    try {
+        panel.classList.add('active');
+
+        const object = await ObjectsAPI.getById(objectId);
+        if (panelTitle) {
+            panelTitle.textContent =
+                object?.data?.Namn ||
+                object?.data?.namn ||
+                object?.data?.Name ||
+                object?.data?.name ||
+                object?.id_full ||
+                'Objektdetaljer';
+        }
+        if (panelCategory) {
+            panelCategory.textContent = `Kategori: ${object?.object_type?.name || '-'}`;
+        }
+
+        if (!currentFileObjectsDetailPanelInstance) {
+            currentFileObjectsDetailPanelInstance = createObjectDetailPanel('file-objects-detail-body', {
+                layout: 'detail',
+                showHeader: false
+            });
+        }
+
+        await currentFileObjectsDetailPanelInstance.render(objectId);
+    } catch (error) {
+        console.error('Failed to load file object detail:', error);
+        showToast('Kunde inte ladda filobjektsdetaljer', 'error');
+        closeFileObjectDetailPanel();
+    }
+}
+
+function closeFileObjectDetailPanel() {
+    const panel = document.getElementById('file-objects-detail-panel');
+    const panelTitle = document.getElementById('file-objects-detail-title');
+    const panelCategory = document.getElementById('file-objects-detail-category');
+    const panelBody = document.getElementById('file-objects-detail-body');
+
+    if (panel) panel.classList.remove('active');
+    if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
+    if (panelCategory) panelCategory.textContent = 'Kategori: -';
+    if (panelBody) panelBody.innerHTML = '<p class="empty-state">Välj ett filobjekt att visa</p>';
+
+    if (currentFileObjectsDetailPanelInstance) {
+        currentFileObjectsDetailPanelInstance.close();
+    }
+    currentFileObjectsDetailPanelInstance = null;
 }

@@ -153,17 +153,19 @@ class FileUploadComponent {
         `;
 
         const indirectFilesHint = '';
-
-
-        this.container.innerHTML = `
-            <div class="${rootClass}">
-                ${actionButtons}
-
+        const linkedSection = this.isCurrentObjectFileObject ? '' : `
                 <div class="documents-list linked-documents-list">
                     ${linkedTitle}
                     ${indirectFilesHint}
                     <div id="linked-documents-list-${this.objectId}"></div>
                 </div>
+        `;
+
+
+        this.container.innerHTML = `
+            <div class="${rootClass}">
+                ${actionButtons}
+                ${linkedSection}
                 ${modals}
                 ${fileSection}
             </div>
@@ -172,7 +174,6 @@ class FileUploadComponent {
         this.attachEventListeners();
         await this.loadDocumentObjectType();
         if (this.isCurrentObjectFileObject) {
-            await this.loadLinkedBusinessObjects();
             await this.loadDocuments();
         } else {
             await this.loadFilesViaLinkedDocumentObjects();

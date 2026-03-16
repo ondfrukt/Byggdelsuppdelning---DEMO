@@ -40,8 +40,17 @@ const relationModalState = {
     hideSettings: false,
     blockedIdFulls: new Set(),
     searchFocusState: null,
-    allowNoSource: false
+    allowNoSource: false,
+    eventsBound: false
 };
+
+function normalizeFieldKey(value) {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeTypeName(value) {
+    return String(value || '').toLowerCase().replace(/\s+/g, '').trim();
+}
 
 class RelationManagerComponent {
     constructor(containerId, objectId) {
@@ -103,8 +112,8 @@ class RelationManagerComponent {
     }
 
     isFileObjectType(typeName) {
-        const normalized = (typeName || '').toLowerCase().trim();
-        return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+        const normalized = normalizeTypeName(typeName);
+        return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
     }
 
     async renderRelations() {
@@ -302,8 +311,8 @@ function getObjectDisplayName(obj) {
 }
 
 function isFileObjectType(typeName) {
-    const normalized = (typeName || '').toLowerCase().trim();
-    return normalized === 'filobjekt' || normalized === 'ritningsobjekt';
+    const normalized = normalizeTypeName(typeName);
+    return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
 }
 
 function normalizeIdFull(value) {
@@ -771,6 +780,18 @@ function bindRelationModalEvents() {
     const pageLabel = document.getElementById('relation-page-label');
     const clearBasket = document.getElementById('relation-clear-basket');
 
+    const updatePagination = () => {
+        pageLabel.textContent = `Sida ${relationModalState.page} av ${relationModalState.totalPages}`;
+        prevButton.disabled = relationModalState.page <= 1;
+        nextButton.disabled = relationModalState.page >= relationModalState.totalPages;
+    };
+
+    relationModalState.updatePagination = updatePagination;
+
+    if (relationModalState.eventsBound) {
+        return;
+    }
+
     if (searchInput) {
         searchInput.addEventListener('input', async (event) => {
             relationModalState.search = event.target.value;
@@ -812,13 +833,7 @@ function bindRelationModalEvents() {
         });
     }
 
-    const updatePagination = () => {
-        pageLabel.textContent = `Sida ${relationModalState.page} av ${relationModalState.totalPages}`;
-        prevButton.disabled = relationModalState.page <= 1;
-        nextButton.disabled = relationModalState.page >= relationModalState.totalPages;
-    };
-
-    relationModalState.updatePagination = updatePagination;
+    relationModalState.eventsBound = true;
 }
 
 async function refreshCandidatesAndRender() {
@@ -864,7 +879,8 @@ async function showAddRelationModal(objectIdOrIds, options = {}) {
     relationModalState.sourceId = relationModalState.sourceIds[0] || null;
     relationModalState.sourceObject = null;
     relationModalState.sourceObjects = [];
-    relationModalState.selectedType = '';
+    relationModalState.preSelectedType = options.preSelectedType || '';
+    relationModalState.selectedType = relationModalState.preSelectedType;
     relationModalState.search = '';
     relationModalState.page = 1;
     relationModalState.basket = [];
@@ -916,6 +932,7 @@ async function showAddRelationModal(objectIdOrIds, options = {}) {
         const typeFilter = document.getElementById('relation-object-type-filter');
         if (typeFilter) {
             typeFilter.innerHTML = '<option value="">Alla objekttyper</option>' + relationModalState.objectTypes.map(type => `<option value="${escapeHtml(type.name)}">${escapeHtml(type.name)}</option>`).join('');
+            typeFilter.value = relationModalState.selectedType || '';
         }
         modal.dataset.objectId = String(relationModalState.sourceId || '');
         overlay.style.display = 'block';
@@ -954,6 +971,7 @@ function closeRelationModal() {
     relationModalState.modalDescription = 'Sök, välj och koppla flera objekt i ett batch-anrop.';
     relationModalState.hideSettings = false;
     relationModalState.allowNoSource = false;
+    relationModalState.preSelectedType = '';
     document.getElementById('relation-form')?.reset();
     applyRelationModalModeConfig();
     renderRelationModalSourceContext();
