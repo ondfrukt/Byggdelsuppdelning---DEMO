@@ -1,153 +1,157 @@
 # Relationer i systemet
 
-Detta dokument sammanfattar hur relationer fungerar i systemet: relationsobjekt, parametrar, relationstyper och regler för att upprätta relationer.
+Det här dokumentet beskriver nuläget för relationsmodellen i projektet: hur relationer lagras, hur regler tillämpas och hur filobjekt kopplas till vanliga objekt.
 
-## 1. Översikt
+## Översikt
 
-Relationer representeras som egna entiteter mellan två objekt:
-- `source_object_id` (källa)
-- `target_object_id` (mål)
-- `relation_type` (typ av relation)
+Relationer lagras som egna rader i `object_relations`. Varje relation är riktad i databasen:
 
-Varje relation är riktad i lagring (`source -> target`), men UI kan visa relationen som inkommande/utgående beroende på vilket objekt man tittar på.
-
-## 2. Datamodell
-
-### 2.1 `ObjectRelation` (faktisk relation)
-
-Fält (modell: `models/relation.py`):
-- `id` (int, PK)
-- `source_object_id` (int, FK -> `objects.id`, required)
-- `target_object_id` (int, FK -> `objects.id`, required)
-- `relation_type` (string, required)
-- `description` (text, optional)
-- `relation_metadata` (json, optional)
-- `created_at` (datetime)
-
-Index:
-- `idx_source_object_id`
-- `idx_target_object_id`
-- `idx_relation_type`
-
-### 2.2 `RelationType` (definition av relationstyper)
-
-Fält (modell: `models/relation_type.py`):
-- `key` (unik nyckel, t.ex. `has_requirement`)
-- `display_name`
+- `source_object_id`
+- `target_object_id`
+- `relation_type`
 - `description`
-- `source_object_type_id` (optional typbegränsning)
-- `target_object_type_id` (optional typbegränsning)
-- `cardinality` (`one_to_one`, `one_to_many`, `many_to_one`, `many_to_many`)
-- `is_directed` (bool)
-- `is_composition` (bool)
-- `inverse_relation_type_id` (optional)
+- `relation_metadata`
 
-## 3. API för relationer
+I API och UI kan samma relation visas som `outgoing` eller `incoming` beroende på vilket objekt som är aktivt.
 
-### 3.1 Hämta relationer för objekt
+## Modeller
+
+### `ObjectRelation`
+
+Modell: [models/relation.py](/workspaces/Byggdelsuppdelning---DEMO/models/relation.py)
+
+Ansvar:
+
+- lagra den faktiska kopplingen mellan två objekt
+- exponera aliaserna `objectA_id` och `objectB_id` i API-svar
+- bära valfri metadata och beskrivning
+
+### `RelationType`
+
+Modell: [models/relation_type.py](/workspaces/Byggdelsuppdelning---DEMO/models/relation_type.py)
+
+Ansvar:
+
+- beskriva tillgängliga relationstyper
+- lagra semantik som `cardinality`, `is_directed` och eventuell invers relation
+- kunna begränsa relationstypen till specifika käll- eller måltyper
+
+### `RelationTypeRule`
+
+Modell: [models/relation_type_rule.py](/workspaces/Byggdelsuppdelning---DEMO/models/relation_type_rule.py)
+
+Ansvar:
+
+- definiera vilken relationstyp som gäller mellan en viss källa och ett visst mål
+- markera om paret är tillåtet eller spärrat via `is_allowed`
+- fungera som den praktiska regelmatrisen som admin arbetar med
+
+## Viktig runtime-logik
+
+Reglerna appliceras främst i:
+
+- [routes/object_relations.py](/workspaces/Byggdelsuppdelning---DEMO/routes/object_relations.py)
+- [routes/relation_entities.py](/workspaces/Byggdelsuppdelning---DEMO/routes/relation_entities.py)
+- [routes/relation_type_rules.py](/workspaces/Byggdelsuppdelning---DEMO/routes/relation_type_rules.py)
+- [routes/relation_type_rules_api.py](/workspaces/Byggdelsuppdelning---DEMO/routes/relation_type_rules_api.py)
+
+Det finns två nivåer av styrning:
+
+1. `enforce_pair_relation_type(...)`
+Väljer eller verifierar vilken relationstyp som får användas för ett specifikt källa/mål-par.
+
+2. `validate_relation_type_scope(...)`
+Kontrollerar att vald relationstyp överensstämmer med typbegränsningarna för relationstypen.
+
+## API
+
+### Hämta relationer för ett objekt
 
 `GET /api/objects/<id>/relations`
 
-Returnerar relationer där objektet är source eller target. Varje post innehåller även:
-- `direction`: `outgoing` eller `incoming` relativt objektet i URL:en.
+Returnerar både inkommande och utgående relationer, med ett extra fält:
 
-### 3.2 Skapa en relation (objekt-endpoint)
+- `direction`: `incoming` eller `outgoing`
+
+### Skapa relation via objekt-endpoint
 
 `POST /api/objects/<id>/relations`
 
-Request body:
-- `target_object_id` (required)
-- `relation_type` (optional, default: `relaterad`)
-- `description` (optional)
-- `metadata` (optional, sparas i `relation_metadata`)
+Body:
 
-### 3.3 Skapa en relation (relation-entity endpoint)
+- `target_object_id`
+- `relation_type` valfritt, annars används standard eller förvald regel
+- `description` valfritt
+- `metadata` valfritt
 
-`POST /api/relations`
+### Uppdatera eller ta bort relation
 
-Request body:
-- `source_object_id` eller `objectA_id` (required)
-- `target_object_id` eller `objectB_id` (required)
-- `relation_type` (optional, default: `relaterad`)
-- `description` (optional)
-- `metadata` (optional)
+- `PUT /api/objects/<id>/relations/<relation_id>`
+- `DELETE /api/objects/<id>/relations/<relation_id>`
 
-### 3.4 Batchskapa relationer
+### Generell relation-endpoint
+
+- `GET /api/relations`
+- `GET /api/relations?object_id=<id>`
+- `POST /api/relations`
+- `DELETE /api/relations/<relation_id>`
+
+`POST /api/relations` accepterar både:
+
+- `source_object_id` / `target_object_id`
+- `objectA_id` / `objectB_id`
+
+### Batchskapande
 
 `POST /api/relations/batch`
 
-Request body:
-- `sourceId` (required)
-- `relations` (required array)
+Body:
 
-Varje rad i `relations`:
-- `targetId` (required)
-- `relationType` (optional, default: `relaterad`)
-- `metadata` (optional)
+- `sourceId`
+- `relations[]`
 
-Response:
-- `created` (skapade relationer)
-- `errors` (fel per index)
-- `summary` (`requested`, `created`, `failed`)
-- HTTP `201` om allt lyckas, annars `207` vid partial success.
+Varje rad i `relations` kan innehålla:
 
-## 4. Relationstyper och giltiga SOURCE/TARGET
+- `targetId`
+- `relationType`
+- `metadata`
 
-Följande relationstyper har explicita regler:
+Svaret innehåller:
 
-| RelationType | SOURCE | TARGET |
-|---|---|---|
-| `has_requirement` | Any | Requirement |
-| `uses_product` | Any | Product |
-| `has_document` | Any | Document |
-| `references_document` | Any | Document |
-| `has_build_up_line` | BuildingPart | BuildUpLine |
-| `build_up_line_product` | BuildUpLine | Product |
-| `connects` | Connection | BuildingPart |
+- `created`
+- `errors`
+- `summary`
 
-"Any" betyder att source-typen inte begränsas.
+HTTP-status blir `201` när allt lyckas och `207` när batchen innehåller både lyckade och misslyckade rader.
 
-Typmatchning stödjer alias (normaliserat), bl.a.:
-- Requirement: `Requirement`, `Kravställning`
-- Product: `Product`, `Produkt`
-- Document: `Document`, `Filobjekt`, `Ritningsobjekt`, `Dokumentobjekt`
-- BuildingPart: `BuildingPart`, `Byggdel`
-- BuildUpLine: `BuildUpLine`, `Build Up Line`, `Uppbyggnadsrad`, `Uppbyggnadslinje`
-- Connection: `Connection`, `Anslutning`
+## Valideringar
 
-## 5. Regler vid upprättande av relationer
+Vid skapande av relationer gäller i praktiken följande:
 
-### 5.1 Grundvalidering
+- käll- och målobjekt måste finnas
+- self-relations stoppas
+- relationstypen kan tvingas av regelmatrisen för käll-/målparet
+- relationstypens egna scope-regler måste matcha objektstyperna
+- exakta dubbletter stoppas
+- samma källa får inte länkas till flera mål med samma `id_full`
 
-Vid skapande av relation kontrolleras:
-- source och target måste finnas
-- source och target får inte vara samma objekt (ingen self-relation)
-- SOURCE/TARGET måste matcha reglerna för relationstypen (om relationstypen finns i regeluppsättningen)
+Det sista skyddet är avsiktligt hårt och gäller även om relationstyperna skiljer sig åt.
 
-Vid regelbrott returneras normalt:
-- HTTP `422` med förklarande felmeddelande
+## Filobjekt och dokumentrelationer
 
-### 5.2 Dubblettregler
+Projektet använder en tydlig domänregel:
 
-Systemet har två dubblettskydd:
-- Exakt dubblett (samma `source_object_id`, `target_object_id`, `relation_type`) stoppas.
-- Full-ID skydd (`id_full`): ett source-objekt får inte länkas till flera objekt med samma `id_full`, oavsett relationstyp.
+- endast filobjekt får äga uppladdade filer i `documents`
+- andra objekt får nå filer genom relationer till filobjekt
 
-### 5.3 Okända relationstyper
+Relevant endpoint:
 
-Relationstyper som **inte** finns i den explicita regelmängden ovan blockeras inte av SOURCE/TARGET-valideringen och kan fortfarande skapas (om övriga regler passerar).
+`GET /api/objects/<id>/linked-file-objects`
 
-## 6. Ta bort och uppdatera relationer
+Den används för att hämta filobjekt som är kopplade till ett vanligt objekt. Om källobjektet självt är ett filobjekt returneras `422`.
 
-- Ta bort:
-  - `DELETE /api/objects/<id>/relations/<relation_id>`
-  - `DELETE /api/relations/<relation_id>`
-- Uppdatera metadata/beskrivning:
-  - `PUT /api/objects/<id>/relations/<relation_id>`
+## Praktiska rekommendationer
 
-## 7. Praktisk rekommendation
-
-För konsekvent datakvalitet:
-- Använd i första hand de definierade relationstyperna i tabellen ovan.
-- Undvik fria relationstyper om de inte är medvetet designade och dokumenterade.
-- Säkerställ att objektstyperna (`Requirement`, `Product`, osv.) är korrekt namngivna/aliasade i miljön.
+- Skapa eller uppdatera relationsregler i admin i stället för att förlita dig på fria relationstyper.
+- Utgå från `RelationTypeRule`-matrisen när nya objektfamiljer införs.
+- Dokumentflöden ska modelleras via filobjekt, inte genom att vanliga objekt äger dokument direkt.
