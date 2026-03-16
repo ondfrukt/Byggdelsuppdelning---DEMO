@@ -3,12 +3,20 @@
  * Dynamically generates forms based on ObjectType fields
  */
 
+const objectFormTextCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
+
 class ObjectFormComponent {
     constructor(objectType, existingObject = null) {
         this.objectType = objectType;
         this.existingObject = existingObject;
         this.fields = [];
         this.managedListValues = {};
+        this.managedListItemsByListId = {};
+        this.managedListDependencyRequestTokens = {};
         this.richTextWindowState = null;
         this.richTextCopiedFormat = null;
         this.richTextApplyButtonApis = new Set();
@@ -44,18 +52,32 @@ class ObjectFormComponent {
             .filter(listId => Number.isFinite(listId) && listId > 0);
 
         this.managedListValues = {};
+        this.managedListItemsByListId = {};
         if (managedListIds.length > 0) {
             const uniqueIds = Array.from(new Set(managedListIds));
             await Promise.all(uniqueIds.map(async (listId) => {
                 try {
                     const managedList = await ManagedListsAPI.getById(listId, true, false);
-                    this.managedListValues[listId] = (managedList?.items || [])
+                    const items = (managedList?.items || [])
                         .filter(item => item.is_active !== false)
-                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-                        .map(item => item.value)
-                        .filter(Boolean);
+                        .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+                    this.managedListItemsByListId[listId] = items.map(item => ({
+                        id: Number(item.id),
+                        value: String(item.value || item.label || '').trim(),
+                        label: String(item.display_value || item.label || item.value || '').trim(),
+                        parent_item_id: Number(item.parent_item_id || 0) || null,
+                        is_selectable: item.is_selectable !== false
+                    })).filter(item => Number.isFinite(item.id));
+                    this.managedListValues[listId] = this.managedListItemsByListId[listId]
+                        .filter(item => item.is_selectable !== false)
+                        .map(item => ({
+                            value: String(item.id),
+                            label: item.label
+                        }))
+                        .filter(item => item.value && item.label);
                 } catch (error) {
                     console.error(`Failed to load managed list ${listId} for object form:`, error);
+                    this.managedListItemsByListId[listId] = [];
                     this.managedListValues[listId] = [];
                 }
             }));
@@ -82,8 +104,374 @@ class ObjectFormComponent {
             </div>
         `;
 
+        this.setupManagedListDependencies(container);
+        this.setupManagedListHierarchySelectors(container);
         await this.initializeRichTextEditors(container);
         this.applyConnectionNameRules();
+    }
+
+    getManagedListFieldOptions(field) {
+        if (!field || String(field.field_type || '').toLowerCase() !== 'select') return null;
+        const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
+        if (normalizedOptions?.source !== 'managed_list') return null;
+        const listId = Number(normalizedOptions?.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return null;
+        return normalizedOptions;
+    }
+
+    getManagedListHierarchyConfig(field) {
+        const options = this.getManagedListFieldOptions(field);
+        if (!options || options.parent_field_name) return null;
+        const listId = Number(options.list_id || 0);
+        if (!Number.isFinite(listId) || listId <= 0) return null;
+
+        const maxDepth = this.getManagedListMaxDepth(listId);
+        if (!Number.isFinite(maxDepth) || maxDepth <= 0) return null;
+        const labels = Array.isArray(options.hierarchy_level_labels)
+            ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
+            : [];
+        const levelCount = Math.min(8, Math.max(1, Math.floor(maxDepth)));
+
+        return {
+            levelCount,
+            labels: Array.from({ length: levelCount }, (_, idx) => labels[idx] || `Nivå ${idx + 1}`),
+            allowOnlyLeafSelection: Boolean(options.allow_only_leaf_selection)
+        };
+    }
+
+    buildManagedListItemMaps(listId) {
+        const items = this.managedListItemsByListId[Number(listId)] || [];
+        const byId = new Map();
+        const childrenByParent = new Map();
+
+        items.forEach(item => {
+            const itemId = Number(item?.id);
+            if (!Number.isFinite(itemId) || itemId <= 0 || item.is_active === false) return;
+            byId.set(itemId, item);
+            const parentId = Number(item?.parent_item_id || 0);
+            const key = Number.isFinite(parentId) && parentId > 0 ? parentId : 0;
+            if (!childrenByParent.has(key)) {
+                childrenByParent.set(key, []);
+            }
+            childrenByParent.get(key).push(item);
+        });
+
+        childrenByParent.forEach((children, parentId) => {
+            children.sort((a, b) => {
+                const orderDiff = Number(a.sort_order || 0) - Number(b.sort_order || 0);
+                if (orderDiff !== 0) return orderDiff;
+                return objectFormTextCollator.compare(String(a.label || a.value || ''), String(b.label || b.value || ''));
+            });
+            childrenByParent.set(parentId, children);
+        });
+
+        return { byId, childrenByParent };
+    }
+
+    getManagedListMaxDepth(listId) {
+        const { byId } = this.buildManagedListItemMaps(listId);
+        if (!byId.size) return 1;
+
+        const depthById = new Map();
+        const computeDepth = (itemId, visiting = new Set()) => {
+            const safeId = Number(itemId || 0);
+            if (!Number.isFinite(safeId) || safeId <= 0 || !byId.has(safeId)) return 0;
+            if (depthById.has(safeId)) return depthById.get(safeId);
+            if (visiting.has(safeId)) return 1;
+            visiting.add(safeId);
+
+            const parentId = Number(byId.get(safeId)?.parent_item_id || 0);
+            const parentDepth = computeDepth(parentId, visiting);
+            const depth = Math.max(1, parentDepth + 1);
+            depthById.set(safeId, depth);
+            visiting.delete(safeId);
+            return depth;
+        };
+
+        let maxDepth = 1;
+        byId.forEach((_item, itemId) => {
+            maxDepth = Math.max(maxDepth, computeDepth(itemId));
+        });
+        return maxDepth;
+    }
+
+    getManagedListPathToItem(listId, itemId) {
+        const safeItemId = Number(itemId || 0);
+        if (!Number.isFinite(safeItemId) || safeItemId <= 0) return [];
+        const { byId } = this.buildManagedListItemMaps(listId);
+        if (!byId.has(safeItemId)) return [];
+
+        const chain = [];
+        let currentId = safeItemId;
+        const visited = new Set();
+        while (currentId && byId.has(currentId) && !visited.has(currentId)) {
+            visited.add(currentId);
+            chain.push(currentId);
+            const parentId = Number(byId.get(currentId)?.parent_item_id || 0);
+            currentId = Number.isFinite(parentId) && parentId > 0 ? parentId : 0;
+        }
+        return chain.reverse();
+    }
+
+    getManagedListItemIdByValue(listId, value) {
+        const normalized = String(value || '').trim();
+        if (!normalized) return null;
+        const asInt = Number(normalized);
+        if (Number.isFinite(asInt) && asInt > 0) {
+            return asInt;
+        }
+        const items = this.managedListItemsByListId[Number(listId)] || [];
+        const found = items.find(item => String(item.value) === normalized);
+        return found ? Number(found.id) : null;
+    }
+
+    getManagedListSelectSelectedValue(listId, rawValue) {
+        const normalized = String(rawValue || '').trim();
+        if (!normalized) return '';
+        const asInt = Number(normalized);
+        if (Number.isFinite(asInt) && asInt > 0) return String(asInt);
+        const itemId = this.getManagedListItemIdByValue(listId, normalized);
+        return itemId ? String(itemId) : '';
+    }
+
+    getManagedListMultiSelectedValues(listId, rawValue) {
+        const source = rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)
+            ? rawValue.selected_ids
+            : rawValue;
+        const values = Array.isArray(source)
+            ? source
+            : (typeof source === 'string' ? source.split(',').map(part => part.trim()).filter(Boolean) : []);
+        return values
+            .map((value) => this.getManagedListSelectSelectedValue(listId, value))
+            .filter(Boolean);
+    }
+
+    renderSelectElementOptions(selectEl, options, selectedValue = '') {
+        if (!selectEl) return;
+        const safeSelected = String(selectedValue || '');
+        const optionsHtml = (options || []).map(opt => `
+            <option value="${escapeHtml(opt.value)}" ${String(opt.value) === safeSelected ? 'selected' : ''}>${escapeHtml(opt.label)}</option>
+        `).join('');
+        selectEl.innerHTML = `
+            <option value="">Välj...</option>
+            ${optionsHtml}
+        `;
+        if (safeSelected && !(options || []).some(opt => String(opt.value) === safeSelected)) {
+            selectEl.value = '';
+        }
+    }
+
+    async refreshDependentManagedListField(field, form) {
+        const options = this.getManagedListFieldOptions(field);
+        if (!options || !options.parent_field_name) return;
+
+        const childSelect = form?.elements?.[field.field_name];
+        const parentSelect = form?.elements?.[options.parent_field_name];
+        if (!childSelect || !parentSelect) return;
+
+        const childListId = Number(options.list_id);
+        const parentField = (this.fields || []).find(item => String(item.field_name) === String(options.parent_field_name));
+        const parentOptions = this.getManagedListFieldOptions(parentField);
+        const parentListId = Number(options.parent_list_id || parentOptions?.list_id || 0);
+        const parentItemId = this.getManagedListItemIdByValue(parentListId, parentSelect.value);
+        const requestKey = `${field.field_name}`;
+        const token = (this.managedListDependencyRequestTokens[requestKey] || 0) + 1;
+        this.managedListDependencyRequestTokens[requestKey] = token;
+
+        const currentSelected = String(childSelect.value || this.existingObject?.data?.[field.field_name] || '');
+
+        if (!parentItemId) {
+            this.renderSelectElementOptions(childSelect, [], currentSelected);
+            return;
+        }
+
+        try {
+            const filteredItems = await ManagedListsAPI.getItems(childListId, false, {
+                parent_item_id: parentItemId,
+                parent_list_id: parentListId > 0 ? parentListId : undefined,
+                list_link_id: Number(options.list_link_id || 0) || undefined
+            });
+            if (this.managedListDependencyRequestTokens[requestKey] !== token) return;
+
+            const mapped = (Array.isArray(filteredItems) ? filteredItems : [])
+                .filter(item => item && item.is_active !== false)
+                .map(item => ({
+                    value: String(item.id || '').trim(),
+                    label: String(item.display_value || item.label || item.value || '').trim(),
+                    is_selectable: item.is_selectable !== false
+                }))
+                .filter(item => item.value && item.is_selectable !== false);
+            const normalizedSelected = this.getManagedListSelectSelectedValue(childListId, currentSelected);
+            this.renderSelectElementOptions(childSelect, mapped, normalizedSelected);
+        } catch (error) {
+            console.error(`Failed to refresh dependent options for ${field.field_name}:`, error);
+            if (this.managedListDependencyRequestTokens[requestKey] !== token) return;
+            this.renderSelectElementOptions(childSelect, [], '');
+        }
+    }
+
+    setupManagedListDependencies(container) {
+        const form = document.getElementById('object-main-form');
+        if (!form || !container) return;
+
+        const dependentFields = (this.fields || []).filter(field => {
+            const options = this.getManagedListFieldOptions(field);
+            return options?.parent_field_name;
+        });
+        if (!dependentFields.length) return;
+
+        dependentFields.forEach((field) => {
+            const options = this.getManagedListFieldOptions(field);
+            if (!options) return;
+            const parentSelect = form.elements[options.parent_field_name];
+            if (!parentSelect) return;
+
+            const handler = () => {
+                this.refreshDependentManagedListField(field, form);
+            };
+            parentSelect.addEventListener('change', handler);
+            parentSelect.addEventListener('input', handler);
+            handler();
+        });
+    }
+
+    setupManagedListHierarchySelectors(container) {
+        const form = document.getElementById('object-main-form');
+        if (!form || !container) return;
+
+        const hierarchyFields = (this.fields || []).filter(field => this.getManagedListHierarchyConfig(field));
+        hierarchyFields.forEach((field) => {
+            const options = this.getManagedListFieldOptions(field);
+            const hierarchy = this.getManagedListHierarchyConfig(field);
+            if (!options || !hierarchy) return;
+
+            const listId = Number(options.list_id);
+            const wrapper = Array.from(container.querySelectorAll('[data-managed-hierarchy-field]'))
+                .find(node => String(node.getAttribute('data-managed-hierarchy-field') || '') === String(field.field_name));
+            const hiddenInput = form.elements[field.field_name];
+            if (!wrapper || !hiddenInput || !Number.isFinite(listId) || listId <= 0) return;
+
+            const labelContainer = wrapper.querySelector('[data-managed-hierarchy-levels]');
+            if (!labelContainer) return;
+
+            const { byId, childrenByParent } = this.buildManagedListItemMaps(listId);
+            const selectedItemId = this.getManagedListItemIdByValue(listId, hiddenInput.value);
+            const initialPath = this.getManagedListPathToItem(listId, selectedItemId);
+            const selections = Array.from({ length: hierarchy.levelCount }, (_, idx) => initialPath[idx] || '');
+
+            const hasActiveChildren = (itemId) => {
+                const children = childrenByParent.get(Number(itemId || 0)) || [];
+                return children.some(child => child.is_active !== false);
+            };
+            const clearSelectionsAfter = (startIndex) => {
+                for (let idx = startIndex; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
+                }
+            };
+
+            const refreshLevels = () => {
+                let parentId = 0;
+                const levelBlocks = [];
+
+                for (let index = 0; index < hierarchy.levelCount; index += 1) {
+                    const children = childrenByParent.get(Number(parentId || 0)) || [];
+                    const activeChildren = children
+                        .filter(item => item.is_active !== false)
+                        .map(item => ({
+                            id: Number(item.id),
+                            label: String(item.label || item.value || '').trim()
+                        }))
+                        .filter(item => Number.isFinite(item.id) && item.id > 0);
+                    if (!activeChildren.length) {
+                        clearSelectionsAfter(index);
+                        break;
+                    }
+
+                    const selectedValue = String(selections[index] || '');
+                    const hasSelected = activeChildren.some(item => String(item.id) === selectedValue);
+                    const resolvedValue = hasSelected ? selectedValue : '';
+                    selections[index] = resolvedValue;
+                    if (!hasSelected) {
+                        clearSelectionsAfter(index + 1);
+                    }
+
+                    const optionsHtml = activeChildren.map((item) => `
+                        <option value="${escapeHtml(String(item.id))}" ${String(item.id) === resolvedValue ? 'selected' : ''}>
+                            ${escapeHtml(item.label)}
+                        </option>
+                    `).join('');
+                    levelBlocks.push(`
+                        <div class="form-group managed-list-hierarchy-level">
+                            <label for="field-${field.field_name}-level-${index + 1}">${escapeHtml(hierarchy.labels[index] || `Nivå ${index + 1}`)}</label>
+                            <select id="field-${field.field_name}-level-${index + 1}"
+                                    class="form-control managed-list-hierarchy-select"
+                                    data-level-index="${index}"
+                                    ${field.is_required && index === 0 ? 'required' : ''}>
+                                <option value="">Välj...</option>
+                                ${optionsHtml}
+                            </select>
+                        </div>
+                    `);
+
+                    if (!resolvedValue) {
+                        break;
+                    }
+                    parentId = Number(resolvedValue);
+                    if (!hasActiveChildren(parentId)) {
+                        clearSelectionsAfter(index + 1);
+                        break;
+                    }
+                }
+
+                labelContainer.innerHTML = levelBlocks.join('');
+
+                const lastSelectedId = [...selections]
+                    .reverse()
+                    .map(value => Number(value || 0))
+                    .find(value => Number.isFinite(value) && value > 0) || 0;
+
+                if (!lastSelectedId || !byId.has(lastSelectedId)) {
+                    hiddenInput.value = '';
+                    return;
+                }
+
+                if (hierarchy.allowOnlyLeafSelection && hasActiveChildren(lastSelectedId)) {
+                    hiddenInput.value = '';
+                    return;
+                }
+
+                hiddenInput.value = String(lastSelectedId);
+            };
+
+            labelContainer.addEventListener('change', (event) => {
+                const selectEl = event.target.closest('.managed-list-hierarchy-select');
+                if (!selectEl) return;
+                const levelIndex = Number(selectEl.dataset.levelIndex || 0);
+                if (!Number.isFinite(levelIndex) || levelIndex < 0) return;
+                if (levelIndex >= selections.length) return;
+                selections[levelIndex] = selectEl.value || '';
+                for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
+                }
+                refreshLevels();
+            });
+
+            labelContainer.addEventListener('input', (event) => {
+                const selectEl = event.target.closest('.managed-list-hierarchy-select');
+                if (!selectEl) return;
+                const levelIndex = Number(selectEl.dataset.levelIndex || 0);
+                if (!Number.isFinite(levelIndex) || levelIndex < 0) return;
+                if (levelIndex >= selections.length) return;
+                if (String(selections[levelIndex] || '') === String(selectEl.value || '')) return;
+                selections[levelIndex] = selectEl.value || '';
+                for (let idx = levelIndex + 1; idx < selections.length; idx += 1) {
+                    selections[idx] = '';
+                }
+                refreshLevels();
+            });
+
+            refreshLevels();
+        });
     }
 
     normalizeFieldKey(value) {
@@ -127,9 +515,7 @@ class ObjectFormComponent {
                 nameInput.value = '';
                 return;
             }
-            const orderedParts = [partA, partB].sort((a, b) =>
-                a.localeCompare(b, 'sv', { sensitivity: 'base' })
-            );
+            const orderedParts = [partA, partB].sort((a, b) => objectFormTextCollator.compare(a, b));
             nameInput.value = `${orderedParts[0]} - ${orderedParts[1]}`;
         };
 
@@ -277,20 +663,46 @@ class ObjectFormComponent {
                 
             case 'select':
                 const options = this.getSelectOptions(field);
-                const optionsHtml = options.map(opt => 
-                    `<option value="${escapeHtml(opt)}" ${value === opt ? 'selected' : ''}>
-                        ${escapeHtml(opt)}
-                    </option>`
-                ).join('');
-                inputHtml = `
-                    <select id="field-${field.field_name}" 
-                            name="${field.field_name}"
-                            ${required}
-                            class="form-control">
-                        <option value="">Välj...</option>
-                        ${optionsHtml}
-                    </select>
-                `;
+                const managedOptions = this.getManagedListFieldOptions(field);
+                const hierarchyConfig = this.getManagedListHierarchyConfig(field);
+                const isMultiManagedSelect = managedOptions && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi';
+                const selectedValue = managedOptions
+                    ? this.getManagedListSelectSelectedValue(Number(managedOptions.list_id), value)
+                    : String(value || '');
+                if (hierarchyConfig) {
+                    inputHtml = `
+                        <input type="hidden"
+                               id="field-${field.field_name}"
+                               name="${field.field_name}"
+                               value="${escapeHtml(selectedValue)}"
+                               ${required}>
+                        <div class="managed-list-hierarchy"
+                             data-managed-hierarchy-field="${escapeHtml(field.field_name)}"
+                             data-managed-hierarchy-list-id="${escapeHtml(String(managedOptions.list_id || ''))}">
+                            <div data-managed-hierarchy-levels></div>
+                        </div>
+                    `;
+                } else {
+                    const optionsHtml = options.map(opt => 
+                        `<option value="${escapeHtml(opt.value)}" ${
+                            isMultiManagedSelect
+                                ? (this.getManagedListMultiSelectedValues(Number(managedOptions.list_id), value).includes(String(opt.value)) ? 'selected' : '')
+                                : ((String(selectedValue) === String(opt.value)) ? 'selected' : '')
+                        }>
+                            ${escapeHtml(opt.label)}
+                        </option>`
+                    ).join('');
+                    inputHtml = `
+                        <select id="field-${field.field_name}" 
+                                name="${field.field_name}"
+                                ${required}
+                                ${isMultiManagedSelect ? 'multiple size="6"' : ''}
+                                class="form-control">
+                            <option value="">Välj...</option>
+                            ${optionsHtml}
+                        </select>
+                    `;
+                }
                 break;
                 
             default:
@@ -336,6 +748,28 @@ class ObjectFormComponent {
         if (!node) return null;
         const win = node.ownerDocument?.defaultView || window;
         return win.getComputedStyle(node);
+    }
+
+    captureTinyMceSelectionBookmark(editor) {
+        if (!editor?.selection) return null;
+        try {
+            return editor.selection.getBookmark(2, true);
+        } catch (error) {
+            console.warn('Failed to capture TinyMCE selection bookmark:', error);
+            return null;
+        }
+    }
+
+    restoreTinyMceSelectionBookmark(editor, bookmark) {
+        if (!editor?.selection || !bookmark) return false;
+        try {
+            editor.focus();
+            editor.selection.moveToBookmark(bookmark);
+            return true;
+        } catch (error) {
+            console.warn('Failed to restore TinyMCE selection bookmark:', error);
+            return false;
+        }
     }
 
     normalizeTinyMceCopiedFormat(format) {
@@ -443,6 +877,22 @@ class ObjectFormComponent {
     }
 
     registerTinyMceFormatButtons(editor) {
+        editor.ui.registry.addMenuButton('textstyle', {
+            text: 'Stil',
+            fetch: (callback) => {
+                const selectionBookmark = this.captureTinyMceSelectionBookmark(editor);
+                const items = this.getRichTextTinyMceStyleFormats().map((item) => ({
+                    type: 'menuitem',
+                    text: item.title,
+                    onAction: () => {
+                        this.restoreTinyMceSelectionBookmark(editor, selectionBookmark);
+                        this.applyRichTextStyle(editor, item.format);
+                    }
+                }));
+                callback(items);
+            }
+        });
+
         editor.ui.registry.addButton('dashlist', {
             text: '- List',
             tooltip: 'Växla strecklista',
@@ -494,6 +944,138 @@ class ObjectFormComponent {
                 };
             }
         });
+    }
+
+    getRichTextTinyMceFormats() {
+        return {
+            standard_heading_1: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    marginTop: '12px',
+                    marginBottom: '4px'
+                }
+            },
+            standard_heading_2: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '12px',
+                    fontWeight: '400',
+                    fontStyle: 'italic',
+                    color: '#000000',
+                    marginTop: '10px',
+                    marginBottom: '4px'
+                }
+            },
+            standard_normal: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    marginTop: '4px',
+                    marginBottom: '2px'
+                }
+            },
+            standard_normal_adjustment: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'normal',
+                    color: '#000000',
+                    backgroundColor: '#CED4D9',
+                    marginTop: '4px',
+                    marginBottom: '2px'
+                }
+            },
+            standard_instruction: {
+                block: 'p',
+                styles: {
+                    fontFamily: 'Arial, Helvetica, sans-serif',
+                    fontSize: '11px',
+                    fontWeight: '400',
+                    fontStyle: 'italic',
+                    color: '#ff0000',
+                    marginTop: '0',
+                    marginBottom: '4px'
+                }
+            }
+        };
+    }
+
+    getRichTextTinyMceStyleFormats() {
+        return [
+            { title: 'Rubrik 1 | 13px | Fet', format: 'standard_heading_1' },
+            { title: 'Rubrik 2 | 12px | Kursiv', format: 'standard_heading_2' },
+            { title: 'Normal | 11px | Regular', format: 'standard_normal' },
+            { title: 'Normal - anpassning', format: 'standard_normal_adjustment' },
+            { title: 'Anvisning | 11px | Kursiv | Rod', format: 'standard_instruction' }
+        ];
+    }
+
+    getRichTextEditorZoom() {
+        return 1.3;
+    }
+
+    applyRichTextStyle(editor, formatName) {
+        if (!editor || !formatName) return;
+        const formatDefinition = this.getRichTextTinyMceFormats()[formatName];
+        if (!formatDefinition) return;
+
+        const inlineFormatName = `inline_${formatName}`;
+        const textStyles = {
+            fontFamily: formatDefinition.styles.fontFamily,
+            fontSize: formatDefinition.styles.fontSize,
+            fontWeight: formatDefinition.styles.fontWeight,
+            fontStyle: formatDefinition.styles.fontStyle,
+            color: formatDefinition.styles.color,
+            textDecoration: formatDefinition.styles.textDecoration,
+            textDecorationColor: formatDefinition.styles.textDecorationColor,
+            backgroundColor: formatDefinition.styles.backgroundColor
+        };
+        const blockStyles = {
+            marginTop: formatDefinition.styles.marginTop,
+            marginBottom: formatDefinition.styles.marginBottom
+        };
+
+        editor.undoManager.transact(() => {
+            editor.formatter.register(inlineFormatName, {
+                inline: 'span',
+                styles: textStyles,
+                remove_similar: true
+            });
+
+            if (editor.selection && !editor.selection.isCollapsed()) {
+                editor.formatter.apply(inlineFormatName);
+                return;
+            }
+
+            const selectedBlocks = editor.selection?.getSelectedBlocks?.() || [];
+            const currentBlock = editor.dom.getParent(this.getTinyMceSelectionNode(editor), 'p,div,li,h1,h2,h3,h4,h5,h6,blockquote');
+            const targetBlocks = selectedBlocks.length > 0
+                ? selectedBlocks
+                : (currentBlock ? [currentBlock] : []);
+
+            targetBlocks.forEach((block) => {
+                Object.entries(textStyles).forEach(([prop, value]) => {
+                    editor.dom.setStyle(block, prop, value);
+                });
+                Object.entries(blockStyles).forEach(([prop, value]) => {
+                    editor.dom.setStyle(block, prop, value);
+                });
+            });
+        });
+
+        editor.nodeChanged();
     }
 
     captureFallbackFormat(editor) {
@@ -612,21 +1194,26 @@ class ObjectFormComponent {
                 statusbar: true,
                 min_height: 240,
                 plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste autoresize nonbreaking',
-                toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
+                toolbar: 'undo redo | textstyle fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
                 toolbar_mode: 'sliding',
-                font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
-                font_family_formats: 'Arial=arial,helvetica,sans-serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif; Tahoma=tahoma,arial,helvetica,sans-serif; Courier New=courier new,courier,monospace',
+                formats: this.getRichTextTinyMceFormats(),
+                font_size_formats: '11px 13px',
+                font_family_formats: 'Arial=arial,helvetica,sans-serif',
                 paste_data_images: true,
                 paste_as_text: false,
+                paste_retain_style_properties: 'font-family font-size font-weight font-style text-decoration text-decoration-color color background-color',
                 paste_remove_styles_if_webkit: false,
                 paste_webkit_styles: 'all',
                 paste_merge_formats: true,
+                valid_styles: {
+                    '*': 'font-family,font-size,font-weight,font-style,text-decoration,text-decoration-color,color,background-color,text-align,line-height,margin-left,margin-right,margin-top,margin-bottom,padding-left,padding-right,padding-top,padding-bottom,list-style-type,list-style-position'
+                },
                 nonbreaking_force_tab: true,
                 automatic_uploads: false,
                 convert_urls: false,
                 browser_spellcheck: true,
                 contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-                content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
+                content_style: `body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.45; zoom: ${this.getRichTextEditorZoom()}; } p { margin: 6px 0 4px; } img { max-width: 100%; height: auto; } table { width: 100%; border-collapse: collapse; margin: 2px 0 4px; } th, td { border: 1px solid #d0d7de; padding: 0.35rem 0.5rem; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }`,
                 setup: (editor) => {
                     this.registerTinyMceFormatButtons(editor);
 
@@ -772,22 +1359,27 @@ class ObjectFormComponent {
             statusbar: true,
             min_height: 420,
             plugins: 'advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table help wordcount paste nonbreaking',
-            toolbar: 'undo redo | blocks fontfamily fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
+            toolbar: 'undo redo | textstyle fontsize | bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist dashlist outdent indent | link image media table | copyformat applyformat removeformat code fullscreen',
             toolbar_mode: 'sliding',
             resize: false,
-            font_size_formats: '8pt 10pt 12pt 14pt 16pt 18pt 20pt 24pt 28pt 32pt 36pt 48pt',
-            font_family_formats: 'Arial=arial,helvetica,sans-serif; Helvetica=helvetica,arial,sans-serif; Times New Roman=times new roman,times,serif; Georgia=georgia,serif; Verdana=verdana,geneva,sans-serif; Tahoma=tahoma,arial,helvetica,sans-serif; Courier New=courier new,courier,monospace',
+            formats: this.getRichTextTinyMceFormats(),
+            font_size_formats: '11px 13px',
+            font_family_formats: 'Arial=arial,helvetica,sans-serif',
             paste_data_images: true,
             paste_as_text: false,
+            paste_retain_style_properties: 'font-family font-size font-weight font-style text-decoration color background-color',
             paste_remove_styles_if_webkit: false,
             paste_webkit_styles: 'all',
             paste_merge_formats: true,
+            valid_styles: {
+                '*': 'font-family,font-size,font-weight,font-style,text-decoration,color,background-color,text-align,line-height,margin-left,margin-right,margin-top,margin-bottom,padding-left,padding-right,padding-top,padding-bottom,list-style-type,list-style-position'
+            },
             nonbreaking_force_tab: true,
             automatic_uploads: false,
             convert_urls: false,
             browser_spellcheck: true,
             contextmenu: 'undo redo | bold italic underline | link image inserttable | cell row column deletetable',
-            content_style: 'body { font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.45; } p { margin: 0 0 0.35rem; } img { max-width: 100%; height: auto; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }',
+            content_style: `body { font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.45; zoom: ${this.getRichTextEditorZoom()}; } p { margin: 6px 0 4px; } img { max-width: 100%; height: auto; } table { width: 100%; border-collapse: collapse; margin: 2px 0 4px; } th, td { border: 1px solid #d0d7de; padding: 0.35rem 0.5rem; } ul.dash-list { list-style: none; padding-left: 1.2rem; } ul.dash-list > li { position: relative; } ul.dash-list > li::before { content: "- "; position: absolute; left: -1rem; }`,
             setup: (editor) => {
                 this.registerTinyMceFormatButtons(editor);
                 editor.on('change input undo redo keyup', () => {
@@ -1073,7 +1665,7 @@ class ObjectFormComponent {
     renderMetadataFields() {
         const statusValue = this.existingObject?.status || 'In work';
         const versionValue = this.existingObject?.version || 'v1';
-        const baseIdValue = this.existingObject?.main_id || this.existingObject?.auto_id || '';
+        const baseIdValue = this.existingObject?.main_id || this.existingObject?.id_full || '';
         const isEditLikeMode = Boolean(this.existingObject?.id);
         
         return `
@@ -1171,13 +1763,21 @@ class ObjectFormComponent {
     }
 
     getSelectOptions(field) {
-        const normalizedOptions = this.normalizeFieldOptions(field.field_options || field.options);
-        if (normalizedOptions?.source === 'managed_list') {
+        const normalizedOptions = this.getManagedListFieldOptions(field);
+        if (normalizedOptions) {
             const listId = Number(normalizedOptions?.list_id);
             if (!Number.isFinite(listId) || listId <= 0) return [];
-            return this.managedListValues[listId] || [];
+            if (normalizedOptions.parent_field_name) {
+                return [];
+            }
+            return (this.managedListValues[listId] || []).filter(item => item && item.value);
         }
-        return this.parseOptions(field.field_options || field.options);
+        return this.parseOptions(field.field_options || field.options)
+            .map(option => ({
+                value: String(option ?? '').trim(),
+                label: String(option ?? '').trim()
+            }))
+            .filter(option => option.value);
     }
     
     getFormData() {
@@ -1210,11 +1810,22 @@ class ObjectFormComponent {
             if (!input) return;
             
             let value;
+            const managedOptions = this.getManagedListFieldOptions(field);
+            const isMultiManagedSelect = (
+                field.field_type === 'select'
+                && managedOptions
+                && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi'
+            );
             
             if (field.field_type === 'boolean') {
                 value = input.checked;
             } else if (field.field_type === 'number' || field.field_type === 'decimal') {
                 value = input.value ? parseFloat(input.value) : null;
+            } else if (isMultiManagedSelect && input instanceof HTMLSelectElement) {
+                const selected = Array.from(input.selectedOptions || [])
+                    .map(option => String(option.value || '').trim())
+                    .filter(Boolean);
+                value = selected.length ? selected : null;
             } else if (field.field_type === 'richtext') {
                 const richValue = this.getRichTextFieldValue(field.field_name, form);
                 value = richValue ? richValue : null;
@@ -1265,6 +1876,31 @@ class ObjectFormComponent {
             
             if (field.field_type === 'boolean') {
                 // Boolean fields don't need to be checked (checkbox can be unchecked)
+                return;
+            }
+
+            const managedOptions = this.getManagedListFieldOptions(field);
+            const isMultiManagedSelect = (
+                field.field_type === 'select'
+                && managedOptions
+                && String(managedOptions.selection_mode || 'single').toLowerCase() === 'multi'
+            );
+            if (isMultiManagedSelect && input instanceof HTMLSelectElement) {
+                const selectedCount = Array.from(input.selectedOptions || [])
+                    .map(option => String(option.value || '').trim())
+                    .filter(Boolean)
+                    .length;
+                if (selectedCount === 0) {
+                    isValid = false;
+                    missingFields.push({
+                        name: field.display_name || field.field_name,
+                        type: field.field_type,
+                        value: '[]'
+                    });
+                    input.classList.add('error');
+                } else {
+                    input.classList.remove('error');
+                }
                 return;
             }
             

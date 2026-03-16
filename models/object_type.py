@@ -19,11 +19,11 @@ class ObjectType(db.Model):
     fields = db.relationship('ObjectField', back_populates='object_type', cascade='all, delete-orphan')
     objects = db.relationship('Object', back_populates='object_type')
 
-    def _calculate_next_auto_id_number(self):
+    def _calculate_next_base_id_number(self):
         max_number = 0
         pattern = re.compile(r'^[A-Za-z0-9_]+-(\d+)$')
         for obj in self.objects:
-            candidate = str(obj.auto_id or '').strip().split('.')[0]
+            candidate = str(obj.main_id or '').strip().split('.')[0]
             match = pattern.match(candidate)
             if not match:
                 continue
@@ -39,7 +39,7 @@ class ObjectType(db.Model):
             'description': self.description,
             'icon': self.icon,
             'id_prefix': self.id_prefix,
-            'auto_id_next_number': self._calculate_next_auto_id_number(),
+            'next_base_id_number': self._calculate_next_base_id_number(),
             'color': self.color,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_system': self.is_system

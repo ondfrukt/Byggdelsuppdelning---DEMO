@@ -9,6 +9,7 @@ class ObjectDetailComponent {
         this.objectId = objectId;
         this.object = null;
         this.activeTab = 'grunddata';
+        this.managedListDisplayByListId = new Map();
     }
     
     async render() {
@@ -16,13 +17,14 @@ class ObjectDetailComponent {
         
         try {
             this.object = await ObjectsAPI.getById(this.objectId);
+            await this.preloadManagedListDisplayMaps();
             
             this.container.innerHTML = `
                 <div class="object-detail">
                     <div class="view-header">
                         <div>
                             <button class="btn btn-secondary" onclick="goBack()">← Tillbaka</button>
-                            <h2>${this.object.id_full || this.object.auto_id} - ${this.getDisplayName()}</h2>
+                            <h2>${this.object.id_full || this.object.id_full} - ${this.getDisplayName()}</h2>
                         </div>
                         <div>
                             <button class="btn btn-primary" onclick="editObject(${this.objectId})">
@@ -67,6 +69,91 @@ class ObjectDetailComponent {
             showToast('Kunde inte ladda objekt', 'error');
         }
     }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            return JSON.parse(rawOptions);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    async preloadManagedListDisplayMaps() {
+        this.managedListDisplayByListId = new Map();
+        const fields = Array.isArray(this.object?.object_type?.fields) ? this.object.object_type.fields : [];
+        const managedListIds = fields
+            .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
+            .map(field => this.normalizeFieldOptions(field?.field_options))
+            .filter(options => options?.source === 'managed_list')
+            .map(options => Number(options?.list_id))
+            .filter(listId => Number.isFinite(listId) && listId > 0);
+        const uniqueListIds = Array.from(new Set(managedListIds));
+        await Promise.all(uniqueListIds.map(async (listId) => {
+            try {
+                const response = await fetch(`/api/managed-lists/${listId}?include_items=true&include_inactive_items=true`);
+                if (!response.ok) return;
+                const payload = await response.json();
+                const items = Array.isArray(payload?.items) ? payload.items : [];
+                const byId = new Map();
+                const byValue = new Map();
+                items.forEach(item => {
+                    const itemId = Number(item?.id || 0);
+                    const valueKey = String(item?.value || '').trim();
+                    const label = String(item?.display_value || item?.label || item?.value || '').trim();
+                    if (!label) return;
+                    if (Number.isFinite(itemId) && itemId > 0) {
+                        byId.set(itemId, {
+                            label,
+                            parentItemId: Number(item?.parent_item_id || 0) || null
+                        });
+                    }
+                    if (valueKey) byValue.set(valueKey, label);
+                });
+                this.managedListDisplayByListId.set(listId, { byId, byValue });
+            } catch (_error) {
+                // Ignore and fall back to raw values.
+            }
+        }));
+    }
+
+    resolveManagedListDisplayValue(value, field) {
+        const options = this.normalizeFieldOptions(field?.field_options);
+        if (!options || options.source !== 'managed_list') return value;
+        const listId = Number(options.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return value;
+        const map = this.managedListDisplayByListId.get(listId);
+        if (!map) return value;
+        const resolveHierarchyPath = (itemId) => {
+            const safeId = Number(itemId || 0);
+            if (!Number.isFinite(safeId) || safeId <= 0) return '';
+            const chain = [];
+            const visited = new Set();
+            let currentId = safeId;
+            while (currentId && map.byId.has(currentId) && !visited.has(currentId)) {
+                visited.add(currentId);
+                const node = map.byId.get(currentId);
+                chain.push(String(node?.label || '').trim());
+                currentId = Number(node?.parentItemId || 0);
+            }
+            const labels = chain.filter(Boolean).reverse();
+            return labels.length > 1 ? labels.join(' > ') : '';
+        };
+
+        const asNumber = Number(value);
+        if (Number.isFinite(asNumber) && map.byId.has(asNumber)) {
+            const hierarchyPath = resolveHierarchyPath(asNumber);
+            if (hierarchyPath) return hierarchyPath;
+            return map.byId.get(asNumber)?.label || value;
+        }
+        const asText = String(value || '').trim();
+        if (asText && map.byValue.has(asText)) {
+            return map.byValue.get(asText);
+        }
+        return value;
+    }
     
     getDisplayName() {
         if (this.object.data) {
@@ -90,7 +177,7 @@ class ObjectDetailComponent {
         fields.push(`
             <div class="detail-item">
                 <span class="detail-label">BaseID</span>
-                <span class="detail-value">${this.object.main_id || this.object.auto_id || 'N/A'}</span>
+                <span class="detail-value">${this.object.main_id || this.object.id_full || 'N/A'}</span>
             </div>
         `);
         
@@ -131,7 +218,9 @@ class ObjectDetailComponent {
                 objectTypeFields.map(field => [
                     String(field.field_name || '').trim().toLowerCase(),
                     {
+                        displayName: String(field.display_name || field.field_name || '').trim(),
                         fieldType: field.field_type,
+                        fieldOptions: field.field_options,
                         isDetailVisible: field.is_detail_visible !== false
                     }
                 ])
@@ -140,10 +229,14 @@ class ObjectDetailComponent {
                 const config = fieldConfigByName.get(String(key || '').trim().toLowerCase());
                 if (config && config.isDetailVisible === false) return;
                 const fieldType = config?.fieldType;
+                const resolvedValue = config
+                    ? this.resolveManagedListDisplayValue(value, { field_options: config.fieldOptions })
+                    : value;
+                const label = config?.displayName || this.formatFieldName(key);
                 fields.push(`
                     <div class="detail-item">
-                        <span class="detail-label">${this.formatFieldName(key)}</span>
-                        <span class="detail-value">${this.formatValue(value, fieldType)}</span>
+                        <span class="detail-label">${escapeHtml(label)}</span>
+                        <span class="detail-value">${this.formatValue(resolvedValue, fieldType)}</span>
                     </div>
                 `);
             });
@@ -168,7 +261,9 @@ class ObjectDetailComponent {
     }
     
     formatFieldName(name) {
-        return name.charAt(0).toUpperCase() + name.slice(1).replace(/_/g, ' ');
+        const normalized = String(name || '').trim();
+        if (!normalized) return 'Okänt fält';
+        return normalized.charAt(0).toUpperCase() + normalized.slice(1).replace(/_/g, ' ');
     }
     
     formatValue(value, fieldType = undefined) {

@@ -2,7 +2,7 @@
  * Main Application - Object-based Byggdelssystem
  */
 
-let currentView = 'objects';
+let currentView = 'tree';
 let currentObjectId = null;
 let currentObjectListComponent = null;
 let currentObjectDetailComponent = null;
@@ -12,6 +12,12 @@ window.currentSelectedObjectId = null;
 let detailHistory = [];
 let detailHistoryIndex = -1;
 const DETAIL_HISTORY_STORAGE_KEY = 'detail_panel_history_v1';
+let activeDetailPanelRequestId = 0;
+const swedishNaturalCollator = new Intl.Collator('sv', {
+    sensitivity: 'base',
+    numeric: true,
+    ignorePunctuation: true
+});
 window.currentDuplicateContext = null;
 window.currentCreateObjectRelations = [];
 
@@ -34,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     restoreDetailHistory();
     ensureDetailHistoryControls();
     updateDetailHistoryButtons();
-    await loadObjectsView();
+    await switchView('tree');
 });
 
 // Initialize navigation
@@ -63,12 +69,7 @@ function ensureTreeNavButton() {
     treeBtn.dataset.view = 'tree';
     treeBtn.textContent = 'Trädvy';
 
-    const adminBtn = nav.querySelector('.nav-btn[data-view="admin"]');
-    if (adminBtn) {
-        nav.insertBefore(treeBtn, adminBtn);
-    } else {
-        nav.appendChild(treeBtn);
-    }
+    nav.insertBefore(treeBtn, nav.firstChild);
 }
 
 // Switch between views
@@ -190,7 +191,7 @@ async function loadObjectsView(options = {}) {
     window.treeViewActive = false;
     updateTreeToggleButtonLabel();
 
-    objectListWrapper.style.display = 'block';
+    objectListWrapper.style.display = 'flex';
     if (treeWrapper) treeWrapper.style.display = 'none';
     
     currentObjectListComponent = new ObjectListComponent('objects-container', objectType);
@@ -222,7 +223,7 @@ function updateDetailPanelHeader(object) {
         object?.data?.name ||
         object?.data?.title ||
         object?.id_full ||
-        object?.auto_id ||
+        object?.id_full ||
         'Objektdetaljer';
 
     if (panelTitle) {
@@ -335,6 +336,20 @@ function ensureDetailHistoryControls() {
         duplicateBtn.addEventListener('click', () => duplicateCurrentDetailObject());
         actions.insertBefore(duplicateBtn, editBtn.nextSibling);
     }
+
+    let deleteBtn = document.getElementById('detail-nav-delete');
+    if (!deleteBtn) {
+        deleteBtn = document.createElement('button');
+        deleteBtn.id = 'detail-nav-delete';
+        deleteBtn.className = 'detail-panel-nav-btn detail-panel-nav-btn-danger';
+        deleteBtn.type = 'button';
+        deleteBtn.title = 'Ta bort objekt';
+        deleteBtn.setAttribute('aria-label', 'Ta bort objekt');
+        deleteBtn.disabled = true;
+        deleteBtn.textContent = '🗑';
+        deleteBtn.addEventListener('click', () => deleteCurrentDetailObject());
+        actions.insertBefore(deleteBtn, duplicateBtn.nextSibling);
+    }
 }
 
 function updateDetailHistoryButtons() {
@@ -343,7 +358,8 @@ function updateDetailHistoryButtons() {
     const forwardBtn = document.getElementById('detail-nav-forward');
     const editBtn = document.getElementById('detail-nav-edit');
     const duplicateBtn = document.getElementById('detail-nav-duplicate');
-    if (!backBtn || !forwardBtn || !editBtn || !duplicateBtn) return;
+    const deleteBtn = document.getElementById('detail-nav-delete');
+    if (!backBtn || !forwardBtn || !editBtn || !duplicateBtn || !deleteBtn) return;
 
     const hasBack = detailHistoryIndex > 0;
     const hasForward = detailHistoryIndex >= 0 && detailHistoryIndex < detailHistory.length - 1;
@@ -352,11 +368,17 @@ function updateDetailHistoryButtons() {
     forwardBtn.disabled = !hasForward;
     editBtn.disabled = !hasCurrent;
     duplicateBtn.disabled = !hasCurrent;
+    deleteBtn.disabled = !hasCurrent;
 }
 
 function editCurrentDetailObject() {
     if (!Number.isFinite(currentObjectId)) return;
     editObject(currentObjectId);
+}
+
+function deleteCurrentDetailObject() {
+    if (!Number.isFinite(currentObjectId)) return;
+    deleteObject(currentObjectId);
 }
 
 async function duplicateCurrentDetailObject() {
@@ -378,7 +400,7 @@ function getObjectDisplayNameForDuplicate(obj) {
         obj.data?.Name ||
         obj.data?.name ||
         obj.id_full ||
-        obj.auto_id ||
+        obj.id_full ||
         'Okänt objekt'
     );
 }
@@ -401,7 +423,7 @@ function getDuplicateSortIndicator(field) {
 }
 
 function getDuplicateRowFieldValue(row, field) {
-    if (field === 'auto_id') return String(row.autoId || '');
+    if (field === 'id_full') return String(row.autoId || '');
     if (field === 'type') return String(row.type || '');
     if (field === 'name') return String(row.name || '');
     if (field === 'description') return String(getDuplicateRelationRowDescription(row) || '');
@@ -421,7 +443,7 @@ function buildDuplicateRelationRows() {
             key: `existing-${relation.id}`,
             kind: 'existing',
             id: relation.id,
-            autoId: linkedObject.id_full || linkedObject.auto_id || linkedObject.id || '?',
+            autoId: linkedObject.id_full || linkedObject.id_full || linkedObject.id || '?',
             type: linkedObject.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(linkedObject),
             description: linkedObject.data?.beskrivning || linkedObject.data?.description || '',
@@ -434,7 +456,7 @@ function buildDuplicateRelationRows() {
             key: `added-${obj.id}`,
             kind: 'added',
             id: obj.id,
-            autoId: obj.id_full || obj.auto_id || obj.id || '?',
+            autoId: obj.id_full || obj.id_full || obj.id || '?',
             type: obj.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(obj),
             description: obj.data?.beskrivning || obj.data?.description || '',
@@ -472,7 +494,7 @@ function applyDuplicateRowFiltersAndSort(rows) {
     filtered = [...filtered].sort((a, b) => {
         const aValue = getDuplicateRowFieldValue(a, sortField);
         const bValue = getDuplicateRowFieldValue(b, sortField);
-        const comparison = aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' });
+        const comparison = swedishNaturalCollator.compare(String(aValue || ''), String(bValue || ''));
         return sortDirection === 'asc' ? comparison : -comparison;
     });
 
@@ -526,14 +548,14 @@ function renderDuplicateSelectionSection() {
                 <table class="data-table duplicate-relations-table">
                     <thead>
                         <tr>
-                            <th class="col-id" data-sortable="true" data-field="auto_id" style="cursor:pointer;">ID <span class="sort-indicator">${getDuplicateSortIndicator('auto_id')}</span></th>
+                            <th class="col-id" data-sortable="true" data-field="id_full" style="cursor:pointer;">ID <span class="sort-indicator">${getDuplicateSortIndicator('id_full')}</span></th>
                             <th class="col-type" data-sortable="true" data-field="type" style="cursor:pointer;">Typ <span class="sort-indicator">${getDuplicateSortIndicator('type')}</span></th>
                             <th class="col-name" data-sortable="true" data-field="name" style="cursor:pointer;">Namn <span class="sort-indicator">${getDuplicateSortIndicator('name')}</span></th>
                             <th class="col-description" data-sortable="true" data-field="description" style="cursor:pointer;">Beskrivning <span class="sort-indicator">${getDuplicateSortIndicator('description')}</span></th>
                             <th class="col-actions"></th>
                         </tr>
                         <tr class="column-search-row">
-                            <th class="col-id"><input type="text" class="column-search-input duplicate-column-search-input" data-field="auto_id" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.auto_id || ''))}"></th>
+                            <th class="col-id"><input type="text" class="column-search-input duplicate-column-search-input" data-field="id_full" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.id_full || ''))}"></th>
                             <th class="col-type"><input type="text" class="column-search-input duplicate-column-search-input" data-field="type" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.type || ''))}"></th>
                             <th class="col-name"><input type="text" class="column-search-input duplicate-column-search-input" data-field="name" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.name || ''))}"></th>
                             <th class="col-description"><input type="text" class="column-search-input duplicate-column-search-input" data-field="description" placeholder="Sök..." value="${escapeHtml(String(window.currentDuplicateContext?.columnSearches?.description || ''))}"></th>
@@ -791,7 +813,7 @@ async function showDuplicateObjectModal(objectId) {
         additionalObjects: new Map(),
         search: '',
         columnSearches: {
-            auto_id: '',
+            id_full: '',
             type: '',
             name: '',
             description: ''
@@ -909,7 +931,7 @@ async function loadTreeViewPage() {
     updateTreeToggleButtonLabel();
 
     if (objectsWrapper) objectsWrapper.style.display = 'none';
-    treeWrapper.style.display = 'block';
+    treeWrapper.style.display = 'flex';
 
     // Initialize tree view if not already done
     if (!treeViewInstance) {
@@ -918,6 +940,16 @@ async function loadTreeViewPage() {
         
         // Set up click handler
         treeViewInstance.setNodeClickHandler(async (objectId, objectType) => {
+            const panel = document.getElementById('detail-panel');
+            const normalizedObjectId = Number(objectId);
+            const currentDetailId = Number(window.currentSelectedObjectId);
+            const isSameObject = Number.isFinite(normalizedObjectId) && normalizedObjectId === currentDetailId;
+
+            if (isSameObject && panel?.classList.contains('active')) {
+                closeDetailPanel();
+                return;
+            }
+
             await openDetailPanel(objectId);
         });
     }
@@ -947,10 +979,14 @@ async function openDetailPanel(objectId, options = {}) {
     const panelBody = document.getElementById('detail-panel-body');
     
     if (!panel || !panelBody) return;
+
+    const requestId = ++activeDetailPanelRequestId;
     
     try {
+        const wasActive = panel.classList.contains('active');
+
         // If panel is closed and user opens a new object directly, start a fresh history chain.
-        if (!fromHistory && !panel.classList.contains('active')) {
+        if (!fromHistory && !wasActive) {
             resetDetailHistory();
         }
 
@@ -962,11 +998,18 @@ async function openDetailPanel(objectId, options = {}) {
 
         setSelectedDetailObject(objectId);
 
-        // Visa panel direkt och låt CSS hantera animationen
-        panel.classList.add('active');
+        // Only trigger the slide-in transition when opening a closed panel.
+        if (!wasActive) {
+            panel.classList.add('active');
+        }
         
         // Ladda objektdata
         const object = await ObjectsAPI.getById(objectId);
+        if (requestId !== activeDetailPanelRequestId) return;
+
+        if (!panel.classList.contains('active')) {
+            panel.classList.add('active');
+        }
         
         // Uppdatera panel-header (namn + kategori)
         updateDetailPanelHeader(object);
@@ -981,8 +1024,10 @@ async function openDetailPanel(objectId, options = {}) {
         
         // Rendera komponenten för det valda objektet
         await currentDetailPanelInstance.render(objectId);
+        if (requestId !== activeDetailPanelRequestId) return;
         
     } catch (error) {
+        if (requestId !== activeDetailPanelRequestId) return;
         console.error('Failed to load object detail:', error);
         showToast('Kunde inte ladda objektdetaljer', 'error');
         closeDetailPanel();
@@ -991,6 +1036,7 @@ async function openDetailPanel(objectId, options = {}) {
 
 // Close detail panel
 function closeDetailPanel() {
+    activeDetailPanelRequestId += 1;
     const panel = document.getElementById('detail-panel');
     const panelTitle = document.getElementById('detail-panel-title');
     const panelCategory = document.getElementById('detail-panel-category');
@@ -1049,7 +1095,7 @@ function setCreateObjectRelationsVisible(visible) {
 }
 
 function getCreateObjectRelationLabel(item) {
-    const autoId = String(item?.auto_id || '').trim();
+    const autoId = String(item?.id_full || '').trim();
     const typeName = String(item?.type_name || '').trim();
     const name = String(item?.display_name || '').trim();
     if (autoId && typeName && name) return `${autoId} • ${typeName} • ${name}`;
@@ -1101,7 +1147,7 @@ async function openCreateObjectRelationPicker() {
                 const normalized = (Array.isArray(selectedItems) ? selectedItems : [])
                     .map(item => ({
                         id: Number(item?.id),
-                        auto_id: item?.auto_id || '',
+                        id_full: item?.id_full || '',
                         type_name: item?.object_type?.name || '',
                         display_name: getObjectDisplayName(item)
                     }))
@@ -1603,7 +1649,10 @@ async function saveObject(event) {
                 try {
                     const result = await ObjectsAPI.addRelationsBatch({
                         sourceId: createdObjectId,
-                        relations: selectedRelations.map(item => ({ targetId: item.id }))
+                        relations: selectedRelations.map(item => ({
+                            targetId: item.id,
+                            relationType: 'auto'
+                        }))
                     });
                     const createdCount = Number(result?.summary?.created || 0);
                     const failedCount = Number(result?.summary?.failed || 0);

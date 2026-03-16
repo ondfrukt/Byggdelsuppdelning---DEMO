@@ -31,12 +31,16 @@ def validate_object_data(fields, data, required_overrides=None):
         value = data.get(field_name)
         
         # Check required fields
-        if is_required and (value is None or value == ''):
+        if is_required and (
+            value is None
+            or value == ''
+            or (isinstance(value, (list, tuple, set)) and len(value) == 0)
+        ):
             errors.append(f"Field '{field_name}' is required")
             continue
         
         # Skip validation if value is empty and not required
-        if value is None or value == '':
+        if value is None or value == '' or (isinstance(value, (list, tuple, set)) and len(value) == 0):
             continue
         
         # Type-specific validation
@@ -64,15 +68,27 @@ def validate_object_data(fields, data, required_overrides=None):
             if field.field_options:
                 # Handle both list and string formats for field_options
                 valid_options = []
+                selection_mode = 'single'
                 if isinstance(field.field_options, list):
                     valid_options = field.field_options
                 elif isinstance(field.field_options, dict):
+                    selection_mode = str(field.field_options.get('selection_mode') or 'single').strip().lower()
                     if isinstance(field.field_options.get('values'), list):
                         valid_options = field.field_options.get('values', [])
                     # Dynamic sources are allowed and validated client-side
                 elif isinstance(field.field_options, str):
                     # Parse comma-separated string
                     valid_options = [opt.strip() for opt in field.field_options.split(',') if opt.strip()]
+
+                if selection_mode == 'multi':
+                    if not isinstance(value, list):
+                        errors.append(f"Field '{field_name}' must be a list for multi-select")
+                        continue
+                    if valid_options:
+                        invalid_values = [candidate for candidate in value if candidate not in valid_options]
+                        if invalid_values:
+                            errors.append(f"Field '{field_name}' has invalid options: {', '.join(str(item) for item in invalid_values)}")
+                    continue
                 
                 # Only validate if we have valid options
                 if valid_options and value not in valid_options:

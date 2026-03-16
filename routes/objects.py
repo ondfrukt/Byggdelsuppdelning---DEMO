@@ -1,6 +1,12 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration
-from utils.auto_id_generator import generate_auto_id, compose_full_id, normalize_version
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem
+from utils.auto_id_generator import (
+    generate_base_id,
+    compose_full_id,
+    normalize_version,
+    normalize_base_id,
+    get_next_version_for_base_id
+)
 from utils.validators import validate_object_data
 from datetime import datetime, date
 from decimal import Decimal
@@ -8,6 +14,8 @@ from copy import deepcopy
 import re
 import logging
 import os
+import json
+import html
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
@@ -49,7 +57,7 @@ def get_display_name(obj, object_type_name, view_config):
             return str(configured_value)
 
     # Final fallback.
-    return obj.id_full or obj.auto_id
+    return obj.id_full
 
 
 def get_data_value_case_insensitive(data, field_name):
@@ -72,14 +80,94 @@ def normalize_lookup_key(value):
     return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
 
 
+def natural_sort_key(value):
+    parts = re.split(r'(\d+)', str(value or '').strip().casefold())
+    key = []
+    for part in parts:
+        if not part:
+            continue
+        if part.isdigit():
+            key.append((0, int(part)))
+        else:
+            key.append((1, part))
+    return key
+
+
+def strip_html_to_text(value):
+    text = str(value or '')
+    if not text:
+        return ''
+    text = re.sub(r'(?i)<br\s*/?>', '\n', text)
+    text = re.sub(r'(?i)</p\s*>', '\n', text)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = html.unescape(text)
+    text = re.sub(r'\r\n?', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def is_requirement_object_type(type_name):
+    normalized = normalize_field_key(type_name)
+    return 'requirement' in normalized or 'krav' in normalized
+
+
+def get_object_field_value_by_template_names(obj, template_names):
+    if not obj or not obj.object_type:
+        return None
+
+    normalized_templates = {normalize_field_key(name) for name in template_names if name}
+    if not normalized_templates:
+        return None
+
+    object_data = obj.data or {}
+    for field in obj.object_type.fields or []:
+        template = getattr(field, 'field_template', None)
+        candidate_names = {
+            normalize_field_key(getattr(field, 'field_name', '')),
+            normalize_field_key(getattr(field, 'display_name', '')),
+            normalize_field_key(getattr(template, 'template_name', '')),
+            normalize_field_key(getattr(template, 'display_name', ''))
+        }
+
+        translations = getattr(template, 'display_name_translations', None) or {}
+        if isinstance(translations, dict):
+            candidate_names.update(normalize_field_key(value) for value in translations.values())
+
+        if normalized_templates.isdisjoint(candidate_names):
+            continue
+
+        value = get_data_value_case_insensitive(object_data, field.field_name)
+        if value not in (None, ''):
+            return value
+
+    return None
+
+
+def get_tree_requirement_text(obj):
+    own_value = get_object_field_value_by_template_names(obj, ['Requirement Text', 'Kravtext'])
+    if own_value not in (None, ''):
+        return strip_html_to_text(own_value)
+    return ''
+
+
+def get_tree_short_description(obj):
+    value = get_object_field_value_by_template_names(
+        obj,
+        ['Description - short', 'Description short', 'Kort beskrivning']
+    )
+    if value not in (None, ''):
+        return strip_html_to_text(value)
+    return ''
+
+
 def matches_tree_view_type(object_type_name, tree_view):
     normalized = normalize_lookup_key(object_type_name)
     if tree_view == 'byggdelar':
-        return 'byggdel' in normalized
+        return normalized in {'assembly', 'byggdel', 'buildingpart'} or 'byggdel' in normalized
     if tree_view == 'utrymmen':
-        return 'utrymme' in normalized or 'rum' in normalized
+        return normalized in {'space', 'utrymme', 'rum', 'room'} or 'utrymme' in normalized or 'rum' in normalized
     if tree_view == 'system':
-        return 'system' in normalized
+        return normalized in {'system', 'systemobjekt', 'systemobject'} or 'system' in normalized
     return False
 
 
@@ -111,7 +199,163 @@ def get_tree_view_category_value(obj, tree_view):
     return 'Okategoriserad'
 
 
-def build_tree_root_nodes(root_objects, view_config):
+def normalize_field_options(raw_options):
+    if not raw_options:
+        return None
+    if isinstance(raw_options, dict):
+        return raw_options
+    if not isinstance(raw_options, str):
+        return None
+    try:
+        parsed = json.loads(raw_options)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
+def get_category_field_definition(obj, tree_view):
+    if not obj or not obj.object_type:
+        return None
+
+    alias_keys = {normalize_lookup_key(alias) for alias in get_tree_view_category_aliases(tree_view)}
+    for field in obj.object_type.fields or []:
+        field_name = normalize_lookup_key(field.field_name)
+        display_name = normalize_lookup_key(field.display_name)
+        if field_name in alias_keys or display_name in alias_keys:
+            return field
+    return None
+
+
+def get_managed_list_lookup(list_id, cache):
+    safe_list_id = int(list_id or 0)
+    if safe_list_id <= 0:
+        return None
+
+    if safe_list_id in cache:
+        return cache[safe_list_id]
+
+    items = ManagedListItem.query.filter_by(list_id=safe_list_id).all()
+    by_id = {}
+    by_value = {}
+    for item in items:
+        item_id = int(item.id or 0)
+        label = str(item.resolve_display_value() or item.label or item.value or '').strip()
+        value_key = str(item.value or '').strip()
+        if item_id > 0 and label:
+            by_id[item_id] = {
+                'label': label,
+                'parent_item_id': int(item.parent_item_id or 0) or None
+            }
+        if value_key and label:
+            by_value[value_key] = item_id
+
+    lookup = {'by_id': by_id, 'by_value': by_value}
+    cache[safe_list_id] = lookup
+    return lookup
+
+
+def resolve_managed_list_path(raw_value, list_id, cache):
+    lookup = get_managed_list_lookup(list_id, cache)
+    if not lookup:
+        return []
+
+    item_id = None
+    numeric_value = int(raw_value) if str(raw_value or '').strip().isdigit() else None
+    if numeric_value and numeric_value in lookup['by_id']:
+        item_id = numeric_value
+    else:
+        item_id = lookup['by_value'].get(str(raw_value or '').strip())
+
+    if not item_id:
+        return []
+
+    path = []
+    visited = set()
+    current_id = item_id
+    while current_id and current_id in lookup['by_id'] and current_id not in visited:
+        visited.add(current_id)
+        item = lookup['by_id'][current_id]
+        label = str(item.get('label') or '').strip()
+        if label:
+            path.append(label)
+        current_id = item.get('parent_item_id')
+
+    return list(reversed(path))
+
+
+def resolve_tree_field_display_value(field, raw_value, managed_list_cache=None):
+    if raw_value in (None, ''):
+        return raw_value
+    if not field:
+        return raw_value
+
+    field_type = str(getattr(field, 'field_type', '') or '').strip().lower()
+    if field_type != 'select':
+        return raw_value
+
+    field_options = normalize_field_options(getattr(field, 'field_options', None))
+    if not field_options:
+        return raw_value
+
+    if str(field_options.get('source') or '').strip().lower() == 'managed_list':
+        list_id = field_options.get('list_id')
+        path = resolve_managed_list_path(raw_value, list_id, managed_list_cache or {})
+        if path:
+            return ' > '.join(path)
+
+    return raw_value
+
+
+def build_tree_display_data(obj, managed_list_cache=None):
+    object_data = dict(obj.data or {})
+    if not obj or not obj.object_type:
+        return object_data
+
+    display_data = dict(object_data)
+    for field in obj.object_type.fields or []:
+        field_name = getattr(field, 'field_name', None)
+        if not field_name:
+            continue
+
+        raw_value = get_data_value_case_insensitive(object_data, field_name)
+        if raw_value in (None, ''):
+            continue
+
+        display_data[field_name] = resolve_tree_field_display_value(field, raw_value, managed_list_cache)
+
+    return display_data
+
+
+def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
+    managed_list_cache = managed_list_cache if isinstance(managed_list_cache, dict) else {}
+    object_data = obj.data or {}
+    category_field = get_category_field_definition(obj, tree_view)
+    raw_value = None
+    if category_field:
+        raw_value = get_data_value_case_insensitive(object_data, category_field.field_name)
+        if raw_value in (None, '') and category_field.display_name:
+            raw_value = get_data_value_case_insensitive(object_data, category_field.display_name)
+
+    if raw_value not in (None, '') and category_field:
+        field_options = normalize_field_options(category_field.field_options)
+        if (
+            str(category_field.field_type or '').lower() == 'select'
+            and field_options
+            and str(field_options.get('source') or '').strip().lower() == 'managed_list'
+        ):
+            list_id = field_options.get('list_id')
+            path = resolve_managed_list_path(raw_value, list_id, managed_list_cache)
+            if path:
+                return path
+
+    fallback_value = get_tree_view_category_value(obj, tree_view)
+    if isinstance(fallback_value, str) and '>' in fallback_value:
+        return [segment.strip() for segment in fallback_value.split('>') if segment.strip()]
+    fallback_label = str(fallback_value or '').strip() or 'Okategoriserad'
+    return [fallback_label]
+
+
+def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
     tree_nodes = []
     for root_object in root_objects:
         outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
@@ -131,23 +375,23 @@ def build_tree_root_nodes(root_objects, view_config):
                     children_by_type[type_name] = []
 
                 display_name = get_display_name(linked_object, type_name, view_config)
-                linked_object_data = linked_object.data or {}
+                linked_object_data = build_tree_display_data(linked_object, managed_list_cache)
 
                 children_by_type[type_name].append({
                     'id': str(linked_object.id),
-                    'auto_id': linked_object.auto_id,
                     'id_full': linked_object.id_full,
                     'name': display_name,
                     'type': type_name,
                     'direction': direction,
+                    'created_at': linked_object.created_at.isoformat() if linked_object.created_at else None,
                     'data': linked_object_data,
-                    'kravtext': get_data_value_case_insensitive(linked_object_data, 'kravtext'),
-                    'beskrivning': get_data_value_case_insensitive(linked_object_data, 'beskrivning'),
+                    'kravtext': get_tree_requirement_text(linked_object),
+                    'beskrivning': get_tree_short_description(linked_object),
                     'files': collect_tree_files_for_object(linked_object)
                 })
 
-        for type_name in sorted(children_by_type.keys(), key=lambda name: name.lower()):
-            type_children = sorted(children_by_type[type_name], key=lambda item: (item.get('name') or '').lower())
+        for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
+            type_children = sorted(children_by_type[type_name], key=lambda item: natural_sort_key(item.get('name')))
             children.append({
                 'id': f'group-{root_object.id}-{type_name}',
                 'name': type_name,
@@ -157,28 +401,72 @@ def build_tree_root_nodes(root_objects, view_config):
 
         root_type_name = root_object.object_type.name if root_object.object_type else 'Objekt'
         root_display_name = get_display_name(root_object, root_type_name, view_config)
-        root_data = root_object.data or {}
+        root_data = build_tree_display_data(root_object, managed_list_cache)
 
         tree_nodes.append({
             'id': str(root_object.id),
-            'auto_id': root_object.auto_id,
             'id_full': root_object.id_full,
             'name': root_display_name,
             'type': root_type_name,
+            'created_at': root_object.created_at.isoformat() if root_object.created_at else None,
             'data': root_data,
-            'kravtext': get_data_value_case_insensitive(root_data, 'kravtext'),
-            'beskrivning': get_data_value_case_insensitive(root_data, 'beskrivning'),
+            'kravtext': get_tree_requirement_text(root_object),
+            'beskrivning': get_tree_short_description(root_object),
             'files': collect_tree_files_for_object(root_object),
             'children': children
         })
 
-    return sorted(tree_nodes, key=lambda item: (item.get('name') or '').lower())
+    return sorted(tree_nodes, key=lambda item: natural_sort_key(item.get('name')))
+
+
+def build_category_group_tree(root_objects, tree_view, view_config):
+    managed_list_cache = {}
+    category_tree = {}
+
+    for root_object in root_objects:
+        path = get_tree_view_category_path(root_object, tree_view, managed_list_cache)
+        current_children = category_tree
+        current_group = None
+        for segment in path:
+            current_group = current_children.setdefault(segment, {
+                'children': {},
+                'objects': []
+            })
+            current_children = current_group['children']
+        if current_group is None:
+            continue
+        current_group['objects'].append(root_object)
+
+    def serialize_group_nodes(tree_level, path_segments=None):
+        path_segments = path_segments or []
+        nodes = []
+        for index, group_name in enumerate(sorted(tree_level.keys(), key=natural_sort_key), start=1):
+            group_data = tree_level[group_name]
+            current_path = path_segments + [group_name]
+            child_groups = serialize_group_nodes(group_data['children'], current_path)
+            group_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key('-'.join(current_path))) or f'kategori-{index}'
+            nodes.append({
+                'id': f"category-{tree_view}-{group_slug}-{index}",
+                'name': group_name,
+                'type': 'group',
+                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache)
+            })
+        return nodes
+
+    return serialize_group_nodes(category_tree)
 
 
 def is_document_object_type(type_name):
     """Check whether an object type is a document/drawing object."""
     normalized = (type_name or '').lower()
-    return 'filobjekt' in normalized or 'ritning' in normalized or 'dokument' in normalized
+    return (
+        'filobjekt' in normalized
+        or 'fileobject' in normalized
+        or 'file object' in normalized
+        or 'ritning' in normalized
+        or 'dokument' in normalized
+        or 'document' in normalized
+    )
 
 
 def normalize_field_key(value):
@@ -188,7 +476,8 @@ def normalize_field_key(value):
 
 def is_connection_object_type(type_name):
     """Check whether object type represents connection objects."""
-    return 'anslutning' in normalize_field_key(type_name)
+    normalized = normalize_field_key(type_name)
+    return 'anslutning' in normalized or 'connection' in normalized
 
 
 def find_field_name_by_aliases(fields, aliases):
@@ -275,8 +564,73 @@ def enrich_object_type_fields_with_effective_required(obj_payload, required_over
         field_payload['is_required_override'] = override_value
 
 
-def set_object_data_value(record, field_type, value):
+def set_object_data_value(record, field_type, value, field_options=None):
     """Set typed ObjectData value and clear non-applicable typed columns."""
+    def normalize_field_options(raw_options):
+        if isinstance(raw_options, dict):
+            return raw_options
+        if isinstance(raw_options, str):
+            text = raw_options.strip()
+            if not text:
+                return None
+            try:
+                parsed = json.loads(text)
+                return parsed if isinstance(parsed, dict) else None
+            except Exception:
+                return None
+        return None
+
+    def normalize_multi_values(raw_value):
+        if raw_value is None:
+            return []
+        if isinstance(raw_value, list):
+            values = raw_value
+        elif isinstance(raw_value, str):
+            values = [part.strip() for part in raw_value.split(',') if part.strip()]
+        else:
+            values = [raw_value]
+        result = []
+        for candidate in values:
+            try:
+                parsed = int(candidate)
+            except (TypeError, ValueError):
+                continue
+            if parsed <= 0 or parsed in result:
+                continue
+            result.append(parsed)
+        return result
+
+    def resolve_path_payload(item_id):
+        from models import ManagedListItem
+        item = ManagedListItem.query.get(item_id)
+        if not item:
+            return None
+
+        chain = []
+        visited = set()
+        current = item
+        while current and int(current.id) not in visited:
+            current_id = int(current.id)
+            visited.add(current_id)
+            chain.append({
+                'id': current_id,
+                'label': str(current.resolve_display_value(locale='sv', fallback_language_code='en') or current.value or '').strip()
+            })
+            parent_id = int(current.parent_item_id or 0)
+            if parent_id <= 0:
+                break
+            current = ManagedListItem.query.get(parent_id)
+
+        chain.reverse()
+        if not chain:
+            return None
+        return {
+            'selected_id': int(item.id),
+            'label': chain[-1]['label'],
+            'path_ids': [entry['id'] for entry in chain],
+            'path': [entry['label'] for entry in chain]
+        }
+
     if value is None or value == '':
         record.value_text = None
         record.value_number = None
@@ -309,12 +663,68 @@ def set_object_data_value(record, field_type, value):
         record.value_number = None
         record.value_date = None
         record.value_json = None
+    elif field_type == 'select':
+        field_options = normalize_field_options(field_options)
+        is_multi_managed_list = (
+            bool(field_options)
+            and str(field_options.get('source') or '').strip().lower() == 'managed_list'
+            and str(field_options.get('selection_mode') or '').strip().lower() == 'multi'
+        )
+        if not is_multi_managed_list:
+            record.value_text = str(value)
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        selected_ids = normalize_multi_values(value)
+        if not selected_ids:
+            record.value_text = None
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        selected = []
+        for selected_id in selected_ids:
+            payload = resolve_path_payload(selected_id)
+            if payload:
+                selected.append(payload)
+
+        if not selected:
+            record.value_text = None
+            record.value_number = None
+            record.value_date = None
+            record.value_boolean = None
+            record.value_json = None
+            return
+
+        record.value_text = ','.join(str(entry['selected_id']) for entry in selected)
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = {
+            'selection_mode': 'multi',
+            'list_id': int(field_options.get('list_id') or 0),
+            'selected_ids': [entry['selected_id'] for entry in selected],
+            'selected': selected
+        }
     else:
         record.value_text = str(value)
         record.value_number = None
         record.value_date = None
         record.value_boolean = None
         record.value_json = None
+
+
+def has_meaningful_value(value):
+    if value is None or value == '':
+        return False
+    if isinstance(value, (list, tuple, set)):
+        return len(value) > 0
+    return True
 
 
 def is_pdf_document(document):
@@ -437,9 +847,6 @@ def list_objects():
             search_lower = search.lower()
             filtered_objects = []
             for obj in objects:
-                if search_lower in (obj.auto_id or '').lower():
-                    filtered_objects.append(obj)
-                    continue
                 if search_lower in (obj.id_full or '').lower():
                     filtered_objects.append(obj)
                     continue
@@ -454,7 +861,6 @@ def list_objects():
             data = obj.to_dict(include_data=True).get('data', {})
             payload = {
                 'id': obj.id,
-                'auto_id': obj.auto_id,
                 'id_full': obj.id_full,
                 'object_type': {
                     'id': obj.object_type.id if obj.object_type else None,
@@ -581,19 +987,26 @@ def create_object():
         if not is_valid:
             return jsonify({'error': 'Validation failed', 'details': errors}), 400
         
-        # Generate auto ID
-        auto_id = generate_auto_id(object_type.name)
-        
-        # Generate BaseID and version for new objects
-        status = data.get('status', 'In work')
-        version = normalize_version(data.get('version') or 'v1')
-        main_id = auto_id
+        # Generate BaseID + version. If main_id is provided, create a version in that series.
+        requested_main_id = normalize_base_id(data.get('main_id'))
+        if requested_main_id:
+            main_id = requested_main_id
+            requested_version = data.get('version')
+            version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
+        else:
+            main_id = generate_base_id(object_type.name)
+            version = normalize_version(data.get('version') or 'v1')
+
         id_full = compose_full_id(main_id, version)
+
+        if Object.query.filter_by(id_full=id_full).first():
+            return jsonify({'error': f'Object with ID {id_full} already exists'}), 409
+
+        status = data.get('status', 'In work')
         
         # Create object
         obj = Object(
             object_type_id=object_type.id,
-            auto_id=auto_id,
             created_by=data.get('created_by'),
             status=status,
             version=version,
@@ -608,7 +1021,7 @@ def create_object():
         for field in object_type.fields:
             field_name = field.field_name
             value = object_data.get(field_name)
-            should_store = (value is not None and value != '') or bool(field.force_presence_on_all_objects)
+            should_store = has_meaningful_value(value) or bool(field.force_presence_on_all_objects)
             if not should_store:
                 continue
 
@@ -616,12 +1029,12 @@ def create_object():
                 object_id=obj.id,
                 field_id=field.id
             )
-            set_object_data_value(obj_data, field.field_type, value)
+            set_object_data_value(obj_data, field.field_type, value, field.field_options)
             db.session.add(obj_data)
         
         db.session.commit()
         
-        logger.info(f"Created object: {obj.auto_id}")
+        logger.info(f"Created object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 201
     except Exception as e:
         db.session.rollback()
@@ -698,7 +1111,7 @@ def update_object(id):
                 field_id=field.id
             ).first()
             
-            if value is not None and value != '':
+            if has_meaningful_value(value):
                 if not existing:
                     existing = ObjectData(
                         object_id=obj.id,
@@ -706,7 +1119,7 @@ def update_object(id):
                     )
                     db.session.add(existing)
 
-                set_object_data_value(existing, field.field_type, value)
+                set_object_data_value(existing, field.field_type, value, field.field_options)
                 existing.updated_at = datetime.utcnow()
             elif field.force_presence_on_all_objects:
                 if not existing:
@@ -715,7 +1128,7 @@ def update_object(id):
                         field_id=field.id
                     )
                     db.session.add(existing)
-                set_object_data_value(existing, field.field_type, None)
+                set_object_data_value(existing, field.field_type, None, field.field_options)
                 existing.updated_at = datetime.utcnow()
             elif existing:
                 # Remove if value is empty
@@ -740,7 +1153,7 @@ def update_object(id):
         obj.updated_at = datetime.utcnow()
         db.session.commit()
         
-        logger.info(f"Updated object: {obj.auto_id}")
+        logger.info(f"Updated object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 200
     except Exception as e:
         db.session.rollback()
@@ -869,15 +1282,23 @@ def duplicate_object(id):
                 if str(target_id).isdigit()
             ]
 
-        # Generate fresh base ID and ID/version for the duplicated object.
-        auto_id = generate_auto_id(object_type.name)
-        main_id = auto_id
-        version = normalize_version('v1')
+        # Duplication creates a new object series by default.
+        # Only reuse an existing BaseID when the client explicitly requests main_id.
+        requested_main_id = normalize_base_id(payload.get('main_id'))
+        requested_version = payload.get('version')
+        if requested_main_id:
+            main_id = requested_main_id
+            version = normalize_version(requested_version) if requested_version else get_next_version_for_base_id(main_id)
+        else:
+            main_id = generate_base_id(object_type.name)
+            version = normalize_version(requested_version or 'v1')
         id_full = compose_full_id(main_id, version)
+
+        if Object.query.filter_by(id_full=id_full).first():
+            return jsonify({'error': f'Object with ID {id_full} already exists'}), 409
 
         duplicate = Object(
             object_type_id=object_type.id,
-            auto_id=auto_id,
             created_by=source.created_by,
             status=status,
             version=version,
@@ -899,7 +1320,7 @@ def duplicate_object(id):
                 object_id=duplicate.id,
                 field_id=field.id
             )
-            set_object_data_value(copied_data, field.field_type, value)
+            set_object_data_value(copied_data, field.field_type, value, field.field_options)
             db.session.add(copied_data)
 
         source_overrides = ObjectFieldOverride.query.filter_by(object_id=source.id).all()
@@ -961,7 +1382,7 @@ def duplicate_object(id):
 
         db.session.commit()
 
-        logger.info(f"Duplicated object {source.auto_id} -> {duplicate.auto_id}")
+        logger.info(f"Duplicated object {source.id_full} -> {duplicate.id_full}")
         return jsonify(duplicate.to_dict(include_data=True, include_relations=True)), 201
     except Exception as e:
         db.session.rollback()
@@ -974,7 +1395,7 @@ def delete_object(id):
     """Delete an object"""
     try:
         obj = Object.query.get_or_404(id)
-        auto_id = obj.auto_id
+        object_id_full = obj.id_full
 
         removed_paths = []
         for document in list(obj.documents):
@@ -986,7 +1407,7 @@ def delete_object(id):
         db.session.delete(obj)
         db.session.commit()
         
-        logger.info(f"Deleted object: {auto_id}; removed_files={removed_paths}")
+        logger.info(f"Deleted object: {object_id_full}; removed_files={removed_paths}")
         return jsonify({'message': 'Object deleted successfully'}), 200
     except Exception as e:
         db.session.rollback()
@@ -1030,25 +1451,7 @@ def get_tree():
             # For system view, system objects themselves should be top-level nodes.
             return jsonify(build_tree_root_nodes(root_objects, view_config)), 200
 
-        category_groups = {}
-        for root_object in root_objects:
-            category_name = get_tree_view_category_value(root_object, tree_view)
-            if category_name not in category_groups:
-                category_groups[category_name] = []
-            category_groups[category_name].append(root_object)
-
-        tree = []
-        for index, category_name in enumerate(sorted(category_groups.keys(), key=lambda name: name.lower()), start=1):
-            category_roots = build_tree_root_nodes(category_groups[category_name], view_config)
-            category_slug = re.sub(r'[^a-z0-9]+', '-', normalize_lookup_key(category_name)) or f'kategori-{index}'
-            tree.append({
-                'id': f'category-{tree_view}-{category_slug}-{index}',
-                'name': category_name,
-                'type': 'group',
-                'children': category_roots
-            })
-
-        return jsonify(tree), 200
+        return jsonify(build_category_group_tree(root_objects, tree_view, view_config)), 200
     except Exception as e:
         logger.error(f"Error getting tree: {str(e)}")
         return jsonify({'error': 'Failed to get tree'}), 500

@@ -11,7 +11,7 @@ DEFAULT_RELATION_TYPE = 'uses_object'
 
 def is_file_object(obj):
     type_name = obj.object_type.name if obj and obj.object_type else ''
-    return type_name.strip().lower() == 'filobjekt'
+    return type_name.strip().lower() in {'filobjekt', 'fileobject', 'file object'}
 
 
 def normalize_id_full(value):
@@ -109,7 +109,7 @@ def create_relation(id):
         db.session.add(relation)
         db.session.commit()
         
-        logger.info(f"Created relation from {source_object.auto_id} to {target_object.auto_id}")
+        logger.info(f"Created relation from {source_object.id_full} to {target_object.id_full}")
         return jsonify(relation.to_dict(include_objects=True)), 201
     except Exception as e:
         db.session.rollback()

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate
 from routes.relation_type_rules import ensure_complete_relation_rule_matrix
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,92 @@ def normalize_detail_width(value):
     if normalized in ALLOWED_DETAIL_WIDTHS:
         return normalized
     return None
+
+
+def normalize_managed_list_field_options(value):
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except Exception:
+            return None, 'field_options must be valid JSON object for managed list fields'
+    if not isinstance(value, dict):
+        return None, 'field_options must be an object for managed list fields'
+
+    source = str(value.get('source') or '').strip().lower()
+    if source != 'managed_list':
+        return None, "field_options.source must be 'managed_list'"
+
+    try:
+        list_id = int(value.get('list_id') or 0)
+    except (TypeError, ValueError):
+        return None, 'field_options.list_id must be an integer'
+    if list_id <= 0:
+        return None, 'field_options.list_id must be > 0'
+
+    normalized = {
+        'source': 'managed_list',
+        'list_id': list_id,
+    }
+
+    selection_mode = str(value.get('selection_mode') or '').strip().lower()
+    if selection_mode in ('single', 'multi'):
+        normalized['selection_mode'] = selection_mode
+
+    if 'allow_only_leaf_selection' in value:
+        normalized['allow_only_leaf_selection'] = bool(value.get('allow_only_leaf_selection'))
+
+    parent_field_name = str(value.get('parent_field_name') or '').strip()
+    if parent_field_name:
+        normalized['parent_field_name'] = parent_field_name
+
+    try:
+        parent_list_id = int(value.get('parent_list_id') or 0)
+    except (TypeError, ValueError):
+        return None, 'field_options.parent_list_id must be an integer'
+    if parent_list_id > 0:
+        normalized['parent_list_id'] = parent_list_id
+
+    try:
+        list_link_id = int(value.get('list_link_id') or 0)
+    except (TypeError, ValueError):
+        return None, 'field_options.list_link_id must be an integer'
+    if list_link_id > 0:
+        normalized['list_link_id'] = list_link_id
+
+    try:
+        hierarchy_level_count = int(value.get('hierarchy_level_count') or 0)
+    except (TypeError, ValueError):
+        return None, 'field_options.hierarchy_level_count must be an integer'
+
+    raw_level_labels = value.get('hierarchy_level_labels')
+    if raw_level_labels is None:
+        level_labels = []
+    elif isinstance(raw_level_labels, list):
+        level_labels = [str(label or '').strip() for label in raw_level_labels]
+        if any(not label for label in level_labels):
+            return None, 'field_options.hierarchy_level_labels may not contain empty values'
+    else:
+        return None, 'field_options.hierarchy_level_labels must be an array of strings'
+
+    if hierarchy_level_count < 0:
+        return None, 'field_options.hierarchy_level_count must be >= 0'
+    if hierarchy_level_count > 8:
+        return None, 'field_options.hierarchy_level_count must be <= 8'
+    if level_labels and len(level_labels) > 8:
+        return None, 'field_options.hierarchy_level_labels may contain at most 8 labels'
+
+    if hierarchy_level_count <= 0 and level_labels:
+        hierarchy_level_count = len(level_labels)
+
+    if hierarchy_level_count > 1:
+        normalized['hierarchy_level_count'] = hierarchy_level_count
+
+    if level_labels:
+        if hierarchy_level_count > 0 and len(level_labels) > hierarchy_level_count:
+            level_labels = level_labels[:hierarchy_level_count]
+        normalized['hierarchy_level_labels'] = level_labels
+
+    return normalized, None
 
 
 def normalize_object_type_color(value):
@@ -163,7 +250,7 @@ def create_object_type():
         name_field = ObjectField(
             object_type_id=object_type.id,
             field_name=REQUIRED_NAME_FIELD,
-            display_name='Namn',
+            display_name='Name',
             field_type='text',
             is_required=True,
             lock_required_setting=True,
@@ -321,6 +408,19 @@ def add_field(id):
             field.is_required = True
             field.lock_required_setting = True
             field.force_presence_on_all_objects = True
+
+        if 'field_options' in data:
+            if str(field.field_type or '').lower() != 'select':
+                return jsonify({'error': 'field_options can only be set for select fields'}), 400
+            current_options, current_error = normalize_managed_list_field_options(field.field_options or {})
+            if current_error:
+                return jsonify({'error': 'Only managed-list select options are supported here'}), 400
+            incoming_options, incoming_error = normalize_managed_list_field_options(data.get('field_options'))
+            if incoming_error:
+                return jsonify({'error': incoming_error}), 400
+            if int(incoming_options['list_id']) != int(current_options['list_id']):
+                return jsonify({'error': 'list_id is template-managed and cannot be changed here'}), 400
+            field.field_options = incoming_options
         
         db.session.add(field)
         db.session.flush()
@@ -340,12 +440,25 @@ def _update_field_data(field, field_id, data):
     """Helper function to update field properties"""
     current_is_name_field = is_name_field_name(field.field_name)
 
-    immutable_keys = {'field_name', 'display_name', 'field_type', 'field_options', 'help_text', 'is_table_visible'}
+    immutable_keys = {'field_name', 'display_name', 'field_type', 'help_text', 'is_table_visible'}
     if any(key in data for key in immutable_keys):
         return {'error': 'Field definition is template-managed and cannot be edited here'}, 400
 
     if 'field_template_id' in data:
         return {'error': 'field_template_id cannot be changed on existing fields'}, 400
+
+    if 'field_options' in data:
+        if str(field.field_type or '').lower() != 'select':
+            return {'error': 'field_options can only be changed for select fields'}, 400
+        current_options, current_error = normalize_managed_list_field_options(field.field_options or {})
+        if current_error:
+            return {'error': 'Only managed-list select options are editable here'}, 400
+        incoming_options, incoming_error = normalize_managed_list_field_options(data.get('field_options'))
+        if incoming_error:
+            return {'error': incoming_error}, 400
+        if int(incoming_options['list_id']) != int(current_options['list_id']):
+            return {'error': 'list_id is template-managed and cannot be changed here'}, 400
+        field.field_options = incoming_options
 
     if 'is_required' in data:
         if current_is_name_field and data['is_required'] is not True:
@@ -433,4 +546,3 @@ def delete_field_with_type(type_id, field_id):
         db.session.rollback()
         logger.error(f"Error deleting field: {str(e)}")
         return jsonify({'error': 'Failed to delete field'}), 500
-

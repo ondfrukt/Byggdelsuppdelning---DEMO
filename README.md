@@ -244,7 +244,6 @@ curl -X POST https://your-app.onrender.com/api/objects \
 
 ### Förutsättningar
 - Python 3.10 eller senare
-- PostgreSQL (lokal installation eller Docker)
 - Git
 
 ### Installation
@@ -268,16 +267,17 @@ venv\Scripts\activate  # Windows
 pip install -r requirements.txt
 ```
 
-4. **Konfigurera miljövariabler**
+4. **Konfigurera miljövariabler (valfritt lokalt)**
 ```bash
-export DATABASE_URL=postgresql://localhost/byggdel_demo
 export SECRET_KEY=your-secret-key-here
 export FLASK_ENV=development
 ```
 
-5. **Skapa databas**
+Om `DATABASE_URL` inte sätts används repository-databasen `plm.db` automatiskt.
+
+5. **(Valfritt) använd annan databas**
 ```bash
-createdb byggdel_demo
+export DATABASE_URL=postgresql://localhost/byggdel_demo
 ```
 
 6. **Kör applikationen**
@@ -285,9 +285,30 @@ createdb byggdel_demo
 python app.py
 ```
 
+Alternativt med den återstartståliga dev-servern som används i Codespaces/devcontainer:
+```bash
+./scripts/dev-server.sh ensure
+```
+
 7. **Öppna i webbläsare**
 ```
 http://localhost:5000
+```
+
+### Codespaces/devcontainer
+- Dev-servern startas nu automatiskt både när containern startar och när du reconnectar till en sovande Codespace.
+- Samma idempotenta kommando används varje gång: `./scripts/dev-server.sh ensure`
+- Status och loggar kan kontrolleras med:
+```bash
+./scripts/dev-server.sh status
+./scripts/dev-server.sh logs
+```
+
+### Standarddata vid nyuppsättning
+- Objekttyper, fält, objekt, objektrelationer, relationstyper och relationsregler seedas från `defaults/plm-defaults.json`.
+- Uppdatera defaults från nuvarande repo-databas med:
+```bash
+python scripts/export_defaults_from_db.py
 ```
 
 ## 🚀 Deployment till Render.com

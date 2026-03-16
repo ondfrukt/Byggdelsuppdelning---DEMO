@@ -40,7 +40,7 @@
             }
         }
 
-        return obj?.auto_id || '';
+        return obj?.id_full || '';
     }
 
     const api = {

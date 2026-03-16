@@ -32,7 +32,7 @@ def run_migration(db):
                 target_field = ObjectField(
                     object_type_id=object_type.id,
                     field_name='namn',
-                    display_name='Namn',
+                    display_name='Name',
                     field_type='text',
                     is_required=True,
                     is_table_visible=True,
@@ -44,7 +44,7 @@ def run_migration(db):
             target_field.is_required = True
             target_field.is_table_visible = True
             if not target_field.display_name:
-                target_field.display_name = 'Namn'
+                target_field.display_name = 'Name'
 
         db.session.commit()
         logger.info("Required namn-field migration completed successfully")
@@ -52,4 +52,3 @@ def run_migration(db):
         db.session.rollback()
         logger.error(f"Error running required namn-field migration: {str(e)}")
         raise
-

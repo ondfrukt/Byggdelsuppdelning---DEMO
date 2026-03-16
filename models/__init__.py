@@ -15,6 +15,9 @@ from models.document import Document
 from models.view_configuration import ViewConfiguration
 from models.managed_list import ManagedList
 from models.managed_list_item import ManagedListItem
+from models.managed_list_link import ManagedListLink
+from models.managed_list_item_link import ManagedListItemLink
+from models.field_list_binding import FieldListBinding
 from models.field_template import FieldTemplate
 from models.object_field_override import ObjectFieldOverride
 from models.change_management_item import ChangeManagementItem
@@ -33,6 +36,9 @@ __all__ = [
     'ViewConfiguration',
     'ManagedList',
     'ManagedListItem',
+    'ManagedListLink',
+    'ManagedListItemLink',
+    'FieldListBinding',
     'FieldTemplate',
     'ObjectFieldOverride',
     'ChangeManagementItem',

@@ -10,9 +10,9 @@ def run_migration(_db):
     try:
         template_specs = [
             {
-                'template_name': 'Namn (obligatoriskt)',
+                'template_name': 'Name (required)',
                 'field_name': 'namn',
-                'display_name': 'Namn',
+                'display_name': 'Name',
                 'display_name_translations': {'sv': 'Namn', 'en': 'Name'},
                 'field_type': 'text',
                 'field_options': None,
@@ -20,13 +20,13 @@ def run_migration(_db):
                 'lock_required_setting': True,
                 'force_presence_on_all_objects': True,
                 'is_table_visible': True,
-                'help_text': 'Primärt namn för objektet.',
+                'help_text': 'Primary name for the object.',
                 'help_text_translations': {'sv': 'Primärt namn för objektet.', 'en': 'Primary name for the object.'}
             },
             {
-                'template_name': 'Beskrivning',
+                'template_name': 'Description',
                 'field_name': 'beskrivning',
-                'display_name': 'Beskrivning',
+                'display_name': 'Description',
                 'display_name_translations': {'sv': 'Beskrivning', 'en': 'Description'},
                 'field_type': 'richtext',
                 'field_options': None,
@@ -34,7 +34,7 @@ def run_migration(_db):
                 'lock_required_setting': False,
                 'force_presence_on_all_objects': False,
                 'is_table_visible': True,
-                'help_text': 'Formaterad beskrivning av objektet.',
+                'help_text': 'Rich text description of the object.',
                 'help_text_translations': {'sv': 'Formaterad beskrivning av objektet.', 'en': 'Formatted description of the object.'}
             },
             {
@@ -66,9 +66,9 @@ def run_migration(_db):
                 'help_text_translations': {'sv': 'Versionsbeteckning.', 'en': 'Version label.'}
             },
             {
-                'template_name': 'Kommentar',
+                'template_name': 'Comment',
                 'field_name': 'kommentar',
-                'display_name': 'Kommentar',
+                'display_name': 'Comment',
                 'display_name_translations': {'sv': 'Kommentar', 'en': 'Comment'},
                 'field_type': 'textarea',
                 'field_options': None,
@@ -76,7 +76,7 @@ def run_migration(_db):
                 'lock_required_setting': False,
                 'force_presence_on_all_objects': False,
                 'is_table_visible': False,
-                'help_text': 'Intern kommentar.',
+                'help_text': 'Internal comment.',
                 'help_text_translations': {'sv': 'Intern kommentar.', 'en': 'Internal comment.'}
             },
         ]

@@ -1,14 +1,24 @@
 import os
+from pathlib import Path
 
 class Config:
     """Configuration for the PLM application"""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-    
+
+    # Allow develop deployments to explicitly reuse main's database.
+    branch_name = os.environ.get('RENDER_GIT_BRANCH', '').strip().lower()
+    database_url = os.environ.get('DATABASE_URL')
+    if branch_name == 'develop':
+        database_url = os.environ.get('MAIN_DATABASE_URL', database_url)
+    if not database_url:
+        repo_root = Path(__file__).resolve().parent
+        repository_db = repo_root / 'plm.db'
+        database_url = f"sqlite:///{repository_db}"
+
     # Handle both postgres:// and postgresql:// URLs (Render compatibility)
-    database_url = os.environ.get('DATABASE_URL', 'postgresql://localhost/plm_demo')
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
-    
+
     SQLALCHEMY_DATABASE_URI = database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {

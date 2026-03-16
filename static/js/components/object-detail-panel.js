@@ -11,6 +11,7 @@ class ObjectDetailPanel {
         this.objectData = null;
         this.activeTab = 'details';
         this.richTextValues = {};
+        this.managedListDisplayByListId = new Map();
         
         // Configuration options
         this.options = {
@@ -29,10 +30,115 @@ class ObjectDetailPanel {
                 throw new Error('Failed to load object');
             }
             this.objectData = await response.json();
+            await this.preloadManagedListDisplayMaps();
         } catch (error) {
             console.error('Error loading object:', error);
             throw error;
         }
+    }
+
+    normalizeFieldOptions(rawOptions) {
+        if (!rawOptions) return null;
+        if (typeof rawOptions === 'object') return rawOptions;
+        if (typeof rawOptions !== 'string') return null;
+        try {
+            return JSON.parse(rawOptions);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    async preloadManagedListDisplayMaps() {
+        this.managedListDisplayByListId = new Map();
+        const fields = Array.isArray(this.objectData?.object_type?.fields)
+            ? this.objectData.object_type.fields
+            : [];
+        const managedListIds = fields
+            .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
+            .map(field => this.normalizeFieldOptions(field?.field_options))
+            .filter(options => options?.source === 'managed_list')
+            .map(options => Number(options?.list_id))
+            .filter(listId => Number.isFinite(listId) && listId > 0);
+
+        const uniqueListIds = Array.from(new Set(managedListIds));
+        await Promise.all(uniqueListIds.map(async (listId) => {
+            try {
+                const response = await fetch(`/api/managed-lists/${listId}?include_items=true&include_inactive_items=true`);
+                if (!response.ok) return;
+                const payload = await response.json();
+                const items = Array.isArray(payload?.items) ? payload.items : [];
+                const byId = new Map();
+                const byValue = new Map();
+                items.forEach(item => {
+                    const itemId = Number(item?.id || 0);
+                    const valueKey = String(item?.value || '').trim();
+                    const label = String(item?.display_value || item?.label || item?.value || '').trim();
+                    if (!label) return;
+                    if (Number.isFinite(itemId) && itemId > 0) {
+                        byId.set(itemId, {
+                            label,
+                            parentItemId: Number(item?.parent_item_id || 0) || null
+                        });
+                    }
+                    if (valueKey) {
+                        byValue.set(valueKey, label);
+                    }
+                });
+                this.managedListDisplayByListId.set(listId, { byId, byValue });
+            } catch (_error) {
+                // Ignore lookup failures and keep raw value fallback.
+            }
+        }));
+    }
+
+    resolveManagedListDisplayValue(value, field) {
+        const options = this.normalizeFieldOptions(field?.field_options);
+        if (!options || options.source !== 'managed_list') return value;
+        const listId = Number(options.list_id);
+        if (!Number.isFinite(listId) || listId <= 0) return value;
+        const listMap = this.managedListDisplayByListId.get(listId);
+        if (!listMap) return value;
+        const resolveHierarchyPath = (itemId) => {
+            const safeId = Number(itemId || 0);
+            if (!Number.isFinite(safeId) || safeId <= 0) return '';
+            const chain = [];
+            const visited = new Set();
+            let currentId = safeId;
+            while (currentId && listMap.byId.has(currentId) && !visited.has(currentId)) {
+                visited.add(currentId);
+                const node = listMap.byId.get(currentId);
+                chain.push(String(node?.label || '').trim());
+                currentId = Number(node?.parentItemId || 0);
+            }
+            const labels = chain.filter(Boolean).reverse();
+            return labels.length > 1 ? labels.join(' > ') : '';
+        };
+
+        const resolveSingle = (rawValue) => {
+            if (rawValue === null || rawValue === undefined || rawValue === '') return rawValue;
+            const asNumber = Number(rawValue);
+            if (Number.isFinite(asNumber) && listMap.byId.has(asNumber)) {
+                const hierarchyPath = resolveHierarchyPath(asNumber);
+                if (hierarchyPath) return hierarchyPath;
+                return listMap.byId.get(asNumber)?.label || rawValue;
+            }
+            const asText = String(rawValue).trim();
+            if (asText && listMap.byValue.has(asText)) {
+                return listMap.byValue.get(asText);
+            }
+            return rawValue;
+        };
+
+        if (Array.isArray(value)) {
+            return value.map(resolveSingle).join(', ');
+        }
+        if (typeof value === 'string' && value.includes(',')) {
+            const parts = value.split(',').map(part => part.trim()).filter(Boolean);
+            if (parts.length > 1) {
+                return parts.map(resolveSingle).join(', ');
+            }
+        }
+        return resolveSingle(value);
     }
     
     async render(objectId) {
@@ -51,7 +157,7 @@ class ObjectDetailPanel {
         }
         
         const obj = this.objectData;
-        const displayName = obj.data?.Namn || obj.data?.namn || obj.auto_id;
+        const displayName = obj.data?.Namn || obj.data?.namn || obj.id_full;
         
         // Determine CSS class based on layout
         const panelClass = this.options.layout === 'detail' ? 'detail-panel-content-inner' : 'side-panel';
@@ -124,7 +230,7 @@ class ObjectDetailPanel {
                 <div class="side-panel-header">
                     <div>
                         <h3>${displayName}</h3>
-                        <p class="side-panel-subtitle">${obj.id_full || obj.auto_id} • ${obj.object_type?.name || 'Objekt'}</p>
+                        <p class="side-panel-subtitle">${obj.id_full || obj.id_full} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
                     <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
                 </div>
@@ -203,7 +309,7 @@ class ObjectDetailPanel {
                 <div class="detail-list-header">
                     <div class="detail-header-item">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value"><strong>${obj.id_full || obj.auto_id}</strong></span>
+                        <span class="detail-value"><strong>${obj.id_full || obj.id_full}</strong></span>
                     </div>
                     <div class="detail-header-item">
                         <span class="detail-label">Typ</span>
@@ -229,7 +335,7 @@ class ObjectDetailPanel {
                     </div>
                     <div class="detail-header-item">
                         <span class="detail-label">BaseID</span>
-                        <span class="detail-value">${obj.main_id || obj.auto_id || 'N/A'}</span>
+                        <span class="detail-value">${obj.main_id || obj.id_full || 'N/A'}</span>
                     </div>
                 </div>
             `;
@@ -250,7 +356,8 @@ class ObjectDetailPanel {
             }
 
             const key = entry?.key || fieldName;
-            const value = entry?.value;
+            const rawValue = entry?.value;
+            const value = this.resolveManagedListDisplayValue(rawValue, field);
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
@@ -297,14 +404,15 @@ class ObjectDetailPanel {
         }
 
         // Render any unknown data keys after configured fields.
-        for (const [key, value] of Object.entries(data)) {
+        for (const [key, rawValue] of Object.entries(data)) {
             const normalizedKey = this.normalizeFieldKey(key);
             if (renderedFieldKeys.has(normalizedKey)) continue;
-            if (value === null || value === undefined) continue;
+            if (rawValue === null || rawValue === undefined) continue;
 
             const field = fieldMap.get(String(key))
                 || normalizedFieldMap.get(normalizedKey);
             if (field?.is_detail_visible === false) continue;
+            const value = this.resolveManagedListDisplayValue(rawValue, field);
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);

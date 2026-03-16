@@ -11,7 +11,6 @@ class Object(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='RESTRICT'), nullable=False)
-    auto_id = db.Column(db.String(50), unique=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = db.Column(db.String(100))
@@ -46,7 +45,7 @@ class Object(db.Model):
                     elif field_type == 'boolean':
                         data[od.field.field_name] = od.value_boolean
                     else:
-                        data[od.field.field_name] = od.value_text
+                        data[od.field.field_name] = od.value_json if od.value_json is not None else od.value_text
             except Exception as e:
                 # Log but don't fail - skip problematic field
                 logger.warning(f"Error processing field data for object {self.id}, field {od.field_id if od else 'unknown'}: {str(e)}")
@@ -54,7 +53,9 @@ class Object(db.Model):
         return data
 
     def normalized_base_id(self):
-        source = str(self.auto_id or self.main_id or '').strip()
+        source = str(self.main_id or '').strip()
+        if not source:
+            source = str(self.id_full or '').strip().split('.')[0]
         if not source:
             return ''
         source = source.split('.')[0]
@@ -86,7 +87,6 @@ class Object(db.Model):
 
         result = {
             'id': self.id,
-            'auto_id': base_id,
             'base_id': base_id,
             'object_type': self.object_type.to_dict(include_fields=include_object_type_fields) if self.object_type else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,

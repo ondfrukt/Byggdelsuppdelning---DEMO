@@ -1,0 +1,1459 @@
+{
+  "version": 1,
+  "object_types": [
+    {
+      "name": "Assembly",
+      "description": "Represents a building part or construction element that can contain products, participate in connections, have properties and requirement and also carry files via fileobjects",
+      "icon": "fa-building",
+      "id_prefix": "ASSE",
+      "color": "#3498db",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": null,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Connection",
+      "description": "Represents a physical or logical interface between two objects (typically assemblies). Used to capture how parts are connected without implying ownership.",
+      "icon": "fa-link",
+      "id_prefix": "CON",
+      "color": "#f39c12",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "del_a",
+          "display_name": "Part A",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Used to auto-generate the connection name",
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "del_b",
+          "display_name": "Part B",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Used to auto-generate the connection name",
+          "display_order": 4,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "FileObject",
+      "description": "Represents a file or document (e.g., drawing, specification, manual) used for documentation and traceability.",
+      "icon": "fa-file-pdf",
+      "id_prefix": "FOBJ",
+      "color": "#9b59b6",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "revision",
+          "display_name": "Revision",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": null,
+          "detail_width": "full"
+        }
+      ]
+    },
+    {
+      "name": "Instruction",
+      "description": "Defines guidance, methods, or work instructions that govern how objects are designed, assembled, or handled.",
+      "icon": "fa-book",
+      "id_prefix": "INST",
+      "color": "#34495e",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": null,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Module",
+      "description": "Represents a predesigned, reusable building module (e.g., a standard kitchen or bathroom type) consisting of predefined assemblies, products, and requirements.",
+      "icon": null,
+      "id_prefix": "MOD",
+      "color": "#84cc16",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Product",
+      "description": "Represents a reusable generic product or manufacturer item that can be used by multiple objects.",
+      "icon": "fa-box",
+      "id_prefix": "PROD",
+      "color": "#2ecc71",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "tillverkare",
+          "display_name": "Manufacturer",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": 4,
+          "detail_width": null
+        },
+        {
+          "field_name": "produktkategori",
+          "display_name": "Produktkategori",
+          "field_type": "select",
+          "field_options": {
+            "source": "managed_list",
+            "list_id": 1
+          },
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": null,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Property",
+      "description": "Represents a defined property with value and unit, used to describe technical characteristics of other objects.",
+      "icon": "fa-tag",
+      "id_prefix": "PROP",
+      "color": "#8b5cf6",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "description - short",
+          "display_name": "Description",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Description",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "värde",
+          "display_name": "Value",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": 3,
+          "detail_width": null
+        },
+        {
+          "field_name": "enhet",
+          "display_name": "Unit",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": 4,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Requirement",
+      "description": "Represents a requirement or constraint with a target value and optional unit that other objects must satisfy.",
+      "icon": "fa-clipboard-check",
+      "id_prefix": "REC",
+      "color": "#e74c3c",
+      "is_system": true,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "kravställningstyp",
+          "display_name": "Requirement Type",
+          "field_type": "select",
+          "field_options": [
+            "Infästning",
+            "Drevmån",
+            "Fall",
+            "Minimimått",
+            "Maximimått",
+            "Tolerans"
+          ],
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "requirement text",
+          "display_name": "Requirement Text",
+          "field_type": "richtext",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": null,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Space",
+      "description": "Represents a physical space/room in the building, used to structure location-based information and relate assemblies, systems, and requirements to a specific area.",
+      "icon": null,
+      "id_prefix": "SPAC",
+      "color": "#0ea5e9",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "System",
+      "description": "Represents a technical building system (e.g., plumbing, ventilation, electrical, access control) composed of related parts and connections.",
+      "icon": null,
+      "id_prefix": "SYS",
+      "color": "#22c55e",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "Technical Chapter",
+      "description": "Represents a chapter within a technical description, carrying the actual text content, rules, and detailed requirements for a specific topic.",
+      "icon": null,
+      "id_prefix": "TCHA",
+      "color": "#14b8a6",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        }
+      ]
+    },
+    {
+      "name": "TCBL",
+      "description": "Represents a reusable content block within a technical chapter, typically holding a chapter number and rich text content.",
+      "icon": null,
+      "id_prefix": "TCBL",
+      "color": "#0f766e",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        },
+        {
+          "field_name": "kapitelnummer",
+          "display_name": "Chapter Number",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "AMA-style chapter or subchapter number.",
+          "display_order": 2,
+          "detail_width": null
+        },
+        {
+          "field_name": "innehall",
+          "display_name": "Content",
+          "field_type": "richtext",
+          "field_options": "",
+          "is_required": false,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": false,
+          "is_detail_visible": true,
+          "help_text": "Rich text content for the chapter block.",
+          "display_order": 3,
+          "detail_width": "full"
+        }
+      ]
+    },
+    {
+      "name": "Technical Specification",
+      "description": "Represents a container for technical specification content, grouping one or more technical chapters into a structured description.",
+      "icon": null,
+      "id_prefix": "TSPEC",
+      "color": "#06b6d4",
+      "is_system": false,
+      "fields": [
+        {
+          "field_name": "namn",
+          "display_name": "Name",
+          "field_type": "text",
+          "field_options": "",
+          "is_required": true,
+          "lock_required_setting": true,
+          "force_presence_on_all_objects": true,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "Primary name for the object.",
+          "display_order": 1,
+          "detail_width": null
+        }
+      ]
+    }
+  ],
+  "objects": [
+    {
+      "seed_key": "id_full:PROD-1.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-09 12:14:13.119792",
+      "updated_at": "2026-03-11 09:41:38.671322",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-1",
+      "id_full": "PROD-1.v1",
+      "data": {
+        "namn": "Träregel",
+        "description - short": "Gjort av trä!",
+        "produktkategori": "7"
+      }
+    }
+  ],
+  "object_relations": [],
+  "relation_types": [
+    {
+      "key": "applies_to",
+      "display_name": "Applies To",
+      "description": "Used when source represents a requirement, rule, instruction, or other governing information that applies to target. Source can apply to multiple targets, and targets can be covered by multiple requirements or instructions. Typical examples: Requirement applies to Building Part, Instruction applies to Module, Rule applies to System.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "connects_to",
+      "display_name": "Connects To",
+      "description": "Used when two objects are connected through a physical or logical connection or interface. The relation describes a network/graph rather than a hierarchy. Neither party owns the other through this relation. Typical examples: Building Part connects to Building Part, System connects to System, Object is connected to another object via connection.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": false,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "contains",
+      "display_name": "Contains",
+      "description": "Used when target is a structural part of source and is included in its internal composition. This describes a hierarchical relation where target normally does not exist as part of multiple parents simultaneously. Typical examples: Technical description contains technical chapter, File Object contains file.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "one_to_many",
+      "is_directed": true,
+      "is_composition": true,
+      "inverse_key": null
+    },
+    {
+      "key": "references_object",
+      "display_name": "References",
+      "description": "Used when source references target as information, documentation, a related entity, or classification, without target being a physical part of source. The relation represents traceability or context, not use or ownership. Typical examples: Product references File Object, Building Part references Document, Object references System.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    },
+    {
+      "key": "uses_object",
+      "display_name": "Uses",
+      "description": "Used when source uses, includes, or otherwise leverages target as part of its solution. Target is reusable and not owned by source. Target can be used by multiple objects at the same time. Typical examples: Building Part uses Product, Module uses Product, Connection uses Product.",
+      "source_object_type": null,
+      "target_object_type": null,
+      "cardinality": "many_to_many",
+      "is_directed": true,
+      "is_composition": false,
+      "inverse_key": null
+    }
+  ],
+  "relation_type_rules": [
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Assembly",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Space",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "System",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": "Module",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "System",
+      "relation_type": "connects_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Space",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "System",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": "Module",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Assembly",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "FileObject",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": "Module",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Requirement",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Space",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "System",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": "Module",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "TCBL",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Assembly",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "TCBL",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Requirement",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Instruction",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "FileObject",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Space",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "System",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": "Module",
+      "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Assembly",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Connection",
+      "relation_type": "connects_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "FileObject",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "System",
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "FileObject",
+      "relation_type": "references_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    }
+  ]
+}

@@ -101,13 +101,26 @@ function getRelationTypeLabel(type) {
 // Get object type color
 const OBJECT_TYPE_DEFAULT_COLORS = {
     'Byggdel': '#3498db',
+    'Assembly': '#3498db',
     'Produkt': '#2ecc71',
+    'Product': '#2ecc71',
     'Kravställning': '#e74c3c',
+    'Requirement': '#e74c3c',
     'Anslutning': '#f39c12',
+    'Connection': '#f39c12',
     'Ritningsobjekt': '#9b59b6',
     'Filobjekt': '#9b59b6',
+    'FileObject': '#9b59b6',
     'Egenskap': '#1abc9c',
-    'Anvisning': '#34495e'
+    'Property': '#8b5cf6',
+    'Anvisning': '#34495e',
+    'Instruction': '#34495e',
+    'Utrymme': '#0ea5e9',
+    'Space': '#0ea5e9',
+    'System': '#22c55e',
+    'Technical Specification': '#06b6d4',
+    'Technical Chapter': '#14b8a6',
+    'Module': '#84cc16'
 };
 
 const OBJECT_TYPE_COLOR_PALETTE = [
@@ -166,14 +179,25 @@ function sanitizeRichTextHtml(html) {
         'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'blockquote', 'a', 'img', 'table', 'thead', 'tbody', 'tfoot',
         'tr', 'td', 'th', 'caption', 'colgroup', 'col', 'hr',
-        'sup', 'sub', 'pre', 'code'
+        'sup', 'sub', 'pre', 'code', 's', 'strike', 'mark'
     ]);
     const allowedAttrs = {
         a: new Set(['href', 'target', 'rel']),
         span: new Set(['style']),
         p: new Set(['style']),
         div: new Set(['style']),
-        ul: new Set(['class']),
+        ol: new Set(['style', 'start', 'type']),
+        ul: new Set(['class', 'style']),
+        li: new Set(['style']),
+        h1: new Set(['style']),
+        h2: new Set(['style']),
+        h3: new Set(['style']),
+        h4: new Set(['style']),
+        h5: new Set(['style']),
+        h6: new Set(['style']),
+        blockquote: new Set(['style']),
+        pre: new Set(['style']),
+        code: new Set(['style']),
         img: new Set(['src', 'alt', 'title', 'style']),
         table: new Set(['style']),
         thead: new Set(['style']),
@@ -219,7 +243,10 @@ function sanitizeRichTextHtml(html) {
         'border-collapse',
         'vertical-align',
         'list-style-type',
+        'list-style-position',
         'white-space',
+        'page-break-before',
+        'page-break-after',
         'max-width',
         'width',
         'height'
@@ -229,6 +256,21 @@ function sanitizeRichTextHtml(html) {
     template.innerHTML = String(html);
 
     const sanitizeStyle = (styleValue, tagName = '') => {
+        const normalizeFontSize = (rawValue) => {
+            const value = String(rawValue || '').trim().toLowerCase();
+            const match = value.match(/^(-?\d*\.?\d+)(px|pt)$/);
+            if (!match) return value;
+
+            const amount = Number(match[1]);
+            const unit = match[2];
+            if (!Number.isFinite(amount)) return value;
+            if (unit === 'px') return `${amount}px`;
+
+            // Normalize Word-style point sizes to px so all content uses one visual scale.
+            const pxValue = Math.round((amount * 96 / 72) * 100) / 100;
+            return `${pxValue}px`;
+        };
+
         const chunks = String(styleValue || '')
             .split(';')
             .map(item => item.trim())
@@ -238,14 +280,19 @@ function sanitizeRichTextHtml(html) {
             const [rawProp, rawValue] = chunk.split(':');
             if (!rawProp || !rawValue) return;
             const prop = rawProp.trim().toLowerCase();
-            const value = rawValue.trim().toLowerCase();
+            const value = prop === 'font-size'
+                ? normalizeFontSize(rawValue)
+                : rawValue.trim().toLowerCase();
             if (!allowedStyleProps.has(prop)) return;
 
-            // Word-paste tends to inject paragraph spacing/line-height that makes content look double-spaced.
-            // Keep text emphasis/color styles, but normalize block-level spacing styles.
-            const isBlockTag = tagName === 'p' || tagName === 'div';
-            if (isBlockTag && ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'line-height'].includes(prop)) {
-                return;
+            // Keep most Word block formatting, but drop extreme spacing values that break layout.
+            const isSpacingProp = ['margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left', 'line-height'].includes(prop);
+            if (isSpacingProp) {
+                const numericValues = Array.from(value.matchAll(/-?\d*\.?\d+/g))
+                    .map(match => Number(match[0]))
+                    .filter(number => Number.isFinite(number));
+                const hasExtremeSpacing = numericValues.some(number => Math.abs(number) > 120);
+                if (hasExtremeSpacing) return;
             }
 
             if (!/^[a-z0-9\s\-\(\),.%#"'\/+!]+$/.test(value)) return;
@@ -301,7 +348,7 @@ function sanitizeRichTextHtml(html) {
                             .split(/\s+/)
                             .map(item => item.trim())
                             .filter(Boolean);
-                        const safeClasses = classes.filter(className => className === 'dash-list');
+                        const safeClasses = classes.filter(className => className === 'dash-list' || /^mso/i.test(className));
                         if (safeClasses.length === 0) {
                             child.removeAttribute('class');
                         } else {
@@ -325,6 +372,211 @@ function sanitizeRichTextHtml(html) {
     walk(template.content);
     return template.innerHTML.trim();
 }
+
+function applyResizableColumnWidth(table, columnIndex, width) {
+    if (!table || !Number.isFinite(columnIndex) || !Number.isFinite(width)) return;
+    const safeWidth = Math.max(40, Math.round(width));
+    const col = ensureResizableTableCol(table, columnIndex);
+    if (col) {
+        col.style.width = `${safeWidth}px`;
+        col.style.minWidth = `${safeWidth}px`;
+        col.style.maxWidth = `${safeWidth}px`;
+    }
+
+    const rows = table.querySelectorAll('tr');
+    rows.forEach((row) => {
+        const cell = row.children[columnIndex];
+        if (!cell) return;
+        cell.style.width = `${safeWidth}px`;
+        cell.style.minWidth = `${safeWidth}px`;
+        cell.style.maxWidth = `${safeWidth}px`;
+        cell.style.boxSizing = 'border-box';
+    });
+}
+
+function getResizableTableHeaders(table, headerSelector) {
+    if (!table) return [];
+    return Array.from(table.querySelectorAll(headerSelector || 'thead tr:first-child th'));
+}
+
+function ensureResizableTableColgroup(table) {
+    if (!table) return null;
+
+    let colgroup = table.querySelector(':scope > colgroup[data-resizable-columns="true"]');
+    if (!colgroup) {
+        colgroup = document.createElement('colgroup');
+        colgroup.dataset.resizableColumns = 'true';
+        table.insertBefore(colgroup, table.firstChild);
+    }
+
+    return colgroup;
+}
+
+function ensureResizableTableCol(table, columnIndex) {
+    if (!table || !Number.isFinite(columnIndex)) return null;
+    const headers = getResizableTableHeaders(table);
+    const colgroup = ensureResizableTableColgroup(table);
+    if (!colgroup) return null;
+
+    while (colgroup.children.length < headers.length) {
+        colgroup.appendChild(document.createElement('col'));
+    }
+    while (colgroup.children.length > headers.length) {
+        colgroup.removeChild(colgroup.lastChild);
+    }
+
+    return colgroup.children[columnIndex] || null;
+}
+
+function setResizableTableWidth(table) {
+    if (!table) return;
+    const headers = getResizableTableHeaders(table);
+    const totalWidth = headers.reduce((sum, header) => sum + Math.round(header.getBoundingClientRect().width || 0), 0);
+    if (totalWidth > 0) {
+        table.style.width = `${totalWidth}px`;
+        table.style.minWidth = `${totalWidth}px`;
+        table.style.maxWidth = `${totalWidth}px`;
+    }
+}
+
+function freezeResizableTableColumns(table, options = {}) {
+    if (!table) return;
+    const headerSelector = options.headerSelector || 'thead tr:first-child th';
+    const getColumnKey = typeof options.getColumnKey === 'function'
+        ? options.getColumnKey
+        : (header) => header?.dataset?.field || header?.dataset?.columnId || '';
+    const getInitialWidth = typeof options.getInitialWidth === 'function'
+        ? options.getInitialWidth
+        : () => null;
+    const minWidth = Number.isFinite(options.minWidth) ? options.minWidth : 60;
+    const headers = getResizableTableHeaders(table, headerSelector);
+
+    ensureResizableTableColgroup(table);
+
+    headers.forEach((header, columnIndex) => {
+        const columnKey = getColumnKey(header, columnIndex);
+        const persistedWidth = columnKey
+            ? Number(getInitialWidth(columnKey, header, columnIndex))
+            : NaN;
+        const measuredWidth = Math.round(header.getBoundingClientRect().width || 0);
+        const targetWidth = Number.isFinite(persistedWidth) && persistedWidth > 0
+            ? persistedWidth
+            : Math.max(minWidth, measuredWidth);
+
+        applyResizableColumnWidth(table, columnIndex, targetWidth);
+    });
+
+    setResizableTableWidth(table);
+}
+
+function makeTableColumnsResizable(options = {}) {
+    const table = options.table;
+    if (!table) return null;
+
+    const headerSelector = options.headerSelector || 'thead tr:first-child th';
+    const minWidth = Number.isFinite(options.minWidth) ? options.minWidth : 60;
+    const fixedLayout = options.fixedLayout === true;
+    const onResizeEnd = typeof options.onResizeEnd === 'function' ? options.onResizeEnd : null;
+    const getColumnKey = typeof options.getColumnKey === 'function'
+        ? options.getColumnKey
+        : (header) => header?.dataset?.field || header?.dataset?.columnId || '';
+    const getInitialWidth = typeof options.getInitialWidth === 'function'
+        ? options.getInitialWidth
+        : () => null;
+
+    freezeResizableTableColumns(table, {
+        headerSelector,
+        getColumnKey,
+        getInitialWidth,
+        minWidth
+    });
+
+    if (fixedLayout) {
+        table.style.tableLayout = 'fixed';
+    }
+
+    const headers = getResizableTableHeaders(table, headerSelector);
+    headers.forEach((header, columnIndex) => {
+        if (!header || header.dataset.resizable === 'false') return;
+
+        const columnKey = getColumnKey(header, columnIndex);
+        if (!columnKey) return;
+
+        if (!header.dataset.resizeClickGuardBound) {
+            header.addEventListener('click', (event) => {
+                if (header.dataset.suppressResizeClick !== 'true') return;
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                delete header.dataset.suppressResizeClick;
+            }, true);
+            header.dataset.resizeClickGuardBound = 'true';
+        }
+
+        let handle = header.querySelector('.column-resize-handle');
+        if (!handle) {
+            handle = document.createElement('span');
+            handle.className = 'column-resize-handle';
+            handle.setAttribute('role', 'separator');
+            handle.setAttribute('aria-orientation', 'vertical');
+            handle.setAttribute('aria-label', `Ändra bredd på kolumn ${columnKey}`);
+            header.appendChild(handle);
+        }
+
+        handle.onmousedown = null;
+        handle.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const startX = event.clientX;
+            const startWidth = header.getBoundingClientRect().width;
+            let hasDragged = false;
+
+            const onMouseMove = (moveEvent) => {
+                if (Math.abs(moveEvent.clientX - startX) > 2) {
+                    hasDragged = true;
+                }
+                const nextWidth = Math.max(minWidth, startWidth + (moveEvent.clientX - startX));
+                applyResizableColumnWidth(table, columnIndex, nextWidth);
+                setResizableTableWidth(table);
+                document.body.classList.add('column-resize-active');
+            };
+
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                document.body.classList.remove('column-resize-active');
+
+                const finalWidth = Math.max(minWidth, Math.round(header.getBoundingClientRect().width));
+                applyResizableColumnWidth(table, columnIndex, finalWidth);
+                setResizableTableWidth(table);
+                if (hasDragged) {
+                    header.dataset.suppressResizeClick = 'true';
+                }
+                if (onResizeEnd) {
+                    onResizeEnd(columnKey, finalWidth, header, columnIndex);
+                }
+            };
+
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp, { once: true });
+        });
+        handle.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+        });
+    });
+
+    return {
+        headers,
+        refresh() {
+            makeTableColumnsResizable(options);
+        }
+    };
+}
+
+window.makeTableColumnsResizable = makeTableColumnsResizable;
 
 function isPdfUrl(url) {
     if (!url) return false;

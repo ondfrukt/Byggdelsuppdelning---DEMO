@@ -10,6 +10,8 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    position: relative;
+    overflow: hidden;
 }
 
 .tree-toolbar {
@@ -53,7 +55,9 @@
 }
 
 .tree-table {
-    width: 100%;
+    width: max-content;
+    min-width: 0;
+    max-width: none;
     border-collapse: collapse;
     table-layout: fixed;
 }
@@ -186,11 +190,30 @@
 #tree-view-container {
     height: 100%;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.tree-table-container {
+#tree-system-table {
+    display: flex;
+    flex: 1 1 auto;
     flex: 1;
     min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#tree-system-table > .filters {
+    flex: 0 0 auto;
+}
+
+#tree-system-table > .tree-table-container.table-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: calc(100vh - 280px);
+    overflow-x: auto;
+    overflow-y: auto;
 }
 
 /* Compact toggle icons (12-14px) */
@@ -284,23 +307,19 @@
     width: 12px;
 }
 
-/* Column widths optimization (class-based to survive hide/show) */
-.tree-table th.col-name,
-.tree-table td.col-name {
-    width: 25%;
+.tree-table th.col-tree-name,
+.tree-table td.col-tree-name {
     min-width: 220px;
-    max-width: 25vw;
 }
 
-.tree-table th.col-kravtext,
-.tree-table td.col-kravtext,
-.tree-table th.col-beskrivning,
-.tree-table td.col-beskrivning {
-    width: 20%;
+.tree-table th.col-tree-kravtext,
+.tree-table td.col-tree-kravtext,
+.tree-table th.col-tree-beskrivning,
+.tree-table td.col-tree-beskrivning {
     min-width: 140px;
 }
 
-.tree-table .col-paperclip {
+.tree-table .col-tree-has-files {
     width: 20px !important;
     min-width: 20px !important;
     max-width: 20px !important;
@@ -310,29 +329,23 @@
 }
 
 /* Explicit column sizing rules (robust when columns are hidden/reordered) */
-.tree-table th.col-id,
-.tree-table td.col-id {
-    width: 100px !important;
-    min-width: 100px !important;
-    max-width: 100px !important;
+.tree-table th.col-tree-id,
+.tree-table td.col-tree-id {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.tree-table th.col-type,
-.tree-table td.col-type {
-    width: 150px !important;
-    min-width: 150px !important;
-    max-width: 150px !important;
+.tree-table th.col-tree-type,
+.tree-table td.col-tree-type {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.tree-table th.col-files,
-.tree-table td.col-files {
-    min-width: 250px !important;
+.tree-table th.col-tree-files,
+.tree-table td.col-tree-files {
+    min-width: 250px;
 }
 
 .tree-file-link {
@@ -402,15 +415,10 @@
 
 /* Responsive adjustments while maintaining compact design */
 @media (max-width: 1400px) {
-    .tree-table th.col-name,
-    .tree-table td.col-name {
-        width: 25%;
-    }
-
-    .tree-table th.col-kravtext,
-    .tree-table td.col-kravtext,
-    .tree-table th.col-beskrivning,
-    .tree-table td.col-beskrivning {
+    .tree-table th.col-tree-kravtext,
+    .tree-table td.col-tree-kravtext,
+    .tree-table th.col-tree-beskrivning,
+    .tree-table td.col-tree-beskrivning {
         min-width: 120px;
     }
 }

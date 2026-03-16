@@ -8,16 +8,26 @@ class SystemTable {
         this.container = document.getElementById(this.containerId);
         this.columns = Array.isArray(options.columns) ? options.columns : [];
         this.rows = Array.isArray(options.rows) ? options.rows : [];
+        this.getRows = typeof options.getRows === 'function' ? options.getRows : null;
+        this.renderRow = typeof options.renderRow === 'function' ? options.renderRow : null;
         this.tableId = options.tableId || `system-table-${this.containerId}`;
         this.emptyText = options.emptyText || 'Inga rader hittades';
         this.globalSearch = options.globalSearch !== false;
         this.columnSearch = options.columnSearch !== false;
         this.searchDebounceMs = Number.isFinite(options.searchDebounceMs) ? options.searchDebounceMs : 280;
         this.rowClassName = options.rowClassName || '';
+        this.tableClassName = options.tableClassName || '';
+        this.containerClassName = options.containerClassName || '';
         this.onRowClick = typeof options.onRowClick === 'function' ? options.onRowClick : null;
         this.onRender = typeof options.onRender === 'function' ? options.onRender : null;
+        this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : null;
         this.pendingFocusDescriptor = null;
         this.persistState = options.persistState !== false;
+        this.textCollator = new Intl.Collator('sv', {
+            sensitivity: 'base',
+            numeric: true,
+            ignorePunctuation: true
+        });
 
         const firstSortable = this.columns.find(col => col.sortable !== false);
         const defaultState = {
@@ -26,8 +36,33 @@ class SystemTable {
             sortField: firstSortable ? firstSortable.field : null,
             sortDirection: 'asc'
         };
-        this.state = this.restorePersistedState(defaultState);
+        this.state = this.applyStateOverride(
+            this.restorePersistedState(defaultState),
+            options.initialState
+        );
+        this.lastRenderedRows = [];
         this.persistCurrentState();
+    }
+
+    applyStateOverride(baseState, overrideState) {
+        if (!overrideState || typeof overrideState !== 'object') {
+            return baseState;
+        }
+
+        const hasValidSortField = this.columns.some(col => (
+            col.field === overrideState.sortField && col.sortable !== false
+        ));
+
+        return {
+            ...baseState,
+            search: overrideState.search !== undefined ? String(overrideState.search || '') : baseState.search,
+            columnSearches: {
+                ...baseState.columnSearches,
+                ...(overrideState.columnSearches || {})
+            },
+            sortField: hasValidSortField ? overrideState.sortField : baseState.sortField,
+            sortDirection: overrideState.sortDirection === 'desc' ? 'desc' : baseState.sortDirection
+        };
     }
 
     getStateStorageKey() {
@@ -75,6 +110,17 @@ class SystemTable {
         };
     }
 
+    notifyStateChange() {
+        if (this.onStateChange) {
+            this.onStateChange({
+                search: this.state.search,
+                columnSearches: { ...(this.state.columnSearches || {}) },
+                sortField: this.state.sortField,
+                sortDirection: this.state.sortDirection
+            }, this);
+        }
+    }
+
     setRows(rows = []) {
         this.rows = Array.isArray(rows) ? rows : [];
         this.persistCurrentState();
@@ -98,6 +144,20 @@ class SystemTable {
         return this.state.sortDirection === 'asc' ? '↑' : '↓';
     }
 
+    renderTableColgroup() {
+        return `<colgroup data-system-table-colgroup="true">
+            ${this.columns.map(column => `
+                <col data-column-key="${this.escape(column.field)}">
+            `).join('')}
+        </colgroup>`;
+    }
+
+    getColumnStyle(column) {
+        const width = Number(column?.width);
+        if (!Number.isFinite(width) || width <= 0) return '';
+        return ` style="width: ${width}px; min-width: ${width}px; max-width: ${width}px;"`;
+    }
+
     getCellValue(row, column) {
         if (typeof column.value === 'function') {
             return column.value(row);
@@ -109,6 +169,10 @@ class SystemTable {
         const value = this.getCellValue(row, column);
         if (value === null || value === undefined) return '';
         return String(value);
+    }
+
+    compareValues(aValue, bValue) {
+        return this.textCollator.compare(String(aValue ?? ''), String(bValue ?? ''));
     }
 
     escape(value) {
@@ -256,12 +320,20 @@ class SystemTable {
                 items.sort((a, b) => {
                     const aValue = this.getCellTextForFilter(a, sortColumn);
                     const bValue = this.getCellTextForFilter(b, sortColumn);
-                    return aValue.localeCompare(bValue, 'sv', { sensitivity: 'base' }) * direction;
+                    return this.compareValues(aValue, bValue) * direction;
                 });
             }
         }
 
         return items;
+    }
+
+    resolveRows() {
+        if (this.getRows) {
+            const rows = this.getRows(this);
+            return Array.isArray(rows) ? rows : [];
+        }
+        return this.filteredRows();
     }
 
     bindEvents() {
@@ -274,11 +346,13 @@ class SystemTable {
                 ? debounce((value) => {
                     this.state.search = value;
                     this.persistCurrentState();
+                    this.notifyStateChange();
                     this.render();
                 }, this.searchDebounceMs)
                 : ((value) => {
                     this.state.search = value;
                     this.persistCurrentState();
+                    this.notifyStateChange();
                     this.render();
                 });
 
@@ -300,21 +374,37 @@ class SystemTable {
                     this.state.sortDirection = 'asc';
                 }
                 this.persistCurrentState();
+                this.notifyStateChange();
                 this.render();
             });
         });
 
         container.querySelectorAll('.system-table-column-search').forEach(input => {
             const field = input.dataset.field;
+            if (!field) return;
+
+            if (input.type === 'checkbox') {
+                input.addEventListener('change', (event) => {
+                    this.pendingFocusDescriptor = this.getInputFocusDescriptor(event.target);
+                    this.state.columnSearches[field] = event.target.checked ? '1' : '';
+                    this.persistCurrentState();
+                    this.notifyStateChange();
+                    this.render();
+                });
+                return;
+            }
+
             const debouncedColumnSearch = (typeof debounce === 'function')
                 ? debounce((value) => {
                     this.state.columnSearches[field] = value;
                     this.persistCurrentState();
+                    this.notifyStateChange();
                     this.render();
                 }, this.searchDebounceMs)
                 : ((value) => {
                     this.state.columnSearches[field] = value;
                     this.persistCurrentState();
+                    this.notifyStateChange();
                     this.render();
                 });
 
@@ -329,8 +419,7 @@ class SystemTable {
                 rowEl.addEventListener('click', () => {
                     const index = Number(rowEl.dataset.rowIndex);
                     if (!Number.isFinite(index)) return;
-                    const rows = this.filteredRows();
-                    this.onRowClick(rows[index], rowEl);
+                    this.onRowClick(this.lastRenderedRows[index], rowEl);
                 });
             });
         }
@@ -346,7 +435,8 @@ class SystemTable {
             }
         }
 
-        const rows = this.filteredRows();
+        const rows = this.resolveRows();
+        this.lastRenderedRows = rows;
 
         const filtersHtml = this.globalSearch ? `
             <div class="filters">
@@ -356,36 +446,59 @@ class SystemTable {
 
         const headHtml = this.columns.map(column => {
             const className = column.className || 'col-default';
-            if (column.sortable === false) {
-                return `<th class="${className}">${this.escape(column.label || '')}</th>`;
+            const headerClasses = ['resizable-column', column.draggable ? 'draggable-column' : '', className].filter(Boolean).join(' ');
+            const width = Number(column.width);
+            const styles = [];
+            const draggableAttr = column.draggable ? ' data-draggable-column="true" draggable="true"' : '';
+            if (Number.isFinite(width) && width > 0) {
+                styles.push(`width: ${width}px`, `min-width: ${width}px`, `max-width: ${width}px`);
             }
-            return `<th class="${className}" data-sortable="true" data-field="${this.escape(column.field)}" style="cursor: pointer;">${this.escape(column.label || '')} <span class="sort-indicator">${this.getSortIndicator(column.field)}</span></th>`;
+            if (column.sortable === false) {
+                const styleAttr = styles.length ? ` style="${styles.join('; ')}"` : '';
+                return `<th class="${this.escape(headerClasses)}" data-field="${this.escape(column.field)}" data-column-key="${this.escape(column.field)}"${draggableAttr}${styleAttr}>${this.escape(column.label || '')}</th>`;
+            }
+            styles.push('cursor: pointer');
+            return `<th class="${this.escape(headerClasses)}" data-sortable="true" data-field="${this.escape(column.field)}" data-column-key="${this.escape(column.field)}"${draggableAttr} style="${styles.join('; ')}">${this.escape(column.label || '')} <span class="sort-indicator">${this.getSortIndicator(column.field)}</span></th>`;
         }).join('');
 
         const columnSearchHtml = this.columnSearch ? `
             <tr class="column-search-row">
                 ${this.columns.map(column => {
                     const className = column.className || 'col-default';
+                    const widthStyle = this.getColumnStyle(column);
                     if (column.searchable === false) {
-                        return `<th class="${className}"></th>`;
+                        return `<th class="${className}"${widthStyle}></th>`;
                     }
-                    return `<th class="${className}"><input type="text" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" placeholder="Sök..." value="${this.escape(this.state.columnSearches[column.field] || '')}"></th>`;
+                    if (column.searchType === 'checkbox') {
+                        const checked = this.state.columnSearches[column.field] === '1' ? 'checked' : '';
+                        return `<th class="${className}"${widthStyle}><input type="checkbox" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" ${checked}></th>`;
+                    }
+                    return `<th class="${className}"${widthStyle}><input type="text" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" placeholder="${this.escape(column.searchPlaceholder || 'Sök...')}" value="${this.escape(this.state.columnSearches[column.field] || '')}"></th>`;
                 }).join('')}
             </tr>
         ` : '';
 
         const rowsHtml = rows.length
-            ? rows.map((row, index) => `
-                <tr data-row-index="${index}" class="${this.escape(this.rowClassName)}">
-                    ${this.columns.map(column => `<td class="${column.className || 'col-default'}">${this.renderCell(row, column)}</td>`).join('')}
-                </tr>
-            `).join('')
+            ? rows.map((row, index) => {
+                if (this.renderRow) {
+                    return this.renderRow(row, index, this);
+                }
+                return `
+                    <tr data-row-index="${index}" class="${this.escape(this.rowClassName)}">
+                        ${this.columns.map(column => `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}"${this.getColumnStyle(column)}>${this.renderCell(row, column)}</td>`).join('')}
+                    </tr>
+                `;
+            }).join('')
             : `<tr><td colspan="${this.columns.length}" class="empty-state">${this.escape(this.emptyText)}</td></tr>`;
+
+        const containerClasses = ['table-container', this.containerClassName].filter(Boolean).join(' ');
+        const tableClasses = ['data-table', this.tableClassName].filter(Boolean).join(' ');
 
         this.container.innerHTML = `
             ${filtersHtml}
-            <div class="table-container">
-                <table id="${this.escape(this.tableId)}" class="data-table">
+            <div class="${this.escape(containerClasses)}">
+                <table id="${this.escape(this.tableId)}" class="${this.escape(tableClasses)}">
+                    ${this.renderTableColgroup()}
                     <thead>
                         <tr>${headHtml}</tr>
                         ${columnSearchHtml}
