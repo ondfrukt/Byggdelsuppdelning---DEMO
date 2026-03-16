@@ -152,7 +152,55 @@ class ObjectDetailComponent {
         if (asText && map.byValue.has(asText)) {
             return map.byValue.get(asText);
         }
+        const isMultiSelect = String(options.selection_mode || 'single').toLowerCase() === 'multi';
+        const resolveSingle = (rawValue) => {
+            const asNumber = Number(rawValue);
+            if (Number.isFinite(asNumber) && map.byId.has(asNumber)) {
+                const hierarchyPath = resolveHierarchyPath(asNumber);
+                if (hierarchyPath) return hierarchyPath;
+                return map.byId.get(asNumber)?.label || rawValue;
+            }
+            const asItemText = String(rawValue || '').trim();
+            if (asItemText && map.byValue.has(asItemText)) {
+                return map.byValue.get(asItemText);
+            }
+            return rawValue;
+        };
+        const resolveMultiple = (sourceValues) => sourceValues
+            .map(resolveSingle)
+            .map(item => String(item ?? '').trim())
+            .filter(Boolean);
+
+        if (Array.isArray(value)) {
+            return isMultiSelect ? resolveMultiple(value) : value.map(resolveSingle).join(', ');
+        }
+        if (isMultiSelect && value && typeof value === 'object' && !Array.isArray(value)) {
+            const selectedIds = Array.isArray(value.selected_ids) ? value.selected_ids : [];
+            return resolveMultiple(selectedIds);
+        }
+        if (typeof value === 'string' && value.includes(',')) {
+            const parts = value.split(',').map(part => part.trim()).filter(Boolean);
+            if (parts.length > 1) {
+                return isMultiSelect ? resolveMultiple(parts) : parts.map(resolveSingle).join(', ');
+            }
+        }
         return value;
+    }
+
+    formatDetailValue(value, fieldType = undefined) {
+        if (Array.isArray(value)) {
+            const items = value
+                .map(item => String(item ?? '').trim())
+                .filter(Boolean);
+            if (!items.length) return 'N/A';
+            return `
+                <span class="detail-value detail-value-list">
+                    ${items.map(item => `<span class="detail-value-line">${escapeHtml(item)}</span>`).join('')}
+                </span>
+            `;
+        }
+
+        return `<span class="detail-value">${this.formatValue(value, fieldType)}</span>`;
     }
     
     getDisplayName() {
@@ -236,7 +284,7 @@ class ObjectDetailComponent {
                 fields.push(`
                     <div class="detail-item">
                         <span class="detail-label">${escapeHtml(label)}</span>
-                        <span class="detail-value">${this.formatValue(resolvedValue, fieldType)}</span>
+                        ${this.formatDetailValue(resolvedValue, fieldType)}
                     </div>
                 `);
             });

@@ -17,6 +17,8 @@ class ObjectFormComponent {
         this.managedListValues = {};
         this.managedListItemsByListId = {};
         this.managedListDependencyRequestTokens = {};
+        this.managedMultiImportTableByField = {};
+        this.managedMultiImportRowsByField = {};
         this.richTextWindowState = null;
         this.richTextCopiedFormat = null;
         this.richTextApplyButtonApis = new Set();
@@ -104,6 +106,7 @@ class ObjectFormComponent {
             </div>
         `;
 
+        this.setupManagedListMultiSelects(container);
         this.setupManagedListDependencies(container);
         this.setupManagedListHierarchySelectors(container);
         await this.initializeRichTextEditors(container);
@@ -122,15 +125,20 @@ class ObjectFormComponent {
     getManagedListHierarchyConfig(field) {
         const options = this.getManagedListFieldOptions(field);
         if (!options || options.parent_field_name) return null;
+        if (String(options.selection_mode || 'single').toLowerCase() === 'multi') return null;
+        const hierarchyLevelCount = Number(options.hierarchy_level_count || 0);
+        const labels = Array.isArray(options.hierarchy_level_labels)
+            ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
+            : [];
+        const hierarchyEnabled = hierarchyLevelCount > 1 || labels.length > 1;
+        if (!hierarchyEnabled) return null;
+
         const listId = Number(options.list_id || 0);
         if (!Number.isFinite(listId) || listId <= 0) return null;
 
         const maxDepth = this.getManagedListMaxDepth(listId);
         if (!Number.isFinite(maxDepth) || maxDepth <= 0) return null;
-        const labels = Array.isArray(options.hierarchy_level_labels)
-            ? options.hierarchy_level_labels.map(label => String(label || '').trim()).filter(Boolean).slice(0, 8)
-            : [];
-        const levelCount = Math.min(8, Math.max(1, Math.floor(maxDepth)));
+        const levelCount = Math.min(8, Math.max(1, Math.floor(hierarchyLevelCount || maxDepth)));
 
         return {
             levelCount,
@@ -246,6 +254,237 @@ class ObjectFormComponent {
             .filter(Boolean);
     }
 
+    buildManagedListMultiOptionMarkup(option, selectedValues = []) {
+        return window.ManagedMultiSelect.buildOptionMarkup(option, selectedValues);
+    }
+
+    renderManagedMultiSelectField(field, options, managedOptions, rawValue, required) {
+        const listId = Number(managedOptions?.list_id || 0);
+        const selectedValues = this.getManagedListMultiSelectedValues(listId, rawValue);
+        return window.ManagedMultiSelect.render({
+            fieldName: field.field_name,
+            inputId: `field-${field.field_name}`,
+            inputName: field.field_name,
+            options: options || [],
+            selectedValues,
+            required: Boolean(required),
+            searchPlaceholder: 'Sök och klicka för att lägga till flera val...',
+            actions: [
+                { key: 'import', label: 'Hämta', className: 'btn btn-secondary btn-sm' },
+                { key: 'select-all', label: 'Alla', className: 'btn btn-secondary btn-sm' },
+                { key: 'clear', label: 'Rensa', className: 'btn btn-secondary btn-sm' }
+            ]
+        });
+    }
+
+    syncManagedMultiSelectSummary(wrapper, hiddenSelect) {
+        if (!wrapper || !hiddenSelect) return;
+        window.ManagedMultiSelect.sync(wrapper);
+    }
+
+    syncManagedMultiSelectUi(wrapper) {
+        if (!wrapper) return;
+        window.ManagedMultiSelect.sync(wrapper);
+    }
+
+    filterManagedMultiSelectOptions(wrapper, searchTerm = '') {
+        if (!wrapper) return;
+        window.ManagedMultiSelect.filter(wrapper, searchTerm);
+    }
+
+    getManagedMultiValueLabels(field, rawValue) {
+        const managedOptions = this.getManagedListFieldOptions(field);
+        if (!managedOptions) return [];
+        const listId = Number(managedOptions.list_id || 0);
+        const selectedValues = this.getManagedListMultiSelectedValues(listId, rawValue);
+        const optionMap = new Map((this.managedListValues[listId] || []).map(item => [String(item.value), String(item.label || item.value)]));
+        return selectedValues.map(value => optionMap.get(String(value)) || String(value)).filter(Boolean);
+    }
+
+    getManagedMultiValueSummary(field, rawValue) {
+        const labels = this.getManagedMultiValueLabels(field, rawValue);
+        if (!labels.length) return '-';
+        if (labels.length <= 3) return labels.join(', ');
+        return `${labels.slice(0, 3).join(', ')} +${labels.length - 3}`;
+    }
+
+    getFieldIdentityMatcher(field, candidateField) {
+        if (!field || !candidateField) return false;
+        const sourceTemplateId = Number(field.field_template_id || 0);
+        const candidateTemplateId = Number(candidateField.field_template_id || 0);
+        if (sourceTemplateId > 0 && candidateTemplateId > 0) {
+            return sourceTemplateId === candidateTemplateId;
+        }
+
+        const sourceOptions = this.getManagedListFieldOptions(field) || {};
+        const candidateOptions = this.normalizeFieldOptions(candidateField.field_options || candidateField.options) || {};
+        return (
+            String(candidateField.field_type || '').toLowerCase() === String(field.field_type || '').toLowerCase()
+            && this.normalizeFieldKey(candidateField.field_name) === this.normalizeFieldKey(field.field_name)
+            && Number(candidateOptions.list_id || 0) === Number(sourceOptions.list_id || 0)
+        );
+    }
+
+    getObjectDisplayNameForImport(obj) {
+        return obj?.data?.Namn || obj?.data?.namn || obj?.data?.Name || obj?.data?.name || obj?.id_full || `Objekt ${obj?.id || ''}`;
+    }
+
+    async loadManagedMultiImportRows(field) {
+        const objectTypes = await ObjectTypesAPI.getAll(true);
+        const compatibleTypes = (objectTypes || []).map(type => {
+            const candidateField = (type.fields || []).find(item => this.getFieldIdentityMatcher(field, item));
+            return candidateField ? { type, candidateField } : null;
+        }).filter(Boolean);
+
+        const rows = [];
+        for (const entry of compatibleTypes) {
+            const { type, candidateField } = entry;
+            let objects = [];
+            try {
+                objects = await ObjectsAPI.getAll({ type: type.name });
+            } catch (error) {
+                console.error('Failed to load candidate objects for multi-import:', type.name, error);
+                continue;
+            }
+
+            objects.forEach(obj => {
+                if (Number(obj?.id) === Number(this.existingObject?.id || 0)) return;
+                const rawValue = obj?.data?.[candidateField.field_name];
+                const labels = this.getManagedMultiValueLabels(field, rawValue);
+                if (!labels.length) return;
+                rows.push({
+                    object_id: Number(obj.id),
+                    id_full: obj.id_full || 'N/A',
+                    type: obj.object_type?.name || type.name || 'N/A',
+                    name: this.getObjectDisplayNameForImport(obj),
+                    values: labels.join(', '),
+                    rawValue
+                });
+            });
+        }
+
+        return rows;
+    }
+
+    ensureManagedMultiImportModal(field) {
+        const modalId = `managed-multi-import-modal-${field.field_name}`;
+        let modal = document.getElementById(modalId);
+        if (modal) return modal;
+
+        modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'managed-multi-import-modal';
+        modal.innerHTML = `
+            <div class="managed-multi-import-backdrop" data-managed-multi-import-close="${escapeHtml(field.field_name)}"></div>
+            <div class="managed-multi-import-dialog" role="dialog" aria-modal="true" aria-labelledby="${escapeHtml(modalId)}-title">
+                <div class="modal-header">
+                    <h3 id="${escapeHtml(modalId)}-title">Hämta värden från annat objekt</h3>
+                    <button class="close-btn" type="button" data-managed-multi-import-close="${escapeHtml(field.field_name)}">&times;</button>
+                </div>
+                <div class="managed-multi-import-body">
+                    <p class="managed-multi-import-help">Sök upp ett objekt med samma fält och hämta dess valda värden.</p>
+                    <div id="${escapeHtml(modalId)}-table"></div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelectorAll('[data-managed-multi-import-close]').forEach(button => {
+            button.addEventListener('click', () => this.closeManagedMultiImportModal(field.field_name));
+        });
+
+        return modal;
+    }
+
+    closeManagedMultiImportModal(fieldName) {
+        const modal = document.getElementById(`managed-multi-import-modal-${fieldName}`);
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    applyManagedMultiImportedValues(field, rawValue) {
+        const wrapper = document.querySelector(`[data-managed-multi-field="${CSS.escape(field.field_name)}"]`);
+        if (!wrapper) return;
+        const managedOptions = this.getManagedListFieldOptions(field);
+        if (!managedOptions) return;
+
+        const nextValues = this.getManagedListMultiSelectedValues(Number(managedOptions.list_id), rawValue);
+        window.ManagedMultiSelect.setValues(wrapper, nextValues);
+        this.closeManagedMultiImportModal(field.field_name);
+        showToast('Värden hämtade från objekt', 'success');
+    }
+
+    async openManagedMultiImportModal(field) {
+        const modal = this.ensureManagedMultiImportModal(field);
+        const containerId = `${modal.id}-table`;
+        modal.style.display = 'block';
+
+        this.managedMultiImportRowsByField[field.field_name] = await this.loadManagedMultiImportRows(field);
+        const rows = this.managedMultiImportRowsByField[field.field_name] || [];
+
+        this.managedMultiImportTableByField[field.field_name] = new SystemTable({
+            containerId,
+            tableId: `${modal.id}-system-table`,
+            persistState: false,
+            initialState: {
+                search: '',
+                columnSearches: {},
+                sortField: 'name',
+                sortDirection: 'asc'
+            },
+            columns: [
+                { field: 'id_full', label: 'ID', className: 'col-id' },
+                { field: 'type', label: 'Typ', className: 'col-type', badge: 'type' },
+                { field: 'name', label: 'Namn', className: 'col-name' },
+                { field: 'values', label: 'Beskrivning', className: 'col-description', multiline: true },
+                {
+                    field: 'actions',
+                    label: 'Actions',
+                    className: 'col-actions',
+                    sortable: false,
+                    searchable: false,
+                    render: (row) => `
+                        <button type="button" class="btn btn-primary btn-sm managed-multi-import-apply-btn" data-object-id="${row.object_id}">
+                            Använd
+                        </button>
+                    `
+                }
+            ],
+            rows,
+            emptyText: 'Inga objekt med valda värden hittades',
+            onRender: () => {
+                const host = document.getElementById(containerId);
+                if (!host) return;
+                host.querySelectorAll('.managed-multi-import-apply-btn').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const objectId = Number(button.getAttribute('data-object-id') || 0);
+                        const row = rows.find(item => Number(item.object_id) === objectId);
+                        if (!row) return;
+                        this.applyManagedMultiImportedValues(field, row.rawValue);
+                    });
+                });
+            }
+        });
+
+        this.managedMultiImportTableByField[field.field_name].render();
+    }
+
+    setupManagedListMultiSelects(container) {
+        if (!container) return;
+        window.ManagedMultiSelect.init(container, {
+            onAction: (action, wrapper) => {
+                const fieldName = String(wrapper.getAttribute('data-managed-multi-field') || '').trim();
+                const field = (this.fields || []).find(item => String(item.field_name || '') === fieldName);
+                if (action !== 'import' || !field) return;
+                this.openManagedMultiImportModal(field).catch(error => {
+                    console.error('Failed to open managed multi import modal:', error);
+                    showToast('Kunde inte hämta objekt för import', 'error');
+                });
+            }
+        });
+    }
+
     renderSelectElementOptions(selectEl, options, selectedValue = '') {
         if (!selectEl) return;
         const safeSelected = String(selectedValue || '');
@@ -303,6 +542,15 @@ class ObjectFormComponent {
                 .filter(item => item.value && item.is_selectable !== false);
             const normalizedSelected = this.getManagedListSelectSelectedValue(childListId, currentSelected);
             this.renderSelectElementOptions(childSelect, mapped, normalizedSelected);
+            if (childSelect.dataset.managedMultiHidden === 'true') {
+                const wrapper = childSelect.closest('[data-managed-multi-field]');
+                if (wrapper) {
+                    const selectedValues = this.getManagedListMultiSelectedValues(childListId, currentSelected);
+                    window.ManagedMultiSelect.rebuildOptions(wrapper, mapped, selectedValues);
+                    this.setupManagedListMultiSelects(wrapper);
+                    this.syncManagedMultiSelectUi(wrapper);
+                }
+            }
         } catch (error) {
             console.error(`Failed to refresh dependent options for ${field.field_name}:`, error);
             if (this.managedListDependencyRequestTokens[requestKey] !== token) return;
@@ -682,6 +930,8 @@ class ObjectFormComponent {
                             <div data-managed-hierarchy-levels></div>
                         </div>
                     `;
+                } else if (isMultiManagedSelect) {
+                    inputHtml = this.renderManagedMultiSelectField(field, options, managedOptions, value, required);
                 } else {
                     const optionsHtml = options.map(opt => 
                         `<option value="${escapeHtml(opt.value)}" ${
@@ -1890,6 +2140,7 @@ class ObjectFormComponent {
                     .map(option => String(option.value || '').trim())
                     .filter(Boolean)
                     .length;
+                const wrapper = input.closest('[data-managed-multi-field]');
                 if (selectedCount === 0) {
                     isValid = false;
                     missingFields.push({
@@ -1898,8 +2149,10 @@ class ObjectFormComponent {
                         value: '[]'
                     });
                     input.classList.add('error');
+                    wrapper?.classList?.add('error');
                 } else {
                     input.classList.remove('error');
+                    wrapper?.classList?.remove('error');
                 }
                 return;
             }

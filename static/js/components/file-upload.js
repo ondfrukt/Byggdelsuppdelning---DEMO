@@ -29,9 +29,13 @@ class FileUploadComponent {
         this.batchFileRowIdSeq = 1;
     }
 
+    normalizeTypeName(typeName) {
+        return String(typeName || '').toLowerCase().replace(/\s+/g, '').trim();
+    }
+
     isFileObjectType(typeName) {
-        const normalized = (typeName || '').toLowerCase().trim();
-        return normalized === 'filobjekt';
+        const normalized = this.normalizeTypeName(typeName);
+        return ['filobjekt', 'fileobject', 'ritningsobjekt', 'dokumentobjekt', 'documentobject'].includes(normalized);
     }
 
     async loadCurrentObject() {
@@ -149,17 +153,19 @@ class FileUploadComponent {
         `;
 
         const indirectFilesHint = '';
-
-
-        this.container.innerHTML = `
-            <div class="${rootClass}">
-                ${actionButtons}
-
+        const linkedSection = this.isCurrentObjectFileObject ? '' : `
                 <div class="documents-list linked-documents-list">
                     ${linkedTitle}
                     ${indirectFilesHint}
                     <div id="linked-documents-list-${this.objectId}"></div>
                 </div>
+        `;
+
+
+        this.container.innerHTML = `
+            <div class="${rootClass}">
+                ${actionButtons}
+                ${linkedSection}
                 ${modals}
                 ${fileSection}
             </div>
@@ -168,7 +174,6 @@ class FileUploadComponent {
         this.attachEventListeners();
         await this.loadDocumentObjectType();
         if (this.isCurrentObjectFileObject) {
-            await this.loadLinkedBusinessObjects();
             await this.loadDocuments();
         } else {
             await this.loadFilesViaLinkedDocumentObjects();
@@ -408,7 +413,7 @@ class FileUploadComponent {
     }
 
     findDocumentObjectType(objectTypes) {
-        return objectTypes.find(type => (type.name || '').toLowerCase().trim() === 'filobjekt') || null;
+        return objectTypes.find(type => this.isFileObjectType(type?.name)) || null;
     }
 
     async loadLinkedBusinessObjects() {

@@ -29,11 +29,11 @@
             <div id="object-detail-view" class="view">
                 <div id="object-detail-container"></div>
             </div>
+        </div>
 
-            <!-- File Objects View -->
-            <div id="file-objects-view" class="view">
-                <div id="file-objects-container"></div>
-            </div>
+        <!-- File Objects View - full width, outside container -->
+        <div id="file-objects-view" class="view">
+            <div id="file-objects-container"></div>
         </div>
 
         <!-- Objects View - full width, outside container -->
@@ -275,6 +275,14 @@
                         Obligatoriskt fält
                     </label>
                 </div>
+                <div class="form-group" id="field-selection-mode-group" style="display: none;">
+                    <label for="field-selection-mode">Valtyp</label>
+                    <select id="field-selection-mode" class="form-control">
+                        <option value="single">Enkelval</option>
+                        <option value="multi">Flerval</option>
+                    </select>
+                    <small class="form-help">Bestämmer om användaren kan välja ett eller flera värden i objektformuläret.</small>
+                </div>
                 <div class="form-group" id="field-hierarchy-settings-group" style="display: none;">
                     <label>
                         <input type="checkbox" id="field-enable-hierarchy">
@@ -401,6 +409,14 @@
                     </select>
                     <small class="form-help">Listor hanteras under fliken "Listor".</small>
                 </div>
+                <div class="form-group" id="template-selection-mode-group" style="display: none;">
+                    <label for="template-selection-mode">Valtyp</label>
+                    <select id="template-selection-mode" class="form-control">
+                        <option value="single">Enkelval</option>
+                        <option value="multi">Flerval</option>
+                    </select>
+                    <small class="form-help" id="template-selection-mode-help">Välj om användaren ska kunna välja ett eller flera värden.</small>
+                </div>
                 <div class="form-group" id="template-options-custom-group" style="display: none;">
                     <label for="template-options">Alternativ (för dropdown)</label>
                     <input type="text" id="template-options" class="form-control" placeholder="Alt1, Alt2 eller JSON">
@@ -463,6 +479,7 @@
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/system-table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/managed-multi-select.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list-display-name.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail.js') }}"></script>

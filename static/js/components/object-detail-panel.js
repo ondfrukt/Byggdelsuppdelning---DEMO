@@ -129,16 +129,42 @@ class ObjectDetailPanel {
             return rawValue;
         };
 
+        const isMultiSelect = String(options.selection_mode || 'single').toLowerCase() === 'multi';
+        const resolveMultiple = (sourceValues) => sourceValues
+            .map(resolveSingle)
+            .map(item => String(item ?? '').trim())
+            .filter(Boolean);
+
         if (Array.isArray(value)) {
-            return value.map(resolveSingle).join(', ');
+            return isMultiSelect ? resolveMultiple(value) : value.map(resolveSingle).join(', ');
+        }
+        if (isMultiSelect && value && typeof value === 'object' && !Array.isArray(value)) {
+            const selectedIds = Array.isArray(value.selected_ids) ? value.selected_ids : [];
+            return resolveMultiple(selectedIds);
         }
         if (typeof value === 'string' && value.includes(',')) {
             const parts = value.split(',').map(part => part.trim()).filter(Boolean);
             if (parts.length > 1) {
-                return parts.map(resolveSingle).join(', ');
+                return isMultiSelect ? resolveMultiple(parts) : parts.map(resolveSingle).join(', ');
             }
         }
         return resolveSingle(value);
+    }
+
+    formatDetailValueMarkup(value, fieldType) {
+        if (Array.isArray(value)) {
+            const items = value
+                .map(item => String(item ?? '').trim())
+                .filter(Boolean);
+            if (!items.length) return '<div class="detail-value">-</div>';
+            return `
+                <div class="detail-value detail-value-list">
+                    ${items.map(item => `<div class="detail-value-line">${escapeHtml(item)}</div>`).join('')}
+                </div>
+            `;
+        }
+
+        return `<div class="detail-value">${formatFieldValue(value, fieldType)}</div>`;
     }
     
     async render(objectId) {
@@ -362,12 +388,12 @@ class ObjectDetailPanel {
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
             const hasValue = !(value === null || value === undefined || value === '');
-            const formattedValue = formatFieldValue(value, resolvedFieldType);
             const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext' && hasValue;
             const detailWidthClass = this.getDetailWidthClass(field, isRichText);
             const detailItemClass = isRichText
                 ? `detail-item detail-item-richtext ${detailWidthClass}`
                 : `detail-item ${detailWidthClass}`;
+            const formattedValue = formatFieldValue(value, resolvedFieldType);
             const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
             const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
 
@@ -393,7 +419,7 @@ class ObjectDetailPanel {
                         </button>
                     </div>
                 `
-                : `<div class="${valueClass}">${formattedValue}</div>`;
+                : this.formatDetailValueMarkup(value, resolvedFieldType);
             
             html += `
                 <div class="${detailItemClass}">
@@ -416,12 +442,12 @@ class ObjectDetailPanel {
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
-            const formattedValue = formatFieldValue(value, resolvedFieldType);
             const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
             const detailWidthClass = this.getDetailWidthClass(field, isRichText);
             const detailItemClass = isRichText
                 ? `detail-item detail-item-richtext ${detailWidthClass}`
                 : `detail-item ${detailWidthClass}`;
+            const formattedValue = formatFieldValue(value, resolvedFieldType);
             const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
             const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
 
@@ -447,7 +473,7 @@ class ObjectDetailPanel {
                         </button>
                     </div>
                 `
-                : `<div class="${valueClass}">${formattedValue}</div>`;
+                : this.formatDetailValueMarkup(value, resolvedFieldType);
 
             html += `
                 <div class="${detailItemClass}">

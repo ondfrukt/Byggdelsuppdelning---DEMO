@@ -462,11 +462,15 @@ class ObjectTypeManager {
 
         const fieldTypeSelect = document.getElementById('template-field-type');
         const optionSourceSelect = document.getElementById('template-option-source');
+        const managedListSelect = document.getElementById('template-managed-list-select');
         if (fieldTypeSelect) {
             fieldTypeSelect.addEventListener('change', () => this.updateFieldTemplateOptionInputs());
         }
         if (optionSourceSelect) {
             optionSourceSelect.addEventListener('change', () => this.updateFieldTemplateOptionInputs());
+        }
+        if (managedListSelect) {
+            managedListSelect.addEventListener('change', () => this.updateFieldTemplateOptionInputs());
         }
 
         this.fieldTemplateModalBehaviorAttached = true;
@@ -481,12 +485,18 @@ class ObjectTypeManager {
         select.innerHTML = '<option value="">Välj lista...</option>' +
             this.managedLists
                 .filter(list => list.is_active !== false)
-                .map(list => `<option value="${list.id}">${escapeHtml(list.name)}</option>`)
+                .map(list => `<option value="${list.id}" data-allow-multiselect="${list.allow_multiselect ? 'true' : 'false'}">${escapeHtml(list.name)}</option>`)
                 .join('');
 
         if (currentValue) {
             select.value = String(currentValue);
         }
+    }
+
+    getSelectedManagedListDefinition() {
+        const managedListId = Number(document.getElementById('template-managed-list-select')?.value || 0);
+        if (!Number.isFinite(managedListId) || managedListId <= 0) return null;
+        return (this.managedLists || []).find(list => Number(list.id) === managedListId) || null;
     }
 
     updateFieldTemplateOptionInputs() {
@@ -495,15 +505,43 @@ class ObjectTypeManager {
         const sourceGroup = document.getElementById('template-option-source-group');
         const customGroup = document.getElementById('template-options-custom-group');
         const managedGroup = document.getElementById('template-options-managed-group');
+        const selectionModeGroup = document.getElementById('template-selection-mode-group');
+        const selectionModeSelect = document.getElementById('template-selection-mode');
+        const selectionModeHelp = document.getElementById('template-selection-mode-help');
 
         if (!fieldTypeSelect || !sourceSelect) return;
 
         const isSelectType = String(fieldTypeSelect.value || '').toLowerCase() === 'select';
         const source = String(sourceSelect.value || 'custom').toLowerCase();
+        const isManagedListSource = isSelectType && source === 'managed_list';
+        const selectedList = this.getSelectedManagedListDefinition();
+        const allowMultiselect = selectedList?.allow_multiselect === true;
 
         if (sourceGroup) sourceGroup.style.display = isSelectType ? '' : 'none';
         if (customGroup) customGroup.style.display = (isSelectType && source === 'custom') ? '' : 'none';
-        if (managedGroup) managedGroup.style.display = (isSelectType && source === 'managed_list') ? '' : 'none';
+        if (managedGroup) managedGroup.style.display = isManagedListSource ? '' : 'none';
+        if (selectionModeGroup) selectionModeGroup.style.display = isManagedListSource ? '' : 'none';
+
+        if (selectionModeSelect) {
+            if (!isManagedListSource) {
+                selectionModeSelect.value = 'single';
+                selectionModeSelect.disabled = true;
+            } else {
+                selectionModeSelect.disabled = false;
+            }
+        }
+
+        if (selectionModeHelp) {
+            if (!isManagedListSource) {
+                selectionModeHelp.textContent = 'Välj om användaren ska kunna välja ett eller flera värden.';
+            } else if (!selectedList) {
+                selectionModeHelp.textContent = 'Välj först en lista.';
+            } else if (allowMultiselect) {
+                selectionModeHelp.textContent = 'Listan är markerad för multival och fungerar bra för flervalsfält.';
+            } else {
+                selectionModeHelp.textContent = 'Flerval ger ett snabbare klickgränssnitt där användaren kan välja flera värden direkt.';
+            }
+        }
     }
 
     setFieldTemplateOptionsFromTemplate(template) {
@@ -511,6 +549,7 @@ class ObjectTypeManager {
         const sourceSelect = document.getElementById('template-option-source');
         const customOptionsInput = document.getElementById('template-options');
         const managedListSelect = document.getElementById('template-managed-list-select');
+        const selectionModeSelect = document.getElementById('template-selection-mode');
         if (!sourceSelect || !customOptionsInput) return;
 
         const rawOptions = template?.field_options;
@@ -519,6 +558,7 @@ class ObjectTypeManager {
         sourceSelect.value = 'custom';
         customOptionsInput.value = '';
         if (managedListSelect) managedListSelect.value = '';
+        if (selectionModeSelect) selectionModeSelect.value = 'single';
 
         if (fieldType !== 'select') {
             customOptionsInput.value = typeof rawOptions === 'string'
@@ -532,6 +572,10 @@ class ObjectTypeManager {
             sourceSelect.value = 'managed_list';
             const listId = Number(normalizedOptions?.list_id);
             this.renderFieldTemplateManagedListOptions(Number.isFinite(listId) && listId > 0 ? String(listId) : '');
+            const selectionModeSelect = document.getElementById('template-selection-mode');
+            if (selectionModeSelect) {
+                selectionModeSelect.value = normalizedOptions?.selection_mode === 'multi' ? 'multi' : 'single';
+            }
             this.updateFieldTemplateOptionInputs();
             return;
         }
@@ -554,7 +598,14 @@ class ObjectTypeManager {
                 if (!Number.isFinite(managedListId) || managedListId <= 0) {
                     return { error: 'Välj en färdig lista för dropdown-fältet' };
                 }
-                return { value: { source: 'managed_list', list_id: managedListId } };
+                const selectionMode = String(document.getElementById('template-selection-mode')?.value || 'single').trim().toLowerCase();
+                return {
+                    value: {
+                        source: 'managed_list',
+                        list_id: managedListId,
+                        selection_mode: selectionMode === 'multi' ? 'multi' : 'single'
+                    }
+                };
             }
         }
 
@@ -1200,6 +1251,23 @@ class ObjectTypeManager {
         return template;
     }
 
+    updateFieldSelectionModeVisibility(rawOptions = null) {
+        const group = document.getElementById('field-selection-mode-group');
+        const select = document.getElementById('field-selection-mode');
+        const template = this.getFieldModalManagedListTemplate();
+        if (!group || !select) return;
+
+        if (!template) {
+            group.style.display = 'none';
+            select.value = 'single';
+            return;
+        }
+
+        const options = this.normalizeFieldOptions(rawOptions || template.field_options) || {};
+        group.style.display = '';
+        select.value = options.selection_mode === 'multi' ? 'multi' : 'single';
+    }
+
     updateFieldHierarchySettingsVisibility({ preserveLabels = false } = {}) {
         const settingsGroup = document.getElementById('field-hierarchy-settings-group');
         const levelConfig = document.getElementById('field-hierarchy-level-config');
@@ -1212,9 +1280,11 @@ class ObjectTypeManager {
             settingsGroup.style.display = 'none';
             levelConfig.style.display = 'none';
             enabledCheckbox.checked = false;
+            this.updateFieldSelectionModeVisibility();
             return;
         }
 
+        this.updateFieldSelectionModeVisibility();
         settingsGroup.style.display = '';
         levelConfig.style.display = enabledCheckbox.checked ? '' : 'none';
         const safeCount = this.normalizeHierarchyLevelCount(levelCountInput.value, 2);
@@ -1254,7 +1324,10 @@ class ObjectTypeManager {
             source: 'managed_list',
             list_id: listId
         };
-        if (templateOptions.selection_mode === 'multi' || templateOptions.selection_mode === 'single') {
+        const modalSelectionMode = String(document.getElementById('field-selection-mode')?.value || '').trim().toLowerCase();
+        if (modalSelectionMode === 'multi' || modalSelectionMode === 'single') {
+            nextOptions.selection_mode = modalSelectionMode;
+        } else if (templateOptions.selection_mode === 'multi' || templateOptions.selection_mode === 'single') {
             nextOptions.selection_mode = templateOptions.selection_mode;
         }
         if ('allow_only_leaf_selection' in templateOptions) {
@@ -1267,7 +1340,7 @@ class ObjectTypeManager {
             if (currentOptions.parent_field_name) nextOptions.parent_field_name = currentOptions.parent_field_name;
             if (Number(currentOptions.parent_list_id) > 0) nextOptions.parent_list_id = Number(currentOptions.parent_list_id);
             if (Number(currentOptions.list_link_id) > 0) nextOptions.list_link_id = Number(currentOptions.list_link_id);
-            if (currentOptions.selection_mode === 'multi' || currentOptions.selection_mode === 'single') {
+            if (!(modalSelectionMode === 'multi' || modalSelectionMode === 'single') && (currentOptions.selection_mode === 'multi' || currentOptions.selection_mode === 'single')) {
                 nextOptions.selection_mode = currentOptions.selection_mode;
             }
             if ('allow_only_leaf_selection' in currentOptions) {
@@ -1276,7 +1349,7 @@ class ObjectTypeManager {
         }
 
         const enabledHierarchy = Boolean(document.getElementById('field-enable-hierarchy')?.checked);
-        if (!enabledHierarchy) {
+        if (!enabledHierarchy || nextOptions.selection_mode === 'multi') {
             return nextOptions;
         }
 
@@ -1304,6 +1377,8 @@ class ObjectTypeManager {
         this.renderFieldTemplateManagedListOptions('');
         const sourceSelect = document.getElementById('template-option-source');
         if (sourceSelect) sourceSelect.value = 'custom';
+        const selectionModeSelect = document.getElementById('template-selection-mode');
+        if (selectionModeSelect) selectionModeSelect.value = 'single';
         this.updateFieldTemplateOptionInputs();
         modal.dataset.mode = 'create';
         delete modal.dataset.templateId;
@@ -3062,6 +3137,8 @@ class ObjectTypeManager {
         this.renderFieldTemplateOptions('');
         const templateSelect = document.getElementById('field-template-select');
         if (templateSelect) templateSelect.value = '';
+        const selectionModeSelect = document.getElementById('field-selection-mode');
+        if (selectionModeSelect) selectionModeSelect.value = 'single';
         this.setFieldHierarchySettingsFromFieldOptions(null);
         this.updateFieldHierarchySettingsVisibility();
         modal.dataset.mode = 'create';
@@ -3096,6 +3173,7 @@ class ObjectTypeManager {
             templateSelect.disabled = true;
         }
         document.getElementById('field-required').checked = field.is_required;
+        this.updateFieldSelectionModeVisibility(field.field_options);
         this.setFieldHierarchySettingsFromFieldOptions(field.field_options);
         
         modal.dataset.mode = 'edit';

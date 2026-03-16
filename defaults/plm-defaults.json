@@ -36,6 +36,41 @@
           "help_text": "Description",
           "display_order": null,
           "detail_width": null
+        },
+        {
+          "field_name": "kategori",
+          "display_name": "Kategori",
+          "field_type": "select",
+          "field_options": {
+            "source": "managed_list",
+            "list_id": 2
+          },
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": null,
+          "detail_width": null
+        },
+        {
+          "field_name": "bim-information",
+          "display_name": "BIM-information",
+          "field_type": "select",
+          "field_options": {
+            "source": "managed_list",
+            "list_id": 6,
+            "selection_mode": "multi"
+          },
+          "is_required": true,
+          "lock_required_setting": false,
+          "force_presence_on_all_objects": false,
+          "is_table_visible": true,
+          "is_detail_visible": true,
+          "help_text": "",
+          "display_order": null,
+          "detail_width": null
         }
       ]
     },
@@ -128,20 +163,6 @@
           "detail_width": null
         },
         {
-          "field_name": "revision",
-          "display_name": "Revision",
-          "field_type": "text",
-          "field_options": "",
-          "is_required": false,
-          "lock_required_setting": false,
-          "force_presence_on_all_objects": false,
-          "is_table_visible": true,
-          "is_detail_visible": true,
-          "help_text": "",
-          "display_order": 3,
-          "detail_width": null
-        },
-        {
           "field_name": "description - short",
           "display_name": "Description",
           "field_type": "text",
@@ -200,7 +221,7 @@
       "description": "Represents a predesigned, reusable building module (e.g., a standard kitchen or bathroom type) consisting of predefined assemblies, products, and requirements.",
       "icon": null,
       "id_prefix": "MOD",
-      "color": "#84cc16",
+      "color": "#6366f1",
       "is_system": false,
       "fields": [
         {
@@ -418,7 +439,7 @@
       "description": "Represents a physical space/room in the building, used to structure location-based information and relate assemblies, systems, and requirements to a specific area.",
       "icon": null,
       "id_prefix": "SPAC",
-      "color": "#0ea5e9",
+      "color": "#64748b",
       "is_system": false,
       "fields": [
         {
@@ -482,30 +503,6 @@
           "help_text": "Primary name for the object.",
           "display_order": 1,
           "detail_width": null
-        }
-      ]
-    },
-    {
-      "name": "TCBL",
-      "description": "Represents a reusable content block within a technical chapter, typically holding a chapter number and rich text content.",
-      "icon": null,
-      "id_prefix": "TCBL",
-      "color": "#0f766e",
-      "is_system": false,
-      "fields": [
-        {
-          "field_name": "namn",
-          "display_name": "Name",
-          "field_type": "text",
-          "field_options": "",
-          "is_required": true,
-          "lock_required_setting": true,
-          "force_presence_on_all_objects": true,
-          "is_table_visible": true,
-          "is_detail_visible": true,
-          "help_text": "Primary name for the object.",
-          "display_order": 1,
-          "detail_width": null
         },
         {
           "field_name": "kapitelnummer",
@@ -518,7 +515,7 @@
           "is_table_visible": true,
           "is_detail_visible": true,
           "help_text": "AMA-style chapter or subchapter number.",
-          "display_order": 2,
+          "display_order": null,
           "detail_width": null
         },
         {
@@ -529,11 +526,11 @@
           "is_required": false,
           "lock_required_setting": false,
           "force_presence_on_all_objects": false,
-          "is_table_visible": false,
+          "is_table_visible": true,
           "is_detail_visible": true,
           "help_text": "Rich text content for the chapter block.",
-          "display_order": 3,
-          "detail_width": "full"
+          "display_order": null,
+          "detail_width": null
         }
       ]
     },
@@ -564,23 +561,4119 @@
   ],
   "objects": [
     {
+      "seed_key": "id_full:PROD-2.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.976662",
+      "updated_at": "2026-03-11 22:33:42.681407",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-2",
+      "id_full": "PROD-2.v1",
+      "data": {
+        "namn": "Träregel 45x70 C24",
+        "tillverkare": "Generisk",
+        "description - short": "Konstruktionsregel i trä, 45x70 mm, hållfasthetsklass C24.",
+        "produktkategori": "29"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-3.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.978570",
+      "updated_at": "2026-03-11 22:33:42.604109",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-3",
+      "id_full": "PROD-3.v1",
+      "data": {
+        "namn": "Träregel 45x95 C24",
+        "tillverkare": "Generisk",
+        "description - short": "Konstruktionsregel i trä, 45x95 mm, hållfasthetsklass C24.",
+        "produktkategori": "29"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-4.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.981456",
+      "updated_at": "2026-03-11 22:33:42.512685",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-4",
+      "id_full": "PROD-4.v1",
+      "data": {
+        "namn": "Träregel 45x120 C24",
+        "tillverkare": "Generisk",
+        "description - short": "Konstruktionsregel i trä, 45x120 mm, hållfasthetsklass C24.",
+        "produktkategori": "29"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-5.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.983953",
+      "updated_at": "2026-03-11 22:33:42.391176",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-5",
+      "id_full": "PROD-5.v1",
+      "data": {
+        "namn": "Träregel 45x145 C24",
+        "tillverkare": "Generisk",
+        "description - short": "Konstruktionsregel i trä, 45x145 mm, hållfasthetsklass C24.",
+        "produktkategori": "29"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-6.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.985273",
+      "updated_at": "2026-03-11 22:33:42.308221",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-6",
+      "id_full": "PROD-6.v1",
+      "data": {
+        "namn": "Plywood 12 mm",
+        "tillverkare": "Generisk",
+        "description - short": "LIGGANDE FALSAD K-PLYWOOD k20/70",
+        "produktkategori": "31"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-7.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.987755",
+      "updated_at": "2026-03-11 22:33:42.240525",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-7",
+      "id_full": "PROD-7.v1",
+      "data": {
+        "namn": "Plywood 15 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Konstruktionsplywood, 15 mm skivtjocklek.",
+        "produktkategori": "31"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-8.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.989120",
+      "updated_at": "2026-03-11 22:33:42.168694",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-8",
+      "id_full": "PROD-8.v1",
+      "data": {
+        "namn": "OSB-skiva 11 mm",
+        "tillverkare": "Generisk",
+        "description - short": "OSB-skiva för vägg- och golvuppbyggnad, 11 mm.",
+        "produktkategori": "32"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-9.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.990417",
+      "updated_at": "2026-03-11 22:33:42.095179",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-9",
+      "id_full": "PROD-9.v1",
+      "data": {
+        "namn": "Gipsskiva Lätt 12,5 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "33"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-10.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.991668",
+      "updated_at": "2026-03-11 22:33:42.026898",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-10",
+      "id_full": "PROD-10.v1",
+      "data": {
+        "namn": "Brandgipsskiva 15 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Brandklassad gipsskiva, 15 mm.",
+        "produktkategori": "34"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-11.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.992928",
+      "updated_at": "2026-03-11 22:33:41.954263",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-11",
+      "id_full": "PROD-11.v1",
+      "data": {
+        "namn": "Plåtregel 45 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Plåtregel C-profil, 45 mm",
+        "produktkategori": "36"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-12.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.994175",
+      "updated_at": "2026-03-11 22:33:41.872047",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-12",
+      "id_full": "PROD-12.v1",
+      "data": {
+        "namn": "Plåtregel C95",
+        "tillverkare": "Generisk",
+        "description - short": "Plåtregel C-profil, 95 mm",
+        "produktkategori": "36"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-13.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:08.997102",
+      "updated_at": "2026-03-11 22:33:41.791256",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-13",
+      "id_full": "PROD-13.v1",
+      "data": {
+        "namn": "Plåtregel C70",
+        "tillverkare": "Generisk",
+        "description - short": "Plåtregel C-profil, 70 mm",
+        "produktkategori": "36"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-14.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:09.000746",
+      "updated_at": "2026-03-11 22:33:41.707951",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-14",
+      "id_full": "PROD-14.v1",
+      "data": {
+        "namn": "Mineralull 70 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Mineralullsisolering, 70 mm tjocklek.",
+        "produktkategori": "39"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-15.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:09.002725",
+      "updated_at": "2026-03-11 22:33:41.630951",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-15",
+      "id_full": "PROD-15.v1",
+      "data": {
+        "namn": "Mineralull 95 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Mineralullsisolering, 95 mm tjocklek.",
+        "produktkategori": "39"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-16.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:09.004036",
+      "updated_at": "2026-03-11 22:33:41.545800",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-16",
+      "id_full": "PROD-16.v1",
+      "data": {
+        "namn": "Mineralull 145 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Mineralullsisolering, 145 mm tjocklek.",
+        "produktkategori": "39"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-17.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 11:21:09.005318",
+      "updated_at": "2026-03-11 22:33:41.482947",
+      "created_by": "Codex",
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-17",
+      "id_full": "PROD-17.v1",
+      "data": {
+        "namn": "Stenull Brand 70 mm",
+        "tillverkare": "Generisk",
+        "description - short": "Brandklassad stenullsisolering, 70 mm tjocklek.",
+        "produktkategori": "40"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-1.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:29:00.461742",
+      "updated_at": "2026-03-16 13:05:46.026486",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-1",
+      "id_full": "ASSE-1.v1",
+      "data": {
+        "namn": "IWS-44",
+        "description - short": "EJ BRANDKLASSAT SCHAKT I VÅTRUM ≤600x600mm",
+        "kategori": "50",
+        "bim-information": {
+          "selection_mode": "multi",
+          "list_id": 6,
+          "selected_ids": [
+            83,
+            84,
+            85
+          ],
+          "selected": [
+            {
+              "selected_id": 83,
+              "label": "TypeID",
+              "path_ids": [
+                83
+              ],
+              "path": [
+                "TypeID"
+              ]
+            },
+            {
+              "selected_id": 84,
+              "label": "TypeName",
+              "path_ids": [
+                84
+              ],
+              "path": [
+                "TypeName"
+              ]
+            },
+            {
+              "selected_id": 85,
+              "label": "IfcClass",
+              "path_ids": [
+                85
+              ],
+              "path": [
+                "IfcClass"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-2.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:29:45.262560",
+      "updated_at": "2026-03-16 13:06:15.416232",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-2",
+      "id_full": "ASSE-2.v1",
+      "data": {
+        "namn": "IWS-54",
+        "description - short": "BRANDKLASSAT SCHAKT I VÅTRUM ELLER DÄR VÄGG BEHÖVER KORTLAS",
+        "kategori": "50",
+        "bim-information": {
+          "selection_mode": "multi",
+          "list_id": 6,
+          "selected_ids": [
+            83,
+            84,
+            85
+          ],
+          "selected": [
+            {
+              "selected_id": 83,
+              "label": "TypeID",
+              "path_ids": [
+                83
+              ],
+              "path": [
+                "TypeID"
+              ]
+            },
+            {
+              "selected_id": 84,
+              "label": "TypeName",
+              "path_ids": [
+                84
+              ],
+              "path": [
+                "TypeName"
+              ]
+            },
+            {
+              "selected_id": 85,
+              "label": "IfcClass",
+              "path_ids": [
+                85
+              ],
+              "path": [
+                "IfcClass"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-3.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:30:02.430267",
+      "updated_at": "2026-03-11 22:33:41.288134",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-3",
+      "id_full": "ASSE-3.v1",
+      "data": {
+        "namn": "IWS-64",
+        "description - short": "VID SCHAKT MOT KÖK DÄR VÄGG BEHÖVER KORTLAS MED FÖRSTÄRKNINGSREGEL",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-4.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:30:19.740949",
+      "updated_at": "2026-03-11 22:33:41.211567",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-4",
+      "id_full": "ASSE-4.v1",
+      "data": {
+        "namn": "IWS-73",
+        "description - short": "ANVÄNDS VID SCHAKT ≤600x600mm SAMT INKLÄDNAD AV RÖR OCH KANALER",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-5.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:30:35.243278",
+      "updated_at": "2026-03-11 22:33:41.138217",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-5",
+      "id_full": "ASSE-5.v1",
+      "data": {
+        "namn": "IWS-93",
+        "description - short": "ANVÄNDS VID SCHAKT MED ELINSTALLATIONER ≤600x600mm MOT KÖK DÄR VÄGG BEHÖVER KORTLAS",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-6.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:30:53.482088",
+      "updated_at": "2026-03-11 22:33:41.081874",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-6",
+      "id_full": "ASSE-6.v1",
+      "data": {
+        "namn": "IWS-92",
+        "description - short": "ANVÄNDS VID SCHAKT MED ELINSTALLATIONER ≤600x600mm MOT VÅTRUM",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-7.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:31:09.062403",
+      "updated_at": "2026-03-11 22:33:41.010447",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-7",
+      "id_full": "ASSE-7.v1",
+      "data": {
+        "namn": "IWS-91",
+        "description - short": "ANVÄNDS VID SCHAKT MED ELINSTALLATIONER ≤600x600mm",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-8.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:31:23.471504",
+      "updated_at": "2026-03-11 22:33:40.949404",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-8",
+      "id_full": "ASSE-8.v1",
+      "data": {
+        "namn": "IWS-84",
+        "description - short": "ANVÄNDS VID SCHAKT SAMT INKLÄDNAD AV RÖR OCH KANALER.",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-9.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:31:57.263223",
+      "updated_at": "2026-03-11 22:33:40.869005",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-9",
+      "id_full": "ASSE-9.v1",
+      "data": {
+        "namn": "IWS-94",
+        "description - short": "ANVÄNDS VID SCHAKT MED TAPPVATTEN",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-10.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:32:06.820990",
+      "updated_at": "2026-03-11 22:33:40.792738",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-10",
+      "id_full": "ASSE-10.v1",
+      "data": {
+        "namn": "IWS-95",
+        "description - short": "ANVÄNDS VID SCHAKT MED TAPPVATTEN VID VÅTRUM",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-11.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 11:32:20.542993",
+      "updated_at": "2026-03-11 22:33:40.731345",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-11",
+      "id_full": "ASSE-11.v1",
+      "data": {
+        "namn": "IWS-103",
+        "description - short": "ANVÄNDS EXEMPELVIS VID SCHAKT FÖR IMKANALER FÖR RESTAURANGER",
+        "kategori": "Innerväggar"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-1.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:39:20.061681",
+      "updated_at": "2026-03-11 22:33:40.650446",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-1",
+      "id_full": "REC-1.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 2700 mm",
+        "requirement text": "<p>Max vägghöjd 2700 mm</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-2.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:39:47.625780",
+      "updated_at": "2026-03-11 22:33:40.575495",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-2",
+      "id_full": "REC-2.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 3400 mm",
+        "requirement text": "<p>Max vägghöjd 3400 mm</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-3.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:40:20.173453",
+      "updated_at": "2026-03-11 22:33:40.492140",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-3",
+      "id_full": "REC-3.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 5400 mm",
+        "requirement text": "<p>Max vägghöjd 5400 mm</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-4.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:40:39.004628",
+      "updated_at": "2026-03-11 22:33:40.400822",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-4",
+      "id_full": "REC-4.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 4000 mm",
+        "requirement text": "<p>Max vägghöjd 4000 mm</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-5.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:41:01.443917",
+      "updated_at": "2026-03-11 22:33:40.304416",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-5",
+      "id_full": "REC-5.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 3600 mm",
+        "requirement text": "<p>Max vägghöjd 3600 mm</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:REC-6.v1",
+      "object_type": "Requirement",
+      "created_at": "2026-03-11 11:42:55.488542",
+      "updated_at": "2026-03-11 22:33:40.208685",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "REC-6",
+      "id_full": "REC-6.v1",
+      "data": {
+        "kravställningstyp": "Maximimått",
+        "namn": "Max vägghöjd 3250-3400 mm",
+        "requirement text": "<p>Max vägghöjd 3250-3400 mm<br><br>MAX VÄGGHÖJD BEROENDE&nbsp;<br>PÅ FABRIKAT REGLAR</p>"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-1.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 11:45:39.689995",
+      "updated_at": "2026-03-11 22:33:40.119373",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-1",
+      "id_full": "PROP-1.v1",
+      "data": {
+        "värde": "EI30",
+        "namn": "Brandklass EI30"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-3.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 11:47:15.057546",
+      "updated_at": "2026-03-11 22:33:40.051426",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-3",
+      "id_full": "PROP-3.v1",
+      "data": {
+        "värde": "EI60",
+        "namn": "Brandklass EI60"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-2.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 13:40:23.562247",
+      "updated_at": "2026-03-11 22:33:39.969165",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-2",
+      "id_full": "PROP-2.v1",
+      "data": {
+        "värde": "25",
+        "enhet": "db",
+        "namn": "Ljudreduktion R´w: 25 db",
+        "description - short": "R´w"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-4.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 13:41:12.360631",
+      "updated_at": "2026-03-16 12:58:07.714711",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-4",
+      "id_full": "PROP-4.v1",
+      "data": {
+        "värde": "29",
+        "enhet": "db",
+        "namn": "Ljudreduktion R´w: 29 db"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-5.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 13:41:56.540885",
+      "updated_at": "2026-03-16 12:58:13.939540",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-5",
+      "id_full": "PROP-5.v1",
+      "data": {
+        "värde": "30",
+        "enhet": "db",
+        "namn": "Ljudreduktion R´w: 30 db"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-18.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 13:44:18.381997",
+      "updated_at": "2026-03-11 22:33:39.759255",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-18",
+      "id_full": "PROD-18.v1",
+      "data": {
+        "namn": "Plåtskena 70 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "37"
+      }
+    },
+    {
       "seed_key": "id_full:PROD-1.v1",
       "object_type": "Product",
-      "created_at": "2026-03-09 12:14:13.119792",
-      "updated_at": "2026-03-11 09:41:38.671322",
+      "created_at": "2026-03-11 13:45:44.145688",
+      "updated_at": "2026-03-11 22:33:39.679478",
       "created_by": null,
-      "status": "In work",
+      "status": "Released",
       "version": "v1",
       "main_id": "PROD-1",
       "id_full": "PROD-1.v1",
       "data": {
-        "namn": "Träregel",
-        "description - short": "Gjort av trä!",
-        "produktkategori": "7"
+        "namn": "Plåtskena 95 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "37"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-19.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 13:46:06.362947",
+      "updated_at": "2026-03-11 22:33:39.607755",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-19",
+      "id_full": "PROD-19.v1",
+      "data": {
+        "namn": "Plåtskena 45 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "37"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-12.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:39:17.738241",
+      "updated_at": "2026-03-11 22:33:39.533909",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-12",
+      "id_full": "ASSE-12.v1",
+      "data": {
+        "namn": "IWC-03",
+        "description - short": "200mm PLATSGJUTEN BETONG",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-13.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:39:56.467059",
+      "updated_at": "2026-03-11 22:33:39.459712",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-13",
+      "id_full": "ASSE-13.v1",
+      "data": {
+        "namn": "IWC-13",
+        "description - short": "200mm PREFABRICERAD BETONGVÄGG",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-14.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:40:26.539738",
+      "updated_at": "2026-03-11 22:33:39.399184",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-14",
+      "id_full": "ASSE-14.v1",
+      "data": {
+        "namn": "IWC-23",
+        "description - short": "200mm SKALVÄGG",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-15.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:40:52.372143",
+      "updated_at": "2026-03-11 22:33:39.315119",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-15",
+      "id_full": "ASSE-15.v1",
+      "data": {
+        "namn": "IWC-04",
+        "description - short": "ANVÄNDS PÅ ENA SIDAN VID DILATATIONSFOG",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-16.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:41:09.504273",
+      "updated_at": "2026-03-11 22:33:39.230212",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-16",
+      "id_full": "ASSE-16.v1",
+      "data": {
+        "namn": "IWC-24",
+        "description - short": "ANVÄNDS PÅ ENA SIDAN VID DILATATIONSFOG",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-17.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:41:26.613680",
+      "updated_at": "2026-03-11 22:33:39.136082",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-17",
+      "id_full": "ASSE-17.v1",
+      "data": {
+        "namn": "IWC-25",
+        "description - short": "ANVÄNDS VID GARAGE PÅ BÅDA SIDOR. ALT. IWC-03 / IWC-13",
+        "kategori": "43"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-18.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:42:03.993939",
+      "updated_at": "2026-03-11 22:33:39.068679",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-18",
+      "id_full": "ASSE-18.v1",
+      "data": {
+        "namn": "EWC-03",
+        "description - short": "200mm PLATSGJUTEN BETONG",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-19.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:42:29.213989",
+      "updated_at": "2026-03-11 22:33:38.994051",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-19",
+      "id_full": "ASSE-19.v1",
+      "data": {
+        "namn": "EWC-23",
+        "description - short": "200mm SKALVÄGG",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-20.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 14:44:56.448198",
+      "updated_at": "2026-03-11 22:33:38.931413",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-20",
+      "id_full": "ASSE-20.v1",
+      "data": {
+        "namn": "EWC-05",
+        "description - short": "250mm PLATSGJUTEN BETONG VID VATTENTRYCK",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-20.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 14:47:17.285130",
+      "updated_at": "2026-03-11 22:33:38.851324",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-20",
+      "id_full": "PROD-20.v1",
+      "data": {
+        "namn": "Betong platsgjuten",
+        "tillverkare": "Generisk",
+        "produktkategori": "1"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-21.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 14:47:49.976019",
+      "updated_at": "2026-03-11 22:33:38.780162",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-21",
+      "id_full": "PROD-21.v1",
+      "data": {
+        "namn": "Betong prefabiricerad",
+        "tillverkare": "Generisk",
+        "produktkategori": "1"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-22.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 14:48:48.951533",
+      "updated_at": "2026-03-11 22:33:38.717444",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-22",
+      "id_full": "PROD-22.v1",
+      "data": {
+        "namn": "Armering",
+        "tillverkare": "Generisk",
+        "produktkategori": "70"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-23.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 14:52:11.839017",
+      "updated_at": "2026-03-11 22:33:38.646037",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-23",
+      "id_full": "PROD-23.v1",
+      "data": {
+        "namn": "Cellplast 20 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "71"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-24.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 14:59:26.656101",
+      "updated_at": "2026-03-11 22:33:38.575668",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-24",
+      "id_full": "PROD-24.v1",
+      "data": {
+        "namn": "Kooltherm K20, 120 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "71"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-6.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 15:01:00.950734",
+      "updated_at": "2026-03-11 22:33:38.514083",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-6",
+      "id_full": "PROP-6.v1",
+      "data": {
+        "värde": "0,022",
+        "enhet": "W/m°C",
+        "namn": "Värmeledningsförmåga λ≤0,022 W/m°C"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-25.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:03:05.608519",
+      "updated_at": "2026-03-11 22:33:38.422080",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-25",
+      "id_full": "PROD-25.v1",
+      "data": {
+        "namn": "Puts 20 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "72"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-26.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:03:37.003646",
+      "updated_at": "2026-03-11 22:33:38.345648",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-26",
+      "id_full": "PROD-26.v1",
+      "data": {
+        "namn": "Mineralull 30 mm",
+        "produktkategori": "39"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-27.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:04:58.000441",
+      "updated_at": "2026-03-11 22:33:38.265894",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-27",
+      "id_full": "PROD-27.v1",
+      "data": {
+        "namn": "Klinker+Fästbruk 20 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "1"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-28.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:15:49.546050",
+      "updated_at": "2026-03-11 22:33:38.175076",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-28",
+      "id_full": "PROD-28.v1",
+      "data": {
+        "namn": "Tegelsten 228x108x54 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "73"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-29.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:17:21.286095",
+      "updated_at": "2026-03-11 22:33:38.104172",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-29",
+      "id_full": "PROD-29.v1",
+      "data": {
+        "namn": "Tegelkramla",
+        "tillverkare": "Generisk",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-30.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:18:35.094629",
+      "updated_at": "2026-03-11 22:33:38.041770",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-30",
+      "id_full": "PROD-30.v1",
+      "data": {
+        "namn": "Träpanel 22 mm (Liggande)",
+        "tillverkare": "Generisk",
+        "produktkategori": "17"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-31.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:19:00.736617",
+      "updated_at": "2026-03-11 22:33:37.978590",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-31",
+      "id_full": "PROD-31.v1",
+      "data": {
+        "namn": "Träpanel 22 mm (Stående)",
+        "tillverkare": "Generisk",
+        "produktkategori": "17"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-32.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:19:41.296440",
+      "updated_at": "2026-03-11 22:33:37.908086",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-32",
+      "id_full": "PROD-32.v1",
+      "data": {
+        "namn": "Glespanel 28x70 mm",
+        "produktkategori": "17"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-33.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:21:21.424032",
+      "updated_at": "2026-03-11 22:33:37.832199",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-33",
+      "id_full": "PROD-33.v1",
+      "data": {
+        "namn": "Fasadskiva",
+        "tillverkare": "Generisk",
+        "produktkategori": "75"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-34.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:21:49.510520",
+      "updated_at": "2026-03-11 22:33:37.751436",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-34",
+      "id_full": "PROD-34.v1",
+      "data": {
+        "namn": "Stålläkt 25 mm",
+        "tillverkare": "Generisk",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-21.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:23:06.658064",
+      "updated_at": "2026-03-11 22:33:37.672826",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-21",
+      "id_full": "ASSE-21.v1",
+      "data": {
+        "namn": "EWP-01",
+        "description - short": "Betongyttervägg med puts",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-22.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:23:24.968144",
+      "updated_at": "2026-03-11 22:33:37.606725",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-22",
+      "id_full": "ASSE-22.v1",
+      "data": {
+        "namn": "EWP-02",
+        "description - short": "Betongyttervägg med puts",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-35.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:25:10.436059",
+      "updated_at": "2026-03-16 11:40:51.841852",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-35",
+      "id_full": "PROD-35.v1",
+      "data": {
+        "namn": "Kooltherm K20, 90 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "Cellplast"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-36.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:25:40.482944",
+      "updated_at": "2026-03-16 11:40:51.708161",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-36",
+      "id_full": "PROD-36.v1",
+      "data": {
+        "namn": "Kooltherm K20, 100 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "Cellplast"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-37.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:25:52.545973",
+      "updated_at": "2026-03-16 11:40:51.641894",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-37",
+      "id_full": "PROD-37.v1",
+      "data": {
+        "namn": "Kooltherm K20, 70 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "Cellplast"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-38.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:26:04.577025",
+      "updated_at": "2026-03-16 11:40:51.571335",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-38",
+      "id_full": "PROD-38.v1",
+      "data": {
+        "namn": "Kooltherm K20, 140 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "Cellplast"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-39.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:26:13.287446",
+      "updated_at": "2026-03-16 11:40:51.502890",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-39",
+      "id_full": "PROD-39.v1",
+      "data": {
+        "namn": "Kooltherm K20, 110 mm",
+        "tillverkare": "Kooltherm",
+        "produktkategori": "Cellplast"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-23.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:29:08.666148",
+      "updated_at": "2026-03-11 22:33:37.139191",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-23",
+      "id_full": "ASSE-23.v1",
+      "data": {
+        "namn": "EWP-11",
+        "description - short": "Betongyttervägg med klinker",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-24.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:29:55.842965",
+      "updated_at": "2026-03-11 22:33:37.075883",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-24",
+      "id_full": "ASSE-24.v1",
+      "data": {
+        "namn": "EWP-12",
+        "description - short": "Betongyttervägg med klinker",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-25.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:31:33.882137",
+      "updated_at": "2026-03-11 22:33:37.006674",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-25",
+      "id_full": "ASSE-25.v1",
+      "data": {
+        "namn": "EWP-21",
+        "description - short": "Betongyttervägg med klinker",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-40.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:32:18.976971",
+      "updated_at": "2026-03-11 22:33:36.935850",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-40",
+      "id_full": "PROD-40.v1",
+      "data": {
+        "namn": "Tegelsten 228x108x54",
+        "tillverkare": "Generisk",
+        "produktkategori": "73"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-26.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:33:23.618625",
+      "updated_at": "2026-03-11 22:33:36.862210",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-26",
+      "id_full": "ASSE-26.v1",
+      "data": {
+        "namn": "EWP-22",
+        "description - short": "Betongyttervägg med Tegel",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-41.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-11 15:34:10.902076",
+      "updated_at": "2026-03-11 22:33:36.798301",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROD-41",
+      "id_full": "PROD-41.v1",
+      "data": {
+        "namn": "Tegelsten 285x85x54",
+        "tillverkare": "Generisk",
+        "produktkategori": "73"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-27.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:35:40.851732",
+      "updated_at": "2026-03-11 22:33:36.707199",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-27",
+      "id_full": "ASSE-27.v1",
+      "data": {
+        "namn": "EWP-31",
+        "description - short": "Betongyttervägg med Tegel",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-28.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:36:18.106484",
+      "updated_at": "2026-03-11 22:33:36.622441",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-28",
+      "id_full": "ASSE-28.v1",
+      "data": {
+        "namn": "EWP-31",
+        "description - short": "Betongyttervägg med Tegel",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-29.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:37:30.775840",
+      "updated_at": "2026-03-11 22:33:36.529135",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-29",
+      "id_full": "ASSE-29.v1",
+      "data": {
+        "namn": "EWP-41",
+        "description - short": "Betongyttervägg med Träpanel - Liggande",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-30.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:38:51.421647",
+      "updated_at": "2026-03-11 22:33:36.452449",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-30",
+      "id_full": "ASSE-30.v1",
+      "data": {
+        "namn": "EWP-42",
+        "description - short": "Betongyttervägg med Träpanel - Liggande",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-31.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:39:28.327780",
+      "updated_at": "2026-03-11 22:33:36.369110",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-31",
+      "id_full": "ASSE-31.v1",
+      "data": {
+        "namn": "EWP-52",
+        "description - short": "Betongyttervägg med Träpanel - Stående",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-32.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:39:58.756406",
+      "updated_at": "2026-03-11 22:33:36.267674",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-32",
+      "id_full": "ASSE-32.v1",
+      "data": {
+        "namn": "EWP-51",
+        "description - short": "Betongyttervägg med Träpanel - Stående",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-33.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:42:59.770701",
+      "updated_at": "2026-03-11 22:33:36.125063",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-33",
+      "id_full": "ASSE-33.v1",
+      "data": {
+        "namn": "EWP-61",
+        "description - short": "Betongyttervägg med Skivmaterial",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-34.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-11 15:43:17.136912",
+      "updated_at": "2026-03-11 22:33:36.024188",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "ASSE-34",
+      "id_full": "ASSE-34.v1",
+      "data": {
+        "namn": "EWP-61",
+        "description - short": "Betongyttervägg med Skivmaterial",
+        "kategori": "42"
+      }
+    },
+    {
+      "seed_key": "id_full:PROP-7.v1",
+      "object_type": "Property",
+      "created_at": "2026-03-11 15:57:29.912244",
+      "updated_at": "2026-03-11 22:33:35.947504",
+      "created_by": null,
+      "status": "Released",
+      "version": "v1",
+      "main_id": "PROP-7",
+      "id_full": "PROP-7.v1",
+      "data": {
+        "värde": "0,037",
+        "enhet": "W/m°C",
+        "namn": "Värmeledningsförmåga λ≤0,037 W/m°C"
+      }
+    },
+    {
+      "seed_key": "id_full:TSPEC-1.v1",
+      "object_type": "Technical Specification",
+      "created_at": "2026-03-12 06:54:20.291698",
+      "updated_at": "2026-03-12 06:54:20.291702",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "TSPEC-1",
+      "id_full": "TSPEC-1.v1",
+      "data": {
+        "namn": "Teknisk beskrivning Ventilation"
+      }
+    },
+    {
+      "seed_key": "id_full:TCHA-1.v1",
+      "object_type": "Technical Chapter",
+      "created_at": "2026-03-12 07:20:52.036418",
+      "updated_at": "2026-03-12 09:08:03.102312",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "TCHA-1",
+      "id_full": "TCHA-1.v1",
+      "data": {
+        "namn": "VA-, VVS-, KYL- OCH PROCESSMEDIESYSTEM",
+        "kapitelnummer": "5",
+        "innehall": "<p style=\"font-family: arial, helvetica, sans-serif; font-size: 13px; font-weight: bold; font-style: normal; color: #000000; margin-top: 12px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 13px; font-weight: bold; font-style: normal; color: #000000\">Mängder tas från ritningar.</span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000; margin-top: 0px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\"><em>Kvalitetsangivelser</em></span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; margin-top: 6px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Om entreprenören önskar byta ut angivet fabrikat på material och produkter (gäller endast där produktnamn efterföljs av ”eller likvärdigt”) ska detta, i varje enskilt fall, möleddelas skriftligen till beställaren (JM och ansvarig konsult) i god tid. Detta så att beställaren (JM och ansvarig konsult) hinner pröva och avgöra likvärdigheten.</span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; margin-top: 6px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Inget utbyte av material får ske utan ett skriftligt godkännande av beställaren (JM och ansvarig konsult). I begreppet likvärdigt ingår även likvärdigt ur miljö- och kvalitetssynpunkt.</span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; margin-top: 6px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Vid förslag på utbyte ska apparater och komponenter ingå i ett standardsortiment och vara av känt fabrikat med dokumenterad lagerhållning inom Sverige.</span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 13px; font-weight: bold; font-style: normal; color: #000000; margin-top: 12px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 13px; font-weight: bold; font-style: normal; color: #000000\">Ritningar</span></p>\n<p style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; margin-right: 73.7pt; margin-top: 6px; margin-bottom: 4px\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Ritningar är förtecknade i handlingsförteckning.</span></p>"
+      }
+    },
+    {
+      "seed_key": "id_full:TCHA-2.v1",
+      "object_type": "Technical Chapter",
+      "created_at": "2026-03-12 09:34:44.715619",
+      "updated_at": "2026-03-12 10:02:17.446948",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "TCHA-2",
+      "id_full": "TCHA-2.v1",
+      "data": {
+        "namn": "LUFTBEHANDLINGSSYSTEM",
+        "kapitelnummer": "57",
+        "innehall": "<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Byggherre och Ort</span><span style=\"color: black\"> </span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: Här anges vem som är byggherre samt var projektet kommer att uppföras.]</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Projektinformation</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">Anvisning: Här redovisas projektets generella förutsättningar som etappindelningar, gemensamhetsanläggningar, osv.]</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Antal etapper&nbsp;</span><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Antal lägenheter totalt och per etapp</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Systemlösning VVS: FXP+FJV alt FJV+FTX</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Enkel systembeskrivning ventilation</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Produktkoncept Smarta kvadrat vilket innebär att:</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Systemlösning VVS :FXP+FJV</span></p>\n<ul class=\"dash-list\">\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Uppvärmning sker med radiatorer och synliga värmestammar.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Lägenheter och tillhörande sekundära utrymmen ventileras via FXP-aggregat placerat i fläktrum på vindsplan.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Ev&nbsp; garage ventileras med separat/eget ventilationssystem.</span></li>\n</ul>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Byggnadsteknisk beskrivning</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: Hur kommer byggnaderna att utformas (utfackningspartier, prefabricerade betongelement, skalväggar, bjälklagskonstruktion, prefabricerade våtrumsmoduler, osv).]</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Vid produktkoncept Smarta kvadrat förses lägenheterna med prefabricerade våtrumsmoduler. Modulerna levereras komplett med:</span></p>\n<ul class=\"dash-list\">\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Kakel, klinker.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Sanitetsporslin, tvättställ, golvställd vattenklosett, blandare, TM-ansl .</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Tappvattenstammar inkl tillhörande kopplingsskåp.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Fördelarskåp i modulens tak. Skåp levereras med avstängningsventiler, vattenmätare (VV) samt kopplingsledningar för respektive våtenhet inkl avstick till kök och separat WC (4 rok) som avslutas i modulens<br>kopplingsskåp där RE ansluter i senare skede.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Läckageindikering från respektive skåp.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Spillvattenstam inkl tillhörande spillvattengroda.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">&nbsp;Hörngolvbrunn</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Frånluftsdon inkl erf kanal till anslutn enl ritn.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Gränsdragning material/fabrikat enl besked från JM.</span></li>\n</ul>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">I rörentreprenaden ingår :</span></p>\n<ul class=\"dash-list\">\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Anslutning av tappvattenstammar mellan våningsplanen.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Isolering av tappvattenstammar.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Anslutning av kopplingsledningar från kök samt från WC (4 rok) till avsättning i tillhörande kopplingsskåp i schakt.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Anslutning av spillvattenstam mellan våningsplanen inkl montage av medlevererade grenrör.</span></li>\n</ul>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Montage av typgodkända brandstrypare vid brandcellsgenomgång</span></p>\n<p>&nbsp;</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">I ventilationseprenaden ingår :</span></p>\n<ul class=\"dash-list\">\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Anslutning av F1-100 kanal från prefab våtrum.</span></li>\n<li><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Anslutning av frånluftsdon FD03-100 i klk , till F1-100 kanal i prefab våtrum.</span></li>\n</ul>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Utrymmesplanering</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Installationer som kräver skötsel och underhåll t.ex. spjäll, givare och dylikt placeras max 0,5 m över nedpendlat undertak.<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Brandcellsindelning<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Samtliga bjälklag utgör brandcellsskiljande konstruktion.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Övriga brandcellsgränser framgår av ritningar i enlighet med handlingsförteckning.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Brandteknisk klass enligt brandskyddsdokumentation.<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Energimätare<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: Redovisning av energimätarsystem. Mätarnamn, mätarnas betjäningsområde, osv.]<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Övrigt<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: I övrigt kompletterande projektinformation.]<br><br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Entreprenadens omfattning<br></span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Entreprenadens omfattning framgår av driftkort, ritningar samt denna tekniska beskrivning med nedanstående förtydliganden.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">I denna entreprenad ingår samtliga ventilationstekniska arbeten och sakvaror inom fastigheten.</span></p>\n<p>&nbsp;</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Gränsdragning mot annat installationssystem eller annan entreprenad</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Gränsdragning mot annat installationssystem eller annan entreprenad framgår av ritningar, driftkort och denna tekniska beskrivning med nedanstående förtydliganden.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Elarbeten inkl. kanalisation och ledningsdragning för styr- och övervakningsinstallationer ingår i elentreprenaden i sin helhet.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">I elentreprenaden ingår även elinkoppling av yttre apparater, givare och apparatskåp ingående i denna entreprenad eller tillhandahållna av JM för denna entreprenad.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Prefabricerade våtrum ingår i annan entreprenad, se även gränsdragningslista.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Normer och föreskrifter</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Gällande normer och föreskrifter med förtydliganden och tillägg enligt denna handling.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">&nbsp;</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Måttsättning</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Installationer är måttsatta i höjdled med plushöjd räknat från färdigt golv till centrum installation. Vid trånga sektioner är även plushöjd till underkant installation inklusive eventuell isolering angiven.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Korrosionsmiljö</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Ytbeläggning på installationer ska uppfylla nedan angivna korrosivitetsklasser enligt SS-EN ISO 12944–2 där inget annat anges gäller följande:</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Inomhus, uppvärmda utrymmen: &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; Korrosivitetsklass C1</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Inomhus, ouppvärmda utrymmen:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Korrosivitetsklass C2</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Utomhus:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;&nbsp; Korrosivitetsklass C3</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">&nbsp;</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Energieffektivitet</span></p>\n<p>Maximal Specifik fläkteffekt (SFP)</p>\n<p>Frånluftsfläkt, Frånluftaggregat (återvinningsbatteri inkl. frånluftsfläkt) och luftbehandlingsaggregat för lägenheter är dimensionerade för klara nedanstående sfp-tal vid nominellt luftflöde (grundluftflöde exklusive forceringsluftflöde).</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">F-system:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0,45 kW/(m<sup>3</sup>/s)</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">FX-system:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0,70 kW/(m<sup>3</sup>/s)</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">FTX-system:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1,35 kW/(m<sup>3</sup>/s) </span></p>\n<p>&nbsp;</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">TERMISKA SYSTEM- OCH KLIMATKRAV</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Luftflöden</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Huvud- och samlingskanaler i system med anslutna spiskåpor har dimensionerats för ett sammanlagrat luftflöde motsvarande summan av kontinuerligt luftflöde för betjäningsområdet och minst 60% av forceringsflödet från anslutna spiskåpor.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Luftflöden enligt ritningar.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Anläggningen är dimensionerad så att undertryck i samlingslåda ej understiger 60 Pa.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Klimatkrav</span></p>\n<p>Dimensionerande utetemperatur vinter (DVUT):&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">-</span><span style=\"color: black\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">XX</span> </span>ºC.</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: Dimensionerande utetemperatur vinter (DVUT) ska </span><br><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">Projekt- och ortsanpassas.]</span></p>\n<p style=\"margin-right: 80.75pt\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">Uppsala: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -19 °C, Västerås: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -19 °C<br>Örebro:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -19 °C, Stockholm: &nbsp;&nbsp; -18 °C<br>Jönköping: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -18 °C, Linköping:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -18 °C<br>Göteborg:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -15 °C, Lund: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -12 °C<br>Malmö:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; -12 °C</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">&nbsp;</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Dimensionerande inomhustemperaturer (vid DVUT)</span></p>\n<p>Bostäder:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +22 ºC.</p>\n<p>Sekundära utrymmen, källarförråd, <br>barnvagnsrum etc.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +18 ºC</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Riktad operativ temperatur (ROT) (vid DVUT)</span></p>\n<p>Bostäder:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; min +18 <span style=\"font-family: symbol\">°</span>C</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Dimensionerande tillufttemperatur, vintertid </span></p>\n<p>I enlighet med JMs standarddriftkort.</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Maximal lufthastighet i vistelsezon*</span></p>\n<p>Vintertid:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0,15 m/s</p>\n<p>Sommartid:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 0,25 m/s</p>\n<p style=\"margin-top: 12.0pt\"><em><span style=\"font-size: 12px\">*I enlighet med Boverkets definition, kapitel 6:212</span></em></p>\n<p style=\"margin-top: 12.0pt\">&nbsp;</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Försörjningssystem</span></p>\n<p>VS02, Värme, sekundärt,<br>värmebatterier:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +55 <span style=\"font-family: symbol\">°</span>C - +30 <span style=\"font-family: symbol\">°</span>C</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\">[Anvisning: Vid Systemval FJV-FXP är nedanstående värmesystem aktuellt. Raderas vid annat systemval]</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: italic; color: #ff0000\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">VS03, Värme, sekundärt, till/från </span><br><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">frånluftsaggregat med integrerad </span><br><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">värmepump&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; +55 °C - +<s>48</s><u> 4<span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000; background-color: #ced4d9\">5 </span></u>°C</span></span></p>\n<p style=\"margin-right: 87.85pt\">Värmemedium: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; vatten</p>\n<p style=\"margin-right: 87.85pt\">Tryckklass&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; PN6</p>\n<p style=\"margin-right: 87.85pt\">&nbsp;</p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Eldata</span></p>\n<p style=\"margin-right: 87.85pt\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Systemspänning&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 400/230 V, 50 Hz</span></p>\n<p style=\"margin-right: 87.85pt\"><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Manöverspänning&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 230/24 V, 50 Hz</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Elinstallationerna utförs enligt 5-ledarsystemet. Samtliga elanslutna objekt ska vara utförda för detta system.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Frekvensomriktare driftsätts enligt leverantörens anvisningar.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">Ljudkrav</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Ljudklass B, enligt SS 25267:2015, gäller i bostaden avseende ljud från installationer.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">För kommersiella lokaler ljudkrav enligt BBR.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Installationerna utförs avvibrerade mot stommen så att ingen ljudöverföring sker.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Vid öppna planlösningar beaktas att ljudnivån från spiskåpans grundflöde samt kyl/frys till övriga rumsbildningar inte överskrids.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Krav enligt BBR gäller i bostaden för trafik samt för andra yttre ljudkällor.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Egen ljudalstringsnivå i don högre än det tillåtna får inte skapas genom att strypa mer i själva donet än vad katalogkurvorna anger vid här tillåtna ljudnivåer.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Anläggningen är så dimensionerad att kravvärdena kan uppfyllas förutsatt korrekt utförande (inkl. inreglering och montage).</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Vid ljuddimensioneringen har ljuddata använts för dessa enheter enligt gällande produktkataloger eller datakörningar.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Alla aggregat ska vibrationsisoleras.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">Stum kontakt mellan vibrationsisolerad enhet och byggnadskonstruktion får ej förekomma.</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 12px; font-weight: 400; font-style: italic; color: #000000\">&nbsp;</span></p>\n<p><span style=\"font-family: arial, helvetica, sans-serif; font-size: 11px; font-weight: 400; font-style: normal; color: #000000\">&nbsp;</span></p>"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-35.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:41:42.310607",
+      "updated_at": "2026-03-16 10:49:01.699150",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-35",
+      "id_full": "ASSE-35.v1",
+      "data": {
+        "namn": "SC1",
+        "description - short": "VKR 100x100x6,3 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-36.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:42:36.155546",
+      "updated_at": "2026-03-16 10:42:36.155549",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-36",
+      "id_full": "ASSE-36.v1",
+      "data": {
+        "namn": "SC2",
+        "description - short": "VKR 100x100x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-37.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:42:55.476345",
+      "updated_at": "2026-03-16 10:42:55.476348",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-37",
+      "id_full": "ASSE-37.v1",
+      "data": {
+        "namn": "SC3",
+        "description - short": "VKR 100x150x6,3 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-38.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:43:12.870539",
+      "updated_at": "2026-03-16 10:43:12.870542",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-38",
+      "id_full": "ASSE-38.v1",
+      "data": {
+        "namn": "SC4",
+        "description - short": "VKR 100x150x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-39.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:43:55.387574",
+      "updated_at": "2026-03-16 10:43:55.387577",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-39",
+      "id_full": "ASSE-39.v1",
+      "data": {
+        "namn": "SC11",
+        "description - short": "VKR 100x200x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-40.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:44:08.897648",
+      "updated_at": "2026-03-16 10:44:08.897652",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-40",
+      "id_full": "ASSE-40.v1",
+      "data": {
+        "namn": "SC12",
+        "description - short": "VKR 100x200x12,5 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-41.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:45:07.508391",
+      "updated_at": "2026-03-16 10:45:07.508394",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-41",
+      "id_full": "ASSE-41.v1",
+      "data": {
+        "namn": "SC5",
+        "description - short": "VKR 100x100x6,3 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-42.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:45:24.354717",
+      "updated_at": "2026-03-16 10:46:12.685210",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-42",
+      "id_full": "ASSE-42.v1",
+      "data": {
+        "namn": "SC6",
+        "description - short": "VKR 100x100x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-43.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:45:45.242625",
+      "updated_at": "2026-03-16 10:46:19.892300",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-43",
+      "id_full": "ASSE-43.v1",
+      "data": {
+        "namn": "SC7",
+        "description - short": "VKR 100x150x6,3 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-44.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:46:00.953877",
+      "updated_at": "2026-03-16 10:46:27.701824",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-44",
+      "id_full": "ASSE-44.v1",
+      "data": {
+        "namn": "SC8",
+        "description - short": "VKR 100x150x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-45.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:47:15.977045",
+      "updated_at": "2026-03-16 10:47:15.977048",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-45",
+      "id_full": "ASSE-45.v1",
+      "data": {
+        "namn": "SC13",
+        "description - short": "VKR 100x200x10 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-46.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:47:35.597533",
+      "updated_at": "2026-03-16 10:47:35.597537",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-46",
+      "id_full": "ASSE-46.v1",
+      "data": {
+        "namn": "SC14",
+        "description - short": "VKR 100x200x12,5 mm",
+        "kategori": "80"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-47.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:58:33.809870",
+      "updated_at": "2026-03-16 10:58:33.809873",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-47",
+      "id_full": "ASSE-47.v1",
+      "data": {
+        "namn": "FS-01",
+        "description - short": "Standardbjälklag",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-48.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:59:07.662132",
+      "updated_at": "2026-03-16 10:59:07.662136",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-48",
+      "id_full": "ASSE-48.v1",
+      "data": {
+        "namn": "FS-02",
+        "description - short": "Förspänt bjälklag",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-49.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:59:17.596675",
+      "updated_at": "2026-03-16 10:59:17.596679",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-49",
+      "id_full": "ASSE-49.v1",
+      "data": {
+        "namn": "FS-03",
+        "description - short": "Förspänt bjälklag",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-50.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 10:59:47.455966",
+      "updated_at": "2026-03-16 10:59:47.455969",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-50",
+      "id_full": "ASSE-50.v1",
+      "data": {
+        "namn": "FS-05",
+        "description - short": "Trapphus - Prefabricerat trapplan",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-51.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 11:00:10.072555",
+      "updated_at": "2026-03-16 11:00:10.072559",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-51",
+      "id_full": "ASSE-51.v1",
+      "data": {
+        "namn": "HDF-01",
+        "description - short": "HDF - gårdsbjälklag",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-52.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 11:00:25.458114",
+      "updated_at": "2026-03-16 11:01:16.701690",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-52",
+      "id_full": "ASSE-52.v1",
+      "data": {
+        "namn": "HDF-02",
+        "description - short": "HDF - gårdsbjälklag 320 mm",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-53.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 11:01:08.118090",
+      "updated_at": "2026-03-16 11:01:08.118094",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-53",
+      "id_full": "ASSE-53.v1",
+      "data": {
+        "namn": "HDF-01",
+        "description - short": "HDF - gårdsbjälklag 270 mm",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-54.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 11:01:27.134629",
+      "updated_at": "2026-03-16 11:01:27.134632",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-54",
+      "id_full": "ASSE-54.v1",
+      "data": {
+        "namn": "HDF-03",
+        "description - short": "HDF - gårdsbjälklag 380 mm",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:ASSE-55.v1",
+      "object_type": "Assembly",
+      "created_at": "2026-03-16 11:01:37.574012",
+      "updated_at": "2026-03-16 11:01:37.574016",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "ASSE-55",
+      "id_full": "ASSE-55.v1",
+      "data": {
+        "namn": "HDF-03",
+        "description - short": "HDF - gårdsbjälklag 400 mm",
+        "kategori": "47"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-42.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:37:03.713647",
+      "updated_at": "2026-03-16 11:37:03.713651",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-42",
+      "id_full": "PROD-42.v1",
+      "data": {
+        "namn": "Anfangsplåt A1",
+        "tillverkare": "Generisk",
+        "description - short": "200x130x20, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-43.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.124757",
+      "updated_at": "2026-03-16 11:55:40.124762",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-43",
+      "id_full": "PROD-43.v1",
+      "data": {
+        "namn": "A1",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 200x130x20, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-44.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.127900",
+      "updated_at": "2026-03-16 11:55:40.127903",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-44",
+      "id_full": "PROD-44.v1",
+      "data": {
+        "namn": "A2",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 250x130x20, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-45.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.129598",
+      "updated_at": "2026-03-16 11:55:40.129601",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-45",
+      "id_full": "PROD-45.v1",
+      "data": {
+        "namn": "A3",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 200x130x30, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-46.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.131215",
+      "updated_at": "2026-03-16 11:55:40.131218",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-46",
+      "id_full": "PROD-46.v1",
+      "data": {
+        "namn": "A4",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 360x130x40, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-47.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.132825",
+      "updated_at": "2026-03-16 11:55:40.132828",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-47",
+      "id_full": "PROD-47.v1",
+      "data": {
+        "namn": "A11",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 250x140x20, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-48.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.134762",
+      "updated_at": "2026-03-16 11:55:40.134766",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-48",
+      "id_full": "PROD-48.v1",
+      "data": {
+        "namn": "A12",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 250x140x20, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-49.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.137241",
+      "updated_at": "2026-03-16 11:55:40.137244",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-49",
+      "id_full": "PROD-49.v1",
+      "data": {
+        "namn": "A13",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 250x140x30, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-50.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.139678",
+      "updated_at": "2026-03-16 11:55:40.139680",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-50",
+      "id_full": "PROD-50.v1",
+      "data": {
+        "namn": "A14",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsplåt - 360x140x40, Ø25",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-51.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.141325",
+      "updated_at": "2026-03-16 11:55:40.141327",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-51",
+      "id_full": "PROD-51.v1",
+      "data": {
+        "namn": "F1",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 110x110x20, Ø40",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-52.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.143139",
+      "updated_at": "2026-03-16 11:55:40.143141",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-52",
+      "id_full": "PROD-52.v1",
+      "data": {
+        "namn": "F2",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 60x110x20, Ø40",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-53.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.144761",
+      "updated_at": "2026-03-16 11:55:40.144763",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-53",
+      "id_full": "PROD-53.v1",
+      "data": {
+        "namn": "F3",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 210x110x20, Ø40",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-54.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.146342",
+      "updated_at": "2026-03-16 11:55:40.146344",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-54",
+      "id_full": "PROD-54.v1",
+      "data": {
+        "namn": "F11",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 160x110x20, Ø50",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-55.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.148018",
+      "updated_at": "2026-03-16 11:55:40.148021",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-55",
+      "id_full": "PROD-55.v1",
+      "data": {
+        "namn": "F13",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 210x110x20, Ø50",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-56.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.150429",
+      "updated_at": "2026-03-16 11:55:40.150432",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-56",
+      "id_full": "PROD-56.v1",
+      "data": {
+        "namn": "Bricka fyrkant",
+        "tillverkare": "Generisk",
+        "description - short": "60x60x5, Ø21",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-57.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.152115",
+      "updated_at": "2026-03-16 11:55:40.152118",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-57",
+      "id_full": "PROD-57.v1",
+      "data": {
+        "namn": "Bricka fyrkant",
+        "tillverkare": "Generisk",
+        "description - short": "60x55x15 - Excentriskt hål Ø21 mm",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-58.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.153879",
+      "updated_at": "2026-03-16 11:55:40.153882",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-58",
+      "id_full": "PROD-58.v1",
+      "data": {
+        "namn": "Bricka rund",
+        "tillverkare": "Generisk",
+        "description - short": "Ø37x3, Ø21 mm",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-59.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.156019",
+      "updated_at": "2026-03-16 11:55:40.156023",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-59",
+      "id_full": "PROD-59.v1",
+      "data": {
+        "namn": "Långmutter",
+        "tillverkare": "Generisk",
+        "description - short": "Fyrkantsprofil 30x30 L=80",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-60.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.158642",
+      "updated_at": "2026-03-16 11:55:40.158644",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-60",
+      "id_full": "PROD-60.v1",
+      "data": {
+        "namn": "MS1",
+        "tillverkare": "Generisk",
+        "description - short": "Kraftöverförande massiv stålstång 235, Ø70 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-61.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.160354",
+      "updated_at": "2026-03-16 11:55:40.160356",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-61",
+      "id_full": "PROD-61.v1",
+      "data": {
+        "namn": "MS2",
+        "tillverkare": "Generisk",
+        "description - short": "Kraftöverförande massiv stålstång 255, Ø70 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-62.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.161981",
+      "updated_at": "2026-03-16 11:55:40.161985",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-62",
+      "id_full": "PROD-62.v1",
+      "data": {
+        "namn": "MS3",
+        "tillverkare": "Generisk",
+        "description - short": "Kraftöverförande massiv stålstång 215, Ø70 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-63.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.163663",
+      "updated_at": "2026-03-16 11:55:40.163666",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-63",
+      "id_full": "PROD-63.v1",
+      "data": {
+        "namn": "Anfangsdubb D1",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsdubb - Gängad stång 470 Ø20 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-64.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.165304",
+      "updated_at": "2026-03-16 11:55:40.165306",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-64",
+      "id_full": "PROD-64.v1",
+      "data": {
+        "namn": "Anfangsdubb D2",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsdubb - Gängad stång 170 Ø20 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-65.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.167044",
+      "updated_at": "2026-03-16 11:55:40.167047",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-65",
+      "id_full": "PROD-65.v1",
+      "data": {
+        "namn": "Anfangsdubb D3",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsdubb - Gängad stång 270 Ø20 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-66.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.168698",
+      "updated_at": "2026-03-16 11:55:40.168701",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-66",
+      "id_full": "PROD-66.v1",
+      "data": {
+        "namn": "Anfangsdubb D5",
+        "tillverkare": "Generisk",
+        "description - short": "Anfangsdubb - Gängad stång 260 Ø20 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-67.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.170346",
+      "updated_at": "2026-03-16 12:06:24.535694",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-67",
+      "id_full": "PROD-67.v1",
+      "data": {
+        "namn": "T1",
+        "tillverkare": "Generisk",
+        "description - short": "Topplåt - 250x130x20, Ø23 mm",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-68.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.171999",
+      "updated_at": "2026-03-16 11:55:40.172001",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-68",
+      "id_full": "PROD-68.v1",
+      "data": {
+        "namn": "Bult M20",
+        "tillverkare": "Generisk",
+        "description - short": "Bult  M20 8,8, Helgängad",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-69.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.173637",
+      "updated_at": "2026-03-16 11:55:40.173639",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-69",
+      "id_full": "PROD-69.v1",
+      "data": {
+        "namn": "Mutter M20",
+        "tillverkare": "Generisk",
+        "description - short": "Mutter M20 8,8 FZV",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-70.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 11:55:40.175266",
+      "updated_at": "2026-03-16 11:55:40.175268",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-70",
+      "id_full": "PROD-70.v1",
+      "data": {
+        "namn": "Mutter M20 Svetsbar",
+        "tillverkare": "Generisk",
+        "description - short": "Mutter M20 Svetsbar",
+        "produktkategori": "74"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-71.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 12:04:37.876776",
+      "updated_at": "2026-03-16 12:04:37.876781",
+      "created_by": "codex-import",
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-71",
+      "id_full": "PROD-71.v1",
+      "data": {
+        "namn": "F12",
+        "tillverkare": "Generisk",
+        "description - short": "Fotplåt 160x110x20, Ø50",
+        "produktkategori": "82"
+      }
+    },
+    {
+      "seed_key": "id_full:CON-1.v1",
+      "object_type": "Connection",
+      "created_at": "2026-03-16 12:15:54.190318",
+      "updated_at": "2026-03-16 12:15:54.190322",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "CON-1",
+      "id_full": "CON-1.v1",
+      "data": {
+        "namn": "Mellanbjälklag - Stålpelare",
+        "del_a": "Stålpelare",
+        "del_b": "Mellanbjälklag"
+      }
+    },
+    {
+      "seed_key": "id_full:FOBJ-1.v1",
+      "object_type": "FileObject",
+      "created_at": "2026-03-16 12:27:44.732227",
+      "updated_at": "2026-03-16 12:27:44.732230",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "FOBJ-1",
+      "id_full": "FOBJ-1.v1",
+      "data": {
+        "namn": "Stålpelarskarvning Valv"
+      }
+    },
+    {
+      "seed_key": "id_full:SYS-1.v1",
+      "object_type": "System",
+      "created_at": "2026-03-16 12:42:29.685021",
+      "updated_at": "2026-03-16 12:42:29.685024",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "SYS-1",
+      "id_full": "SYS-1.v1",
+      "data": {
+        "namn": "Ventilation"
+      }
+    },
+    {
+      "seed_key": "id_full:PROD-72.v1",
+      "object_type": "Product",
+      "created_at": "2026-03-16 13:31:35.556757",
+      "updated_at": "2026-03-16 13:31:35.556760",
+      "created_by": null,
+      "status": "In work",
+      "version": "v1",
+      "main_id": "PROD-72",
+      "id_full": "PROD-72.v1",
+      "data": {
+        "namn": "VKR 100x100x6,3",
+        "tillverkare": "Generisk",
+        "description - short": "VKR stål 100x100x6,3",
+        "produktkategori": "82"
       }
     }
   ],
-  "object_relations": [],
+  "object_relations": [
+    {
+      "source_object_seed_key": "id_full:ASSE-1.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.246657"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-2.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.328653"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-3.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.408023"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-6.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.479230"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-5.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.550553"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-10.v1",
+      "target_object_seed_key": "id_full:PROD-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:35:46.620090"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-1.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.082896"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-2.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.161350"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-3.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.239220"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-4.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.309810"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-8.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.379307"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-9.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.451081"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-10.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.522075"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-11.v1",
+      "target_object_seed_key": "id_full:PROD-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:36:51.595746"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-7.v1",
+      "target_object_seed_key": "id_full:PROD-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:38:09.452396"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-6.v1",
+      "target_object_seed_key": "id_full:PROD-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:38:09.526562"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-5.v1",
+      "target_object_seed_key": "id_full:PROD-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:38:09.601499"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-5.v1",
+      "target_object_seed_key": "id_full:ASSE-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:42:07.714522"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-6.v1",
+      "target_object_seed_key": "id_full:ASSE-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:42:55.491699"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-6.v1",
+      "target_object_seed_key": "id_full:ASSE-8.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:08.585500"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-4.v1",
+      "target_object_seed_key": "id_full:ASSE-7.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:39.998272"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-4.v1",
+      "target_object_seed_key": "id_full:ASSE-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:40.003049"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-4.v1",
+      "target_object_seed_key": "id_full:ASSE-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:40.004604"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-4.v1",
+      "target_object_seed_key": "id_full:ASSE-9.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:40.006166"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-4.v1",
+      "target_object_seed_key": "id_full:ASSE-10.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:43:40.007669"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-3.v1",
+      "target_object_seed_key": "id_full:ASSE-3.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:44:14.216599"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-2.v1",
+      "target_object_seed_key": "id_full:ASSE-2.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:44:34.509798"
+    },
+    {
+      "source_object_seed_key": "id_full:REC-1.v1",
+      "target_object_seed_key": "id_full:ASSE-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:44:51.167145"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-1.v1",
+      "target_object_seed_key": "id_full:ASSE-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:46:29.180598"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-1.v1",
+      "target_object_seed_key": "id_full:ASSE-2.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:46:29.185087"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-1.v1",
+      "target_object_seed_key": "id_full:ASSE-3.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:46:29.186667"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-1.v1",
+      "target_object_seed_key": "id_full:ASSE-4.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:46:29.188140"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-1.v1",
+      "target_object_seed_key": "id_full:ASSE-8.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 11:46:29.189604"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-7.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.060341"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.061209"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.061819"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-9.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.062360"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-10.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.062912"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-3.v1",
+      "target_object_seed_key": "id_full:ASSE-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 11:47:15.063322"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-2.v1",
+      "target_object_seed_key": "id_full:ASSE-8.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:40:23.658986"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-3.v1",
+      "target_object_seed_key": "id_full:PROP-4.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:41:40.826559"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-2.v1",
+      "target_object_seed_key": "id_full:PROP-4.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:41:40.909946"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-3.v1",
+      "target_object_seed_key": "id_full:PROP-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:41:56.545003"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-4.v1",
+      "target_object_seed_key": "id_full:PROP-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:43:01.117124"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-11.v1",
+      "target_object_seed_key": "id_full:PROP-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:43:01.202642"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-19.v1",
+      "target_object_seed_key": "id_full:ASSE-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:46:55.260614"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-19.v1",
+      "target_object_seed_key": "id_full:ASSE-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:46:55.265833"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-19.v1",
+      "target_object_seed_key": "id_full:ASSE-7.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:46:55.267472"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.223170"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-10.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.228551"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-9.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.230382"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-8.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.232010"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-4.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.234177"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-3.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.236498"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-2.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.238766"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-18.v1",
+      "target_object_seed_key": "id_full:ASSE-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 13:47:48.241352"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-11.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.899754"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-10.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.906719"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-9.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.908265"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-8.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.909809"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-7.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.911292"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-6.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.912808"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-5.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.914289"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-4.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.915805"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-3.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.917302"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-2.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.918804"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-9.v1",
+      "target_object_seed_key": "id_full:ASSE-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:02:42.920284"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-12.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:53:33.441942"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-15.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:53:33.447541"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-14.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:53:33.449242"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-16.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:53:33.450918"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-17.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:53:33.452613"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-21.v1",
+      "target_object_seed_key": "id_full:ASSE-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:12.104070"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-21.v1",
+      "target_object_seed_key": "id_full:ASSE-14.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:12.110307"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-21.v1",
+      "target_object_seed_key": "id_full:ASSE-16.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:12.111963"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-21.v1",
+      "target_object_seed_key": "id_full:ASSE-17.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:12.113619"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-20.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:28.450461"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-19.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:28.460322"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-20.v1",
+      "target_object_seed_key": "id_full:ASSE-18.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:28.462962"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-21.v1",
+      "target_object_seed_key": "id_full:ASSE-19.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:54:48.072909"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-20.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.592004"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-19.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.597522"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-18.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.599228"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-17.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.600929"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-16.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.602576"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-15.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.604163"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-14.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.605801"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-13.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.607380"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-22.v1",
+      "target_object_seed_key": "id_full:ASSE-12.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:55:58.609007"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-23.v1",
+      "target_object_seed_key": "id_full:ASSE-15.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:56:16.078368"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-23.v1",
+      "target_object_seed_key": "id_full:ASSE-16.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 14:56:16.084142"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-6.v1",
+      "target_object_seed_key": "id_full:PROD-24.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:01:09.505157"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-22.v1",
+      "target_object_seed_key": "id_full:PROD-25.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.505554"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-22.v1",
+      "target_object_seed_key": "id_full:PROD-26.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.511180"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-22.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.512750"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-21.v1",
+      "target_object_seed_key": "id_full:PROD-25.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.587842"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-21.v1",
+      "target_object_seed_key": "id_full:PROD-26.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.593063"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-21.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:19.594638"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-21.v1",
+      "target_object_seed_key": "id_full:PROD-24.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:24:39.026807"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-22.v1",
+      "target_object_seed_key": "id_full:PROD-35.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:27:51.084941"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-23.v1",
+      "target_object_seed_key": "id_full:PROD-26.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:29:08.668718"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-23.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:29:08.669053"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-23.v1",
+      "target_object_seed_key": "id_full:PROD-36.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:29:08.669947"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-23.v1",
+      "target_object_seed_key": "id_full:PROD-27.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:29:08.670524"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-24.v1",
+      "target_object_seed_key": "id_full:PROD-26.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:29:55.845453"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-24.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:29:55.845631"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-24.v1",
+      "target_object_seed_key": "id_full:PROD-27.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:29:55.845711"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-24.v1",
+      "target_object_seed_key": "id_full:PROD-37.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:29:55.846216"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-25.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:31:33.884706"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-25.v1",
+      "target_object_seed_key": "id_full:PROD-38.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:31:33.885489"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-25.v1",
+      "target_object_seed_key": "id_full:PROD-29.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:31:33.886000"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-25.v1",
+      "target_object_seed_key": "id_full:PROD-40.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:32:24.979879"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-26.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:33:23.621216"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-26.v1",
+      "target_object_seed_key": "id_full:PROD-29.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:33:23.621409"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-26.v1",
+      "target_object_seed_key": "id_full:PROD-40.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:33:23.621491"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-26.v1",
+      "target_object_seed_key": "id_full:PROD-39.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:33:23.622014"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-27.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:35:40.854229"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-27.v1",
+      "target_object_seed_key": "id_full:PROD-29.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:35:40.854416"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-27.v1",
+      "target_object_seed_key": "id_full:PROD-41.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:35:40.855076"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-27.v1",
+      "target_object_seed_key": "id_full:PROD-38.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:35:40.855568"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-28.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:36:18.108881"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-28.v1",
+      "target_object_seed_key": "id_full:PROD-29.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:36:18.109098"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-28.v1",
+      "target_object_seed_key": "id_full:PROD-41.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:36:18.109225"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-28.v1",
+      "target_object_seed_key": "id_full:PROD-39.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:36:18.110725"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-29.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:16.735086"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-29.v1",
+      "target_object_seed_key": "id_full:PROD-24.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:16.740921"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-29.v1",
+      "target_object_seed_key": "id_full:PROD-32.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:16.742537"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-29.v1",
+      "target_object_seed_key": "id_full:PROD-30.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:16.744063"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-30.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:51.424267"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-30.v1",
+      "target_object_seed_key": "id_full:PROD-32.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:51.424448"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-30.v1",
+      "target_object_seed_key": "id_full:PROD-30.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:38:51.424526"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-30.v1",
+      "target_object_seed_key": "id_full:PROD-35.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:38:51.425047"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-31.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:39:28.330302"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-31.v1",
+      "target_object_seed_key": "id_full:PROD-32.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:39:28.330494"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-31.v1",
+      "target_object_seed_key": "id_full:PROD-35.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:39:28.330575"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-31.v1",
+      "target_object_seed_key": "id_full:PROD-31.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:39:28.331089"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-32.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:39:58.758887"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-32.v1",
+      "target_object_seed_key": "id_full:PROD-32.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:39:58.759080"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-32.v1",
+      "target_object_seed_key": "id_full:PROD-31.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:39:58.759181"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-32.v1",
+      "target_object_seed_key": "id_full:PROD-24.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:39:58.759688"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-33.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:42:59.773376"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-33.v1",
+      "target_object_seed_key": "id_full:PROD-38.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:42:59.774136"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-33.v1",
+      "target_object_seed_key": "id_full:PROD-34.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:42:59.774724"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-33.v1",
+      "target_object_seed_key": "id_full:PROD-33.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:42:59.775146"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-34.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:43:17.139543"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-34.v1",
+      "target_object_seed_key": "id_full:PROD-34.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:43:17.139821"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-34.v1",
+      "target_object_seed_key": "id_full:PROD-33.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:43:17.139901"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-34.v1",
+      "target_object_seed_key": "id_full:PROD-39.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-11 15:43:17.140419"
+    },
+    {
+      "source_object_seed_key": "id_full:PROP-7.v1",
+      "target_object_seed_key": "id_full:PROD-26.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-11 15:57:29.997006"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-47.v1",
+      "target_object_seed_key": "id_full:PROD-20.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.496975"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-47.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.503024"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-48.v1",
+      "target_object_seed_key": "id_full:PROD-20.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.561801"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-48.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.568128"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-49.v1",
+      "target_object_seed_key": "id_full:PROD-20.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.633736"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-49.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:42.639446"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-50.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:03:56.335480"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-55.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:04:13.185440"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-54.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:04:13.248088"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-53.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:04:13.311967"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-52.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:04:13.449703"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-51.v1",
+      "target_object_seed_key": "id_full:PROD-21.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:04:13.512375"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-35.v1",
+      "target_object_seed_key": "id_full:PROD-51.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:58:24.909918"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-35.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:58:24.916644"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-36.v1",
+      "target_object_seed_key": "id_full:PROD-51.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:58:24.977926"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-36.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:58:24.984347"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-37.v1",
+      "target_object_seed_key": "id_full:PROD-52.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:12.082578"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-37.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:12.089257"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-38.v1",
+      "target_object_seed_key": "id_full:PROD-52.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:12.152903"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-38.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:12.160108"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-39.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:56.475948"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-39.v1",
+      "target_object_seed_key": "id_full:PROD-53.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:56.482869"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-40.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:56.544004"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-40.v1",
+      "target_object_seed_key": "id_full:PROD-53.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 11:59:56.550328"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-41.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:00:50.731614"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-41.v1",
+      "target_object_seed_key": "id_full:PROD-54.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:00:50.738150"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-42.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:00:50.801904"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-42.v1",
+      "target_object_seed_key": "id_full:PROD-54.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:00:50.808397"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-43.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:01:31.585076"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-44.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:01:31.653267"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-43.v1",
+      "target_object_seed_key": "id_full:PROD-71.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:05:02.070539"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-44.v1",
+      "target_object_seed_key": "id_full:PROD-71.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:05:02.137313"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-45.v1",
+      "target_object_seed_key": "id_full:PROD-55.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:07:32.808629"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-45.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:07:32.819837"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-46.v1",
+      "target_object_seed_key": "id_full:PROD-55.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:07:32.886152"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-46.v1",
+      "target_object_seed_key": "id_full:PROD-67.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:07:32.893711"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-46.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.613201"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-45.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.618811"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-44.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.620486"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-43.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.622066"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-42.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.623664"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-41.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.625277"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-40.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.626802"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-39.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.628329"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-38.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.629830"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-37.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.631331"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-36.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.632845"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:ASSE-35.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:19:08.635296"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-50.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:26:48.169020"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-49.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:26:48.235687"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-48.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:26:48.301921"
+    },
+    {
+      "source_object_seed_key": "id_full:ASSE-47.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 12:26:48.369217"
+    },
+    {
+      "source_object_seed_key": "id_full:CON-1.v1",
+      "target_object_seed_key": "id_full:FOBJ-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": null,
+      "created_at": "2026-03-16 12:27:44.864515"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-43.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 15:53:13.511094"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-44.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 15:53:13.576394"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-45.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 15:53:13.638231"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-46.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 15:53:13.706523"
+    },
+    {
+      "source_object_seed_key": "id_full:PROD-68.v1",
+      "target_object_seed_key": "id_full:CON-1.v1",
+      "relation_type": "uses_object",
+      "description": null,
+      "relation_metadata": {},
+      "created_at": "2026-03-16 15:53:51.548916"
+    }
+  ],
   "relation_types": [
     {
       "key": "applies_to",
@@ -712,6 +4805,18 @@
       "is_allowed": false
     },
     {
+      "source_object_type": "Assembly",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Assembly",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "Property",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -778,6 +4883,18 @@
       "is_allowed": false
     },
     {
+      "source_object_type": "Property",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Property",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "Requirement",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -841,6 +4958,18 @@
       "source_object_type": "Requirement",
       "target_object_type": "Module",
       "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Requirement",
+      "target_object_type": null,
+      "relation_type": "uses_object",
       "is_allowed": true
     },
     {
@@ -910,6 +5039,18 @@
       "is_allowed": false
     },
     {
+      "source_object_type": "Connection",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Connection",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "Instruction",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -973,6 +5114,18 @@
       "source_object_type": "Instruction",
       "target_object_type": "Module",
       "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Instruction",
+      "target_object_type": null,
+      "relation_type": "uses_object",
       "is_allowed": true
     },
     {
@@ -1042,6 +5195,18 @@
       "is_allowed": false
     },
     {
+      "source_object_type": "Product",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Product",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "FileObject",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -1106,6 +5271,18 @@
       "target_object_type": "Module",
       "relation_type": "uses_object",
       "is_allowed": false
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "FileObject",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
     },
     {
       "source_object_type": "Space",
@@ -1174,6 +5351,18 @@
       "is_allowed": true
     },
     {
+      "source_object_type": "Space",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Space",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "Technical Specification",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -1240,9 +5429,15 @@
       "is_allowed": true
     },
     {
-      "source_object_type": "Technical Chapter",
-      "target_object_type": "TCBL",
-      "relation_type": "contains",
+      "source_object_type": "Technical Specification",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Specification",
+      "target_object_type": null,
+      "relation_type": "uses_object",
       "is_allowed": true
     },
     {
@@ -1250,12 +5445,6 @@
       "target_object_type": "Assembly",
       "relation_type": "applies_to",
       "is_allowed": true
-    },
-    {
-      "source_object_type": "TCBL",
-      "target_object_type": "Technical Chapter",
-      "relation_type": "uses_object",
-      "is_allowed": false
     },
     {
       "source_object_type": "Technical Chapter",
@@ -1315,6 +5504,18 @@
       "source_object_type": "Technical Chapter",
       "target_object_type": "Module",
       "relation_type": "applies_to",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": null,
+      "relation_type": "contains",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Technical Chapter",
+      "target_object_type": null,
+      "relation_type": "contains",
       "is_allowed": true
     },
     {
@@ -1390,6 +5591,18 @@
       "is_allowed": false
     },
     {
+      "source_object_type": "System",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "System",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
       "source_object_type": "Module",
       "target_object_type": "Assembly",
       "relation_type": "uses_object",
@@ -1454,6 +5667,174 @@
       "target_object_type": "System",
       "relation_type": "uses_object",
       "is_allowed": false
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": "Module",
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Assembly",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Property",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Requirement",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Connection",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Instruction",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Product",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "FileObject",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Space",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Technical Specification",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Technical Chapter",
+      "relation_type": "uses_object",
+      "is_allowed": false
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "System",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": "Module",
+      "relation_type": "uses_object",
+      "is_allowed": true
+    },
+    {
+      "source_object_type": null,
+      "target_object_type": null,
+      "relation_type": "uses_object",
+      "is_allowed": true
     }
   ]
 }

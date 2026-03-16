@@ -1,111 +1,92 @@
 # UI Table Standard
 
-This document defines the default table pattern for new modules, views, and modals.
+Detta dokument definierar standardmönstret för tabeller i projektet.
 
-## Goal
-Use one shared table behavior and visual style across the system.
+## Grundregel
 
-## Required Defaults
-- Use `SystemTable` for all new tables unless there is a strong technical reason not to.
-- Use existing table classes:
-  - `table-container`
-  - `data-table`
-  - `column-search-row`
-  - `column-search-input`
-  - `object-type-badge`
-- Enable by default:
-  - Global search input
-  - Column search row
-  - Sortable headers with indicators (`↕`, `↑`, `↓`)
-  - Resizable columns
-  - Column reordering by drag-and-drop where the module supports configurable column order
+Alla nya tabeller i moduler, vyer och modaler ska byggas med `SystemTable`.
 
-## Resize Standard
-Resizable tables must follow the same structural pattern as object-list.
+Fil:
 
-- The rendered `<table>` must include an explicit `<colgroup>` with one `<col>` per visible column.
-- Header cells in the first header row must expose `data-column-key`.
-- Body cells should expose the same `data-column-key` for consistency and debugging.
-- Resizable headers should use the `resizable-column` class.
-- Tables with manual column resizing should use fixed-width resizing behavior, not content-driven redistribution across sibling columns.
-- Prefer `makeTableColumnsResizable(...)` with:
-  - `headerSelector: 'thead tr:first-child th[data-column-key]'`
-  - `getColumnKey: (header) => header?.dataset?.columnKey || ''`
-  - `fixedLayout: true`
-- Persist widths by column key, not by visual index.
-- If an existing table structure changes in a way that invalidates old width state, version the storage key instead of trying to reinterpret stale widths.
+- [static/js/components/system-table.js](/workspaces/Byggdelsuppdelning---DEMO/static/js/components/system-table.js)
 
-## Visual Baseline
-The current object list is the visual and interaction baseline for system tables.
+Undantag ska vara sällsynta och motiveras av ett verkligt tekniskt hinder, inte av bekvämlighet.
 
-That means:
-- Sticky header row and sticky column search row.
-- Compact density with clear horizontal scan lines.
-- Selected rows should be visibly highlighted.
-- If one row is actively shown in a detail view, it should have a stronger visual state than ordinary multi-selection.
-- Column settings panels should open as overlays/popovers above the table, not push table content downward.
-- When horizontal scrolling is needed, the table may overflow the container, but it must not introduce artificial empty width after the last column.
-- The column being resized must be the only column whose width changes visibly during drag.
+## Obligatoriska standardval
 
-## Standard Column Convention
-When applicable, use this order:
+Nya tabeller ska som utgångspunkt ha:
+
+- global sökning
+- kolumnsökrad
+- sorterbara headers med indikatorer
+
+Återanvänd dessa CSS-klasser:
+
+- `table-container`
+- `data-table`
+- `column-search-row`
+- `column-search-input`
+- `object-type-badge`
+
+## Kolumnordning
+
+När det är relevant används denna ordning:
+
 1. `ID`
 2. `Typ`
 3. `Namn`
 4. `Beskrivning`
+5. `Actions`
 
-Avoid adding an `Actions` column by default. Prefer contextual actions in a detail panel, row detail view, or dedicated toolbar when that keeps the table cleaner.
+`Actions` ska bara tas med när raden faktiskt behöver direkta radåtgärder. Om en detaljpanel eller separat arbetsyta redan bär interaktionen är det ofta bättre att utelämna kolumnen.
 
-## Type Display
-- Type must be displayed as badge (not plain text).
-- Badge color should come from `getObjectTypeColor(typeName)`.
+## Typvisning
 
-## Reusable Component
-File: `static/js/components/system-table.js`
+- Typ ska visas som badge, inte som vanlig text.
+- Färg ska hämtas via `getObjectTypeColor(typeName)`.
 
-Basic usage example:
+## Resize- och strukturkrav
+
+Tabeller som har kolumnbredder eller konfigurerbar kolumnordning ska följa samma grundstruktur som objektlistan:
+
+- rendera ett explicit `<colgroup>`
+- sätt `data-column-key` på headerceller
+- använd samma kolumnnyckel konsekvent för lagrad state
+- versionera `tableId` eller lagringsnyckel om gamla kolumninställningar inte längre är kompatibla
+
+Om manuell resize används ska beteendet vara fixed-layout-liknande: den kolumn som dras är den som synligt ändrar bredd.
+
+## Visuell baseline
+
+Objektlistan är projektets visuella referens för tabeller. Det innebär normalt:
+
+- sticky header
+- sticky kolumnsökrad
+- kompakt densitet
+- tydlig markering av vald rad
+- overlays eller popovers för kolumninställningar i stället för att trycka ner tabellen
+
+## Implementationsregler
+
+- Skriv inte ny one-off-tabellmarkup om `SystemTable` räcker.
+- Lägg modulspecifikt beteende i `columns.render`, `onRender` och event delegation.
+- Undvik egen sorterings- eller söklogik per modul om inte affärsregler kräver det.
+- Om kolumner är konfigurerbara ska både ordning och bredder kunna persistenteras.
+
+## Minimal exempelanvändning
 
 ```js
 const table = new SystemTable({
-    containerId: 'my-table-container',
+    containerId: 'my-table',
     columns: [
-        { field: 'auto_id', label: 'ID', className: 'col-id' },
+        { field: 'id_full', label: 'ID', className: 'col-id' },
         { field: 'type', label: 'Typ', className: 'col-type', badge: 'type' },
         { field: 'name', label: 'Namn', className: 'col-name' },
-        { field: 'description', label: 'Beskrivning', className: 'col-description' },
+        { field: 'description', label: 'Beskrivning', className: 'col-description' }
     ],
     rows,
-    emptyText: 'Inga objekt hittades'
+    emptyText: 'Inga rader hittades'
 });
 
 table.render();
 ```
-
-Resizable tables should render markup equivalent to:
-
-```html
-<table class="data-table">
-    <colgroup>
-        <col data-column-key="auto_id">
-        <col data-column-key="type">
-        <col data-column-key="name">
-        <col data-column-key="description">
-    </colgroup>
-    <thead>
-        <tr>
-            <th class="resizable-column col-id" data-column-key="auto_id">ID</th>
-            <th class="resizable-column col-type" data-column-key="type">Typ</th>
-            <th class="resizable-column col-name" data-column-key="name">Namn</th>
-            <th class="resizable-column col-description" data-column-key="description">Beskrivning</th>
-        </tr>
-    </thead>
-</table>
-```
-
-## Implementation Rules
-- Do not create one-off table markup for new features if `SystemTable` can be used.
-- Prefer keeping row actions outside the table when a detail panel already exists.
-- Avoid custom sorting/search logic per module unless business logic requires it.
-- If module-specific behavior is needed, implement it via `columns.render`, `onRender`, and event delegation.
-- If columns are configurable, persist both `column_order` and `column_widths`.
-- If column selection/configuration is exposed, render it as an overlay anchored to the table toolbar or filter row.
