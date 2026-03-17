@@ -28,6 +28,10 @@ class Object(db.Model):
                                       back_populates='source_object', cascade='all, delete-orphan')
     target_relations = db.relationship('ObjectRelation', foreign_keys='ObjectRelation.target_object_id',
                                       back_populates='target_object', cascade='all, delete-orphan')
+    child_instances = db.relationship('Instance', foreign_keys='Instance.parent_object_id',
+                                      back_populates='parent_object', cascade='all, delete-orphan')
+    parent_instances = db.relationship('Instance', foreign_keys='Instance.child_object_id',
+                                       back_populates='child_object', cascade='all, delete-orphan')
     documents = db.relationship('Document', back_populates='object', cascade='all, delete-orphan')
     
     @property

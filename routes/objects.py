@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem, Instance
 from utils.auto_id_generator import (
     generate_base_id,
     compose_full_id,
@@ -167,7 +167,7 @@ def matches_tree_view_type(object_type_name, tree_view):
     if tree_view == 'utrymmen':
         return normalized in {'space', 'utrymme', 'rum', 'room'} or 'utrymme' in normalized or 'rum' in normalized
     if tree_view == 'system':
-        return normalized in {'system', 'systemobjekt', 'systemobject'} or 'system' in normalized
+        return normalized in {'system', 'systemobjekt', 'systemobject', 'sys'}
     return False
 
 
@@ -355,49 +355,107 @@ def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
     return [fallback_label]
 
 
-def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
+def build_instance_child_nodes(parent_object, view_config, managed_list_cache=None, visited_ids=None):
+    managed_list_cache = managed_list_cache or {}
+    visited_ids = set(visited_ids or set())
+    if parent_object.id in visited_ids:
+        return []
+
+    next_visited_ids = set(visited_ids)
+    next_visited_ids.add(parent_object.id)
+    child_instances = Instance.query.filter_by(parent_object_id=parent_object.id).order_by(Instance.id.asc()).all()
+
+    children_by_type = {}
+    for instance in child_instances:
+        child_object = instance.child_object
+        if not child_object or child_object.id in next_visited_ids:
+            continue
+
+        type_name = child_object.object_type.name if child_object.object_type else 'Objekt'
+        children_by_type.setdefault(type_name, [])
+
+        display_name = get_display_name(child_object, type_name, view_config)
+        child_object_data = build_tree_display_data(child_object, managed_list_cache)
+        nested_children = build_instance_child_nodes(
+            child_object,
+            view_config,
+            managed_list_cache=managed_list_cache,
+            visited_ids=next_visited_ids,
+        )
+
+        children_by_type[type_name].append({
+            'id': str(child_object.id),
+            'id_full': child_object.id_full,
+            'name': display_name,
+            'type': type_name,
+            'direction': 'outgoing',
+            'created_at': child_object.created_at.isoformat() if child_object.created_at else None,
+            'data': child_object_data,
+            'kravtext': get_tree_requirement_text(child_object),
+            'beskrivning': get_tree_short_description(child_object),
+            'files': collect_tree_files_for_object(child_object),
+            'instance_type': instance.instance_type,
+            'children': nested_children,
+        })
+
+    children = []
+    for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
+        type_children = sorted(children_by_type[type_name], key=lambda item: natural_sort_key(item.get('name')))
+        children.append({
+            'id': f'group-{parent_object.id}-{type_name}',
+            'name': type_name,
+            'type': 'group',
+            'children': type_children
+        })
+    return children
+
+
+def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, tree_view='byggdelar'):
     tree_nodes = []
     for root_object in root_objects:
-        outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
-        incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
-        relations = outgoing + incoming
+        if tree_view == 'system':
+            children = build_instance_child_nodes(root_object, view_config, managed_list_cache=managed_list_cache)
+        else:
+            outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
+            incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
+            relations = outgoing + incoming
 
-        children = []
-        children_by_type = {}
+            children = []
+            children_by_type = {}
 
-        for relation in relations:
-            linked_object = relation.target_object if relation.source_object_id == root_object.id else relation.source_object
-            direction = 'outgoing' if relation.source_object_id == root_object.id else 'incoming'
+            for relation in relations:
+                linked_object = relation.target_object if relation.source_object_id == root_object.id else relation.source_object
+                direction = 'outgoing' if relation.source_object_id == root_object.id else 'incoming'
 
-            if linked_object:
-                type_name = linked_object.object_type.name
-                if type_name not in children_by_type:
-                    children_by_type[type_name] = []
+                if linked_object:
+                    type_name = linked_object.object_type.name
+                    if type_name not in children_by_type:
+                        children_by_type[type_name] = []
 
-                display_name = get_display_name(linked_object, type_name, view_config)
-                linked_object_data = build_tree_display_data(linked_object, managed_list_cache)
+                    display_name = get_display_name(linked_object, type_name, view_config)
+                    linked_object_data = build_tree_display_data(linked_object, managed_list_cache)
 
-                children_by_type[type_name].append({
-                    'id': str(linked_object.id),
-                    'id_full': linked_object.id_full,
-                    'name': display_name,
-                    'type': type_name,
-                    'direction': direction,
-                    'created_at': linked_object.created_at.isoformat() if linked_object.created_at else None,
-                    'data': linked_object_data,
-                    'kravtext': get_tree_requirement_text(linked_object),
-                    'beskrivning': get_tree_short_description(linked_object),
-                    'files': collect_tree_files_for_object(linked_object)
+                    children_by_type[type_name].append({
+                        'id': str(linked_object.id),
+                        'id_full': linked_object.id_full,
+                        'name': display_name,
+                        'type': type_name,
+                        'direction': direction,
+                        'created_at': linked_object.created_at.isoformat() if linked_object.created_at else None,
+                        'data': linked_object_data,
+                        'kravtext': get_tree_requirement_text(linked_object),
+                        'beskrivning': get_tree_short_description(linked_object),
+                        'files': collect_tree_files_for_object(linked_object)
+                    })
+
+            for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
+                type_children = sorted(children_by_type[type_name], key=lambda item: natural_sort_key(item.get('name')))
+                children.append({
+                    'id': f'group-{root_object.id}-{type_name}',
+                    'name': type_name,
+                    'type': 'group',
+                    'children': type_children
                 })
-
-        for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
-            type_children = sorted(children_by_type[type_name], key=lambda item: natural_sort_key(item.get('name')))
-            children.append({
-                'id': f'group-{root_object.id}-{type_name}',
-                'name': type_name,
-                'type': 'group',
-                'children': type_children
-            })
 
         root_type_name = root_object.object_type.name if root_object.object_type else 'Objekt'
         root_display_name = get_display_name(root_object, root_type_name, view_config)
@@ -449,7 +507,7 @@ def build_category_group_tree(root_objects, tree_view, view_config):
                 'id': f"category-{tree_view}-{group_slug}-{index}",
                 'name': group_name,
                 'type': 'group',
-                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache)
+                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache, tree_view=tree_view)
             })
         return nodes
 
@@ -1362,6 +1420,8 @@ def duplicate_object(id):
                 source_object_id=new_source_id,
                 target_object_id=new_target_id,
                 relation_type=relation.relation_type,
+                max_targets_per_source=relation.max_targets_per_source,
+                max_sources_per_target=relation.max_sources_per_target,
                 description=relation.description,
                 relation_metadata=deepcopy(relation.relation_metadata)
             )
@@ -1376,7 +1436,7 @@ def duplicate_object(id):
             if not target_object:
                 continue
 
-            relation_type = 'uses_object'
+            relation_type = 'references_object'
             relation_key = (duplicate.id, target_id, relation_type)
             if relation_key in created_relation_keys:
                 continue
@@ -1458,7 +1518,7 @@ def get_tree():
 
         if tree_view == 'system':
             # For system view, system objects themselves should be top-level nodes.
-            return jsonify(build_tree_root_nodes(root_objects, view_config)), 200
+            return jsonify(build_tree_root_nodes(root_objects, view_config, tree_view=tree_view)), 200
 
         return jsonify(build_category_group_tree(root_objects, tree_view, view_config)), 200
     except Exception as e:

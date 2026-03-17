@@ -28,6 +28,10 @@ class ObjectListComponent {
         this.managedListDisplayByListId = new Map();
         this.bulkManagedMultiImportTableByField = {};
         this.bulkManagedMultiImportRowsByField = {};
+        this.tableSortState = {
+            sortColumn: null,
+            sortDirection: 'asc'
+        };
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -460,6 +464,14 @@ class ObjectListComponent {
         // Initialize new TableSort instance
         if (typeof TableSort !== 'undefined' && table.id) {
             this.tableSortInstance = new TableSort(table.id);
+            this.tableSortInstance.onSortChange = (state) => {
+                this.tableSortState = {
+                    sortColumn: Number.isFinite(Number(state?.sortColumn)) ? Number(state.sortColumn) : null,
+                    sortDirection: state?.sortDirection === 'desc' ? 'desc' : 'asc'
+                };
+            };
+            this.tableSortInstance.setState(this.tableSortState);
+            this.tableSortInstance.applyCurrentSort();
         }
 
         this.enableColumnResizing(table);

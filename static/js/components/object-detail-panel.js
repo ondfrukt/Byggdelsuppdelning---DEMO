@@ -181,7 +181,7 @@ class ObjectDetailPanel {
             this.container.innerHTML = '<p class="empty-state">Välj ett objekt att visa</p>';
             return;
         }
-        
+
         const obj = this.objectData;
         const displayName = obj.data?.Namn || obj.data?.namn || obj.id_full;
         
@@ -206,6 +206,8 @@ class ObjectDetailPanel {
 
         if (this.activeTab === 'relations') {
             await this.loadRelationsIfNeeded();
+        } else if (this.activeTab === 'instances') {
+            await this.loadInstancesIfNeeded();
         } else if (this.activeTab === 'files') {
             await this.loadFilesIfNeeded();
         }
@@ -275,6 +277,10 @@ class ObjectDetailPanel {
                         data-tab="details">
                     Grunddata
                 </button>
+                <button class="tab-btn ${this.activeTab === 'instances' ? 'active' : ''}" 
+                        data-tab="instances">
+                    Instanser
+                </button>
                 <button class="tab-btn ${this.activeTab === 'relations' ? 'active' : ''}" 
                         data-tab="relations">
                     Relationer
@@ -300,6 +306,8 @@ class ObjectDetailPanel {
     renderTabContent() {
         if (this.activeTab === 'details') {
             return this.renderDetails();
+        } else if (this.activeTab === 'instances') {
+            return this.renderInstancesTab();
         } else if (this.activeTab === 'relations') {
             return this.renderRelationsTab();
         } else if (this.activeTab === 'files') {
@@ -516,7 +524,23 @@ class ObjectDetailPanel {
         
         return `<div id="${containerId}"></div>`;
     }
-    
+
+    renderInstancesTab() {
+        const obj = this.objectData;
+        const containerId = `panel-instances-container-${obj.id}`;
+
+        return `
+            <div id="${containerId}" class="instances-tab-compact">
+                <div class="instances-tab-actions">
+                    <p>Instanser öppnas i separat panel.</p>
+                    <button type="button" class="btn btn-primary btn-sm" data-action="open-instance-workspace" data-object-id="${obj.id}">
+                        Öppna instanspanel
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     renderFilesTab() {
         const obj = this.objectData;
         const containerId = `panel-files-container-${obj.id}`;
@@ -541,6 +565,20 @@ class ObjectDetailPanel {
         } catch (error) {
             console.error('Failed to load relations:', error);
         }
+    }
+
+    async loadInstancesIfNeeded() {
+        if (this.activeTab !== 'instances' || !this.objectData) return;
+
+        const containerId = `panel-instances-container-${this.objectData.id}`;
+        const container = document.getElementById(containerId);
+        if (!container || container.dataset.loaded) return;
+
+        container.querySelector('[data-action="open-instance-workspace"]')?.addEventListener('click', async () => {
+            await openInstanceWorkspace(this.objectData.id, this.objectData);
+        });
+
+        container.dataset.loaded = 'true';
     }
     
     async loadFilesIfNeeded() {
@@ -570,6 +608,8 @@ class ObjectDetailPanel {
         // Load content for the newly selected tab
         if (tab === 'relations') {
             await this.loadRelationsIfNeeded();
+        } else if (tab === 'instances') {
+            await this.loadInstancesIfNeeded();
         } else if (tab === 'files') {
             await this.loadFilesIfNeeded();
         }

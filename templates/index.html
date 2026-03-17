@@ -437,6 +437,26 @@
         </div>
     </div>
 
+    <div id="instance-type-field-picker-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Lägg till fält på instanstyp</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="instance-type-field-picker-content">
+                <p class="form-help">Välj ett eller flera fält från listan och lägg till dem samtidigt.</p>
+                <div id="instance-type-field-picker-table"></div>
+                <div class="modal-footer">
+                    <span id="instance-type-field-picker-selection-count" class="form-help">Inga fält valda</span>
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
+                    <button type="button" class="btn btn-primary" id="instance-type-field-picker-confirm-btn" onclick="saveInstanceTypeFieldPickerSelection()" disabled>
+                        Lägg till valda fält
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Change Management Modal -->
     <div id="change-item-modal" class="modal">
         <div class="modal-content">
@@ -489,6 +509,7 @@
     <script src="{{ url_for('static', filename='js/components/managed-multi-select.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list-display-name.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/instance-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-form.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/relation-manager.js') }}"></script>

@@ -9,6 +9,7 @@ from models.object_field import ObjectField
 from models.object import Object
 from models.object_data import ObjectData
 from models.relation import ObjectRelation
+from models.instance import Instance
 from models.relation_type import RelationType
 from models.relation_type_rule import RelationTypeRule
 from models.document import Document
@@ -19,6 +20,7 @@ from models.managed_list_link import ManagedListLink
 from models.managed_list_item_link import ManagedListItemLink
 from models.field_list_binding import FieldListBinding
 from models.field_template import FieldTemplate
+from models.instance_type_field import InstanceTypeField
 from models.object_field_override import ObjectFieldOverride
 from models.change_management_item import ChangeManagementItem
 from models.change_management_impact import ChangeManagementImpact
@@ -30,6 +32,7 @@ __all__ = [
     'Object',
     'ObjectData',
     'ObjectRelation',
+    'Instance',
     'RelationType',
     'RelationTypeRule',
     'Document',
@@ -40,6 +43,7 @@ __all__ = [
     'ManagedListItemLink',
     'FieldListBinding',
     'FieldTemplate',
+    'InstanceTypeField',
     'ObjectFieldOverride',
     'ChangeManagementItem',
     'ChangeManagementImpact'

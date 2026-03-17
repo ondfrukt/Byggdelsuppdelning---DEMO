@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
-from models import db, RelationTypeRule, RelationType, ObjectType
+from models import db, RelationTypeRule, RelationType, ObjectType, InstanceTypeField, FieldTemplate
 from routes.relation_type_rules import get_available_relation_types, ensure_complete_relation_rule_matrix
+from utils.instance_types import get_instance_type_specs
 
 bp = Blueprint('relation_type_rules_api', __name__, url_prefix='/api/relation-type-rules')
 
@@ -8,6 +9,11 @@ bp = Blueprint('relation_type_rules_api', __name__, url_prefix='/api/relation-ty
 def _normalize_relation_type(value):
     candidate = str(value or '').strip().lower()
     allowed = set(get_available_relation_types())
+    allowed.update(
+        str(item.get('key') or '').strip().lower()
+        for item in get_instance_type_specs()
+        if str(item.get('key') or '').strip()
+    )
     return candidate if candidate in allowed else None
 
 
@@ -22,6 +28,25 @@ def _normalize_bool(value, default=True):
     if text in {'0', 'false', 'no', 'nej', 'off'}:
         return False
     return bool(default)
+
+
+def _normalize_instance_type_key(value):
+    candidate = str(value or '').strip().lower()
+    allowed = {
+        str(item.get('key') or '').strip().lower()
+        for item in get_instance_type_specs()
+        if str(item.get('key') or '').strip()
+    }
+    return candidate if candidate in allowed else None
+
+
+def _serialize_instance_type_fields():
+    rows = (
+        InstanceTypeField.query
+        .order_by(InstanceTypeField.instance_type_key.asc(), InstanceTypeField.display_order.asc(), InstanceTypeField.id.asc())
+        .all()
+    )
+    return [row.to_dict(include_template=True) for row in rows]
 
 
 def _serialize_rule(rule):
@@ -61,7 +86,76 @@ def list_relation_type_rules():
     return jsonify({
         'items': [_serialize_rule(rule) for rule in rules],
         'available_relation_types': get_available_relation_types(),
-        'relation_types': [relation_type.to_dict() for relation_type in relation_types]
+        'relation_types': [relation_type.to_dict() for relation_type in relation_types],
+        'instance_types': get_instance_type_specs(),
+        'instance_type_fields': _serialize_instance_type_fields(),
+    }), 200
+
+
+@bp.route('/instance-type-fields/<string:instance_type_key>', methods=['PUT'])
+def replace_instance_type_fields(instance_type_key):
+    normalized_key = _normalize_instance_type_key(instance_type_key)
+    if not normalized_key:
+        return jsonify({'error': 'Invalid instance_type key'}), 400
+
+    data = request.get_json() or {}
+    requested_ids = data.get('field_template_ids')
+    if not isinstance(requested_ids, list):
+        return jsonify({'error': 'field_template_ids must be an array'}), 400
+
+    normalized_ids = []
+    seen = set()
+    for raw_id in requested_ids:
+        try:
+            template_id = int(raw_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'field_template_ids must contain numeric ids'}), 400
+        if template_id <= 0 or template_id in seen:
+            continue
+        normalized_ids.append(template_id)
+        seen.add(template_id)
+
+    if normalized_ids:
+        valid_ids = {
+            row.id
+            for row in FieldTemplate.query.filter(FieldTemplate.id.in_(normalized_ids)).all()
+        }
+        missing = [template_id for template_id in normalized_ids if template_id not in valid_ids]
+        if missing:
+            return jsonify({'error': f'Unknown field_template_ids: {missing}'}), 400
+
+    existing_rows = InstanceTypeField.query.filter_by(instance_type_key=normalized_key).all()
+    by_template_id = {int(row.field_template_id): row for row in existing_rows}
+    keep_ids = set(normalized_ids)
+
+    for row in existing_rows:
+        if int(row.field_template_id) not in keep_ids:
+            db.session.delete(row)
+
+    for index, template_id in enumerate(normalized_ids):
+        row = by_template_id.get(int(template_id))
+        if row is None:
+            row = InstanceTypeField(
+                instance_type_key=normalized_key,
+                field_template_id=int(template_id),
+                display_order=index,
+                is_required=False,
+            )
+            db.session.add(row)
+        else:
+            row.display_order = index
+
+    db.session.commit()
+
+    payload = (
+        InstanceTypeField.query
+        .filter_by(instance_type_key=normalized_key)
+        .order_by(InstanceTypeField.display_order.asc(), InstanceTypeField.id.asc())
+        .all()
+    )
+    return jsonify({
+        'instance_type_key': normalized_key,
+        'items': [row.to_dict(include_template=True) for row in payload]
     }), 200
 
 

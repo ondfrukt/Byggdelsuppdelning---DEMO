@@ -9,6 +9,7 @@ from routes.search import bp as search_bp
 from routes.stats import stats_bp
 from routes.view_config import bp as view_config_bp
 from routes.relation_entities import bp as relation_entities_bp
+from routes.instances import bp as instances_bp
 from routes.managed_lists import bp as managed_lists_bp
 from routes.field_templates import bp as field_templates_bp
 from routes.relation_type_rules_api import bp as relation_type_rules_api_bp
@@ -25,6 +26,7 @@ def register_blueprints(app):
     app.register_blueprint(stats_bp, url_prefix='/api')
     app.register_blueprint(view_config_bp)
     app.register_blueprint(relation_entities_bp)
+    app.register_blueprint(instances_bp)
     app.register_blueprint(managed_lists_bp)
     app.register_blueprint(field_templates_bp)
     app.register_blueprint(relation_type_rules_api_bp)

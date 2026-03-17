@@ -23,6 +23,11 @@ class SystemTable {
         this.onStateChange = typeof options.onStateChange === 'function' ? options.onStateChange : null;
         this.pendingFocusDescriptor = null;
         this.persistState = options.persistState !== false;
+        this.resizableColumns = options.resizableColumns !== false;
+        this.reorderableColumns = options.reorderableColumns !== false;
+        this.minColumnWidth = Number.isFinite(options.minColumnWidth) ? options.minColumnWidth : 48;
+        this.draggedColumnField = null;
+        this.isStabilizingLayout = false;
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -33,6 +38,12 @@ class SystemTable {
         const defaultState = {
             search: '',
             columnSearches: Object.fromEntries(this.columns.map(col => [col.field, ''])),
+            columnOrder: this.columns.map(col => String(col.field || '')).filter(Boolean),
+            columnWidths: Object.fromEntries(
+                this.columns
+                    .map(col => [col.field, this.normalizeColumnWidth(col.width)])
+                    .filter(([, width]) => width !== null)
+            ),
             sortField: firstSortable ? firstSortable.field : null,
             sortDirection: 'asc'
         };
@@ -60,13 +71,72 @@ class SystemTable {
                 ...baseState.columnSearches,
                 ...(overrideState.columnSearches || {})
             },
+            columnOrder: this.normalizeColumnOrder(
+                Array.isArray(overrideState.columnOrder) ? overrideState.columnOrder : baseState.columnOrder
+            ),
+            columnWidths: this.normalizeColumnWidths({
+                ...baseState.columnWidths,
+                ...(overrideState.columnWidths || {})
+            }),
             sortField: hasValidSortField ? overrideState.sortField : baseState.sortField,
             sortDirection: overrideState.sortDirection === 'desc' ? 'desc' : baseState.sortDirection
         };
     }
 
+    normalizeColumnWidth(width) {
+        const normalized = Number(width);
+        if (!Number.isFinite(normalized) || normalized <= 0) return null;
+        return Math.round(normalized);
+    }
+
+    normalizeColumnOrder(order = []) {
+        const availableFields = this.columns
+            .map(column => String(column?.field || ''))
+            .filter(Boolean);
+        const seen = new Set();
+        const normalized = [];
+
+        order.forEach((field) => {
+            const normalizedField = String(field || '').trim();
+            if (!normalizedField || seen.has(normalizedField) || !availableFields.includes(normalizedField)) {
+                return;
+            }
+            seen.add(normalizedField);
+            normalized.push(normalizedField);
+        });
+
+        availableFields.forEach((field) => {
+            if (seen.has(field)) return;
+            seen.add(field);
+            normalized.push(field);
+        });
+
+        return normalized;
+    }
+
+    normalizeColumnWidths(widths = {}) {
+        const normalized = {};
+        if (!widths || typeof widths !== 'object') return normalized;
+
+        this.columns.forEach((column) => {
+            const field = String(column?.field || '');
+            if (!field) return;
+            const width = this.normalizeColumnWidth(widths[field]);
+            if (width !== null) {
+                normalized[field] = width;
+            }
+        });
+
+        return normalized;
+    }
+
     getStateStorageKey() {
         return this.tableId || this.containerId || '';
+    }
+
+    getPersistentStorageKey() {
+        const key = this.getStateStorageKey();
+        return key ? `system-table-state:${key}` : '';
     }
 
     getStateStore() {
@@ -76,12 +146,40 @@ class SystemTable {
         return window.__systemTableStateStore;
     }
 
+    readPersistedStorageState() {
+        const storageKey = this.getPersistentStorageKey();
+        if (!storageKey || typeof localStorage === 'undefined') return null;
+
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    writePersistedStorageState(state) {
+        const storageKey = this.getPersistentStorageKey();
+        if (!storageKey || typeof localStorage === 'undefined') return;
+
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(state));
+        } catch (_error) {
+            // Ignore storage failures.
+        }
+    }
+
     restorePersistedState(defaultState) {
         if (!this.persistState) return defaultState;
         const key = this.getStateStorageKey();
         if (!key) return defaultState;
 
-        const saved = this.getStateStore()[key];
+        const memoryState = this.getStateStore()[key];
+        const saved = (memoryState && typeof memoryState === 'object')
+            ? memoryState
+            : this.readPersistedStorageState();
         if (!saved || typeof saved !== 'object') return defaultState;
 
         const columnSearches = {
@@ -93,6 +191,11 @@ class SystemTable {
         return {
             search: String(saved.search || ''),
             columnSearches,
+            columnOrder: this.normalizeColumnOrder(saved.columnOrder || defaultState.columnOrder),
+            columnWidths: this.normalizeColumnWidths({
+                ...defaultState.columnWidths,
+                ...(saved.columnWidths || {})
+            }),
             sortField: hasValidSortField ? saved.sortField : defaultState.sortField,
             sortDirection: saved.sortDirection === 'desc' ? 'desc' : 'asc'
         };
@@ -102,12 +205,16 @@ class SystemTable {
         if (!this.persistState) return;
         const key = this.getStateStorageKey();
         if (!key) return;
-        this.getStateStore()[key] = {
+        const nextState = {
             search: this.state.search,
             columnSearches: { ...(this.state.columnSearches || {}) },
+            columnOrder: Array.isArray(this.state.columnOrder) ? [...this.state.columnOrder] : [],
+            columnWidths: { ...(this.state.columnWidths || {}) },
             sortField: this.state.sortField,
             sortDirection: this.state.sortDirection
         };
+        this.getStateStore()[key] = nextState;
+        this.writePersistedStorageState(nextState);
     }
 
     notifyStateChange() {
@@ -115,6 +222,8 @@ class SystemTable {
             this.onStateChange({
                 search: this.state.search,
                 columnSearches: { ...(this.state.columnSearches || {}) },
+                columnOrder: Array.isArray(this.state.columnOrder) ? [...this.state.columnOrder] : [],
+                columnWidths: { ...(this.state.columnWidths || {}) },
                 sortField: this.state.sortField,
                 sortDirection: this.state.sortDirection
             }, this);
@@ -130,6 +239,15 @@ class SystemTable {
     setColumns(columns = []) {
         this.columns = Array.isArray(columns) ? columns : [];
         this.state.columnSearches = Object.fromEntries(this.columns.map(col => [col.field, this.state.columnSearches[col.field] || '']));
+        this.state.columnOrder = this.normalizeColumnOrder(this.state.columnOrder);
+        this.state.columnWidths = this.normalizeColumnWidths({
+            ...Object.fromEntries(
+                this.columns
+                    .map(col => [col.field, this.normalizeColumnWidth(col.width)])
+                    .filter(([, width]) => width !== null)
+            ),
+            ...(this.state.columnWidths || {})
+        });
         if (!this.columns.some(col => col.field === this.state.sortField && col.sortable !== false)) {
             const firstSortable = this.columns.find(col => col.sortable !== false);
             this.state.sortField = firstSortable ? firstSortable.field : null;
@@ -139,23 +257,208 @@ class SystemTable {
         this.render();
     }
 
+    getOrderedColumns() {
+        const columnMap = new Map(this.columns.map(column => [String(column.field || ''), column]));
+        return this.normalizeColumnOrder(this.state?.columnOrder || []).map(field => columnMap.get(field)).filter(Boolean);
+    }
+
+    isColumnDraggable(column) {
+        return this.reorderableColumns && column?.draggable !== false;
+    }
+
     getSortIndicator(field) {
         if (this.state.sortField !== field) return '↕';
         return this.state.sortDirection === 'asc' ? '↑' : '↓';
     }
 
     renderTableColgroup() {
+        const orderedColumns = this.getOrderedColumns();
         return `<colgroup data-system-table-colgroup="true">
-            ${this.columns.map(column => `
-                <col data-column-key="${this.escape(column.field)}">
+            ${orderedColumns.map(column => `
+                <col data-column-key="${this.escape(column.field)}"${this.getColumnStyle(column)}>
             `).join('')}
         </colgroup>`;
     }
 
     getColumnStyle(column) {
-        const width = Number(column?.width);
+        const width = this.getColumnWidth(column);
         if (!Number.isFinite(width) || width <= 0) return '';
         return ` style="width: ${width}px; min-width: ${width}px; max-width: ${width}px;"`;
+    }
+
+    getColumnWidth(column) {
+        const field = String(column?.field || '');
+        if (!field) return null;
+        return this.normalizeColumnWidth(this.state?.columnWidths?.[field] ?? column?.width);
+    }
+
+    getResolvedTableWidth(columns = []) {
+        const widths = (Array.isArray(columns) ? columns : [])
+            .map(column => this.getColumnWidth(column))
+            .filter(width => Number.isFinite(width) && width > 0);
+        if (!widths.length) return null;
+        return widths.reduce((sum, width) => sum + width, 0);
+    }
+
+    applyResolvedTableWidth(table, columns = []) {
+        if (!table) return;
+
+        const totalWidth = this.getResolvedTableWidth(columns);
+        if (!Number.isFinite(totalWidth) || totalWidth <= 0) {
+            table.style.removeProperty('width');
+            table.style.removeProperty('min-width');
+            table.style.removeProperty('max-width');
+            return;
+        }
+
+        const widthValue = `${totalWidth}px`;
+        table.style.width = widthValue;
+        table.style.minWidth = widthValue;
+        table.style.maxWidth = widthValue;
+    }
+
+    enableColumnResizing() {
+        if (!this.resizableColumns || typeof makeTableColumnsResizable !== 'function') return;
+
+        const table = document.getElementById(this.tableId);
+        if (!table) return;
+
+        makeTableColumnsResizable({
+            table,
+            minWidth: this.minColumnWidth,
+            fixedLayout: true,
+            headerSelector: 'thead tr:first-child th[data-column-key]',
+            getColumnKey: (header) => header?.dataset?.columnKey || '',
+            getInitialWidth: (field) => this.normalizeColumnWidth(this.state?.columnWidths?.[field]),
+            onResizeEnd: (field, width) => {
+                const normalizedField = String(field || '').trim();
+                const normalizedWidth = this.normalizeColumnWidth(width);
+                if (!normalizedField || normalizedWidth === null) return;
+                this.state.columnWidths = {
+                    ...(this.state.columnWidths || {}),
+                    [normalizedField]: normalizedWidth
+                };
+                this.persistCurrentState();
+                this.notifyStateChange();
+            }
+        });
+
+        return this.captureRenderedColumnWidths(table);
+    }
+
+    captureRenderedColumnWidths(table) {
+        if (!table) return false;
+
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th[data-column-key]'));
+        if (!headers.length) return false;
+
+        const measuredWidths = {};
+        headers.forEach((header) => {
+            const field = String(header.dataset.columnKey || '').trim();
+            const width = Math.round(header.getBoundingClientRect().width || 0);
+            if (!field || !Number.isFinite(width) || width <= 0) return;
+            measuredWidths[field] = width;
+        });
+
+        if (!Object.keys(measuredWidths).length) return false;
+
+        const nextWidths = this.normalizeColumnWidths({
+            ...measuredWidths,
+            ...(this.state.columnWidths || {})
+        });
+
+        const currentSerialized = JSON.stringify(this.state.columnWidths || {});
+        const nextSerialized = JSON.stringify(nextWidths);
+        if (currentSerialized === nextSerialized) return false;
+
+        this.state.columnWidths = nextWidths;
+        this.persistCurrentState();
+        this.notifyStateChange();
+        return true;
+    }
+
+    stabilizeInitialLayoutIfNeeded(widthsCaptured) {
+        if (!widthsCaptured || this.isStabilizingLayout) return;
+
+        this.isStabilizingLayout = true;
+        window.requestAnimationFrame(() => {
+            this.isStabilizingLayout = false;
+            this.render();
+        });
+    }
+
+    enableColumnReordering() {
+        if (!this.reorderableColumns) return;
+
+        const table = document.getElementById(this.tableId);
+        if (!table) return;
+
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th[data-draggable-column="true"]'));
+        headers.forEach((header) => {
+            header.addEventListener('dragstart', (event) => {
+                if (event.target?.closest?.('.column-resize-handle')) {
+                    event.preventDefault();
+                    return;
+                }
+                const field = String(header.dataset.field || '').trim();
+                if (!field) return;
+                this.draggedColumnField = field;
+                header.classList.add('column-dragging');
+                if (event.dataTransfer) {
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', field);
+                }
+            });
+
+            header.addEventListener('dragend', () => {
+                this.draggedColumnField = null;
+                table.querySelectorAll('th.column-drop-before, th.column-drop-after, th.column-dragging').forEach((node) => {
+                    node.classList.remove('column-drop-before', 'column-drop-after', 'column-dragging');
+                });
+            });
+
+            header.addEventListener('dragover', (event) => {
+                const targetField = String(header.dataset.field || '').trim();
+                if (!this.draggedColumnField || !targetField || this.draggedColumnField === targetField) return;
+                event.preventDefault();
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                header.classList.toggle('column-drop-before', insertBefore);
+                header.classList.toggle('column-drop-after', !insertBefore);
+            });
+
+            header.addEventListener('dragleave', () => {
+                header.classList.remove('column-drop-before', 'column-drop-after');
+            });
+
+            header.addEventListener('drop', (event) => {
+                if (!this.draggedColumnField) return;
+                event.preventDefault();
+                const targetField = String(header.dataset.field || '').trim();
+                if (!targetField || targetField === this.draggedColumnField) return;
+                const rect = header.getBoundingClientRect();
+                const insertBefore = event.clientX < rect.left + (rect.width / 2);
+                this.moveColumn(this.draggedColumnField, targetField, insertBefore);
+            });
+        });
+    }
+
+    moveColumn(sourceField, targetField, insertBefore) {
+        const currentOrder = this.normalizeColumnOrder(this.state?.columnOrder || []);
+        const sourceIndex = currentOrder.indexOf(sourceField);
+        const targetIndex = currentOrder.indexOf(targetField);
+        if (sourceIndex < 0 || targetIndex < 0 || sourceField === targetField) return;
+
+        currentOrder.splice(sourceIndex, 1);
+        let destinationIndex = currentOrder.indexOf(targetField);
+        if (destinationIndex < 0) return;
+        if (!insertBefore) destinationIndex += 1;
+        currentOrder.splice(destinationIndex, 0, sourceField);
+
+        this.state.columnOrder = currentOrder;
+        this.persistCurrentState();
+        this.notifyStateChange();
+        this.render();
     }
 
     getCellValue(row, column) {
@@ -294,9 +597,10 @@ class SystemTable {
     filteredRows() {
         const globalTerm = this.state.search.trim().toLowerCase();
         let items = [...this.rows];
+        const activeColumns = this.getOrderedColumns();
 
         if (globalTerm) {
-            items = items.filter(row => this.columns.some(column => {
+            items = items.filter(row => activeColumns.some(column => {
                 if (column.searchable === false) return false;
                 return this.getCellTextForFilter(row, column).toLowerCase().includes(globalTerm);
             }));
@@ -306,7 +610,7 @@ class SystemTable {
             Object.entries(this.state.columnSearches).forEach(([field, term]) => {
                 const normalized = String(term || '').trim().toLowerCase();
                 if (!normalized) return;
-                const column = this.columns.find(col => col.field === field);
+                const column = activeColumns.find(col => col.field === field);
                 if (!column || column.searchable === false) return;
 
                 items = items.filter(row => this.getCellTextForFilter(row, column).toLowerCase().includes(normalized));
@@ -314,7 +618,7 @@ class SystemTable {
         }
 
         if (this.state.sortField) {
-            const sortColumn = this.columns.find(col => col.field === this.state.sortField);
+            const sortColumn = activeColumns.find(col => col.field === this.state.sortField);
             if (sortColumn && sortColumn.sortable !== false) {
                 const direction = this.state.sortDirection === 'asc' ? 1 : -1;
                 items.sort((a, b) => {
@@ -437,6 +741,7 @@ class SystemTable {
 
         const rows = this.resolveRows();
         this.lastRenderedRows = rows;
+        const orderedColumns = this.getOrderedColumns();
 
         const filtersHtml = this.globalSearch ? `
             <div class="filters">
@@ -444,12 +749,12 @@ class SystemTable {
             </div>
         ` : '';
 
-        const headHtml = this.columns.map(column => {
+        const headHtml = orderedColumns.map(column => {
             const className = column.className || 'col-default';
-            const headerClasses = ['resizable-column', column.draggable ? 'draggable-column' : '', className].filter(Boolean).join(' ');
-            const width = Number(column.width);
+            const headerClasses = ['resizable-column', this.isColumnDraggable(column) ? 'draggable-column' : '', className].filter(Boolean).join(' ');
+            const width = this.getColumnWidth(column);
             const styles = [];
-            const draggableAttr = column.draggable ? ' data-draggable-column="true" draggable="true"' : '';
+            const draggableAttr = this.isColumnDraggable(column) ? ' data-draggable-column="true" draggable="true"' : '';
             if (Number.isFinite(width) && width > 0) {
                 styles.push(`width: ${width}px`, `min-width: ${width}px`, `max-width: ${width}px`);
             }
@@ -463,17 +768,16 @@ class SystemTable {
 
         const columnSearchHtml = this.columnSearch ? `
             <tr class="column-search-row">
-                ${this.columns.map(column => {
+                ${orderedColumns.map(column => {
                     const className = column.className || 'col-default';
-                    const widthStyle = this.getColumnStyle(column);
                     if (column.searchable === false) {
-                        return `<th class="${className}"${widthStyle}></th>`;
+                        return `<th class="${className}"></th>`;
                     }
                     if (column.searchType === 'checkbox') {
                         const checked = this.state.columnSearches[column.field] === '1' ? 'checked' : '';
-                        return `<th class="${className}"${widthStyle}><input type="checkbox" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" ${checked}></th>`;
+                        return `<th class="${className}"><input type="checkbox" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" ${checked}></th>`;
                     }
-                    return `<th class="${className}"${widthStyle}><input type="text" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" placeholder="${this.escape(column.searchPlaceholder || 'Sök...')}" value="${this.escape(this.state.columnSearches[column.field] || '')}"></th>`;
+                    return `<th class="${className}"><input type="text" class="column-search-input system-table-column-search" data-field="${this.escape(column.field)}" placeholder="${this.escape(column.searchPlaceholder || 'Sök...')}" value="${this.escape(this.state.columnSearches[column.field] || '')}"></th>`;
                 }).join('')}
             </tr>
         ` : '';
@@ -485,11 +789,11 @@ class SystemTable {
                 }
                 return `
                     <tr data-row-index="${index}" class="${this.escape(this.rowClassName)}">
-                        ${this.columns.map(column => `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}"${this.getColumnStyle(column)}>${this.renderCell(row, column)}</td>`).join('')}
+                        ${orderedColumns.map(column => `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}">${this.renderCell(row, column)}</td>`).join('')}
                     </tr>
                 `;
             }).join('')
-            : `<tr><td colspan="${this.columns.length}" class="empty-state">${this.escape(this.emptyText)}</td></tr>`;
+            : `<tr><td colspan="${orderedColumns.length}" class="empty-state">${this.escape(this.emptyText)}</td></tr>`;
 
         const containerClasses = ['table-container', this.containerClassName].filter(Boolean).join(' ');
         const tableClasses = ['data-table', this.tableClassName].filter(Boolean).join(' ');
@@ -508,10 +812,16 @@ class SystemTable {
             </div>
         `;
 
+        const table = document.getElementById(this.tableId);
+        this.applyResolvedTableWidth(table, orderedColumns);
+
         this.bindEvents();
+        const widthsCaptured = this.enableColumnResizing();
+        this.enableColumnReordering();
         this.restoreInputFocus();
         this.pendingFocusDescriptor = null;
         if (this.onRender) this.onRender(this, rows);
+        this.stabilizeInitialLayoutIfNeeded(widthsCaptured);
     }
 }
 
