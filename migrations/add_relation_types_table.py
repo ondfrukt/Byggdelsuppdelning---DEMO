@@ -25,6 +25,7 @@ def run_migration(db):
                     key VARCHAR(100) NOT NULL UNIQUE,
                     display_name VARCHAR(150) NOT NULL,
                     description TEXT,
+                    category VARCHAR(50) NOT NULL DEFAULT 'semantisk',
                     source_object_type_id INTEGER NULL REFERENCES object_types(id) ON DELETE SET NULL,
                     target_object_type_id INTEGER NULL REFERENCES object_types(id) ON DELETE SET NULL,
                     cardinality VARCHAR(20) NOT NULL DEFAULT 'many_to_many'
@@ -35,6 +36,13 @@ def run_migration(db):
                 )
             """))
             logger.info("Created relation_types table")
+        else:
+            existing_columns = {column['name'] for column in inspector.get_columns('relation_types')}
+            if 'category' not in existing_columns:
+                db.session.execute(text(
+                    "ALTER TABLE relation_types ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'semantisk'"
+                ))
+                logger.info("Added category column to relation_types table")
 
         db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_relation_types_source_target ON relation_types(source_object_type_id, target_object_type_id)"))
         db.session.execute(text("CREATE INDEX IF NOT EXISTS idx_relation_types_inverse ON relation_types(inverse_relation_type_id)"))

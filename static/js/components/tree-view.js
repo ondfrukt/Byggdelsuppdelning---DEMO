@@ -144,6 +144,8 @@ class TreeView {
             globalSearch: true,
             columnSearch: true,
             persistState: false,
+            resizableColumns: false,
+            reorderableColumns: false,
             initialState: this.tableState,
             tableClassName: 'tree-table',
             containerClassName: 'tree-table-container',

@@ -11,6 +11,7 @@ class RelationType(db.Model):
     key = db.Column(db.String(100), nullable=False, unique=True, index=True)
     display_name = db.Column(db.String(150), nullable=False)
     description = db.Column(db.Text)
+    category = db.Column(db.String(50), nullable=False, default='semantisk')
 
     source_object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='SET NULL'), nullable=True)
     target_object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='SET NULL'), nullable=True)
@@ -39,6 +40,7 @@ class RelationType(db.Model):
             'key': self.key,
             'display_name': self.display_name,
             'description': self.description,
+            'category': self.category,
             'source_object_type_id': self.source_object_type_id,
             'target_object_type_id': self.target_object_type_id,
             'cardinality': self.cardinality,

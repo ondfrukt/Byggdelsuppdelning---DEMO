@@ -438,6 +438,44 @@ const RelationTypeRulesAPI = {
         return fetchAPI(`/relation-type-rules/${id}`, {
             method: 'DELETE',
         });
+    },
+
+    updateInstanceTypeFields: (instanceTypeKey, fieldTemplateIds) => {
+        return fetchAPI(`/relation-type-rules/instance-type-fields/${encodeURIComponent(instanceTypeKey)}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                field_template_ids: Array.isArray(fieldTemplateIds) ? fieldTemplateIds : []
+            }),
+        });
+    }
+};
+
+const InstancesAPI = {
+    getAll: (filters = {}) => {
+        const params = new URLSearchParams();
+        if (filters.object_id) params.append('object_id', String(filters.object_id));
+        const query = params.toString();
+        return fetchAPI(`/instances${query ? '?' + query : ''}`);
+    },
+
+    create: (data) => {
+        return fetchAPI('/instances', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    update: (id, data) => {
+        return fetchAPI(`/instances/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    },
+
+    delete: (id) => {
+        return fetchAPI(`/instances/${id}`, {
+            method: 'DELETE',
+        });
     }
 };
 

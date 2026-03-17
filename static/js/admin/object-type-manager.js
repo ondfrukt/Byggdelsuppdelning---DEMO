@@ -9,6 +9,72 @@ const objectTypeManagerTextCollator = new Intl.Collator('sv', {
     ignorePunctuation: true
 });
 
+const DEFAULT_INSTANCE_TYPES = [
+    {
+        key: 'assembly_to_product',
+        display_name: 'Assembly -> Product',
+        description: 'A parent Assembly contains or positions a Product as a structural child.',
+        parent_scope: 'Assembly',
+        child_scope: 'Product'
+    },
+    {
+        key: 'assembly_to_assembly',
+        display_name: 'Assembly -> Assembly',
+        description: 'A parent Assembly is built up from one or more child assemblies.',
+        parent_scope: 'Assembly',
+        child_scope: 'Assembly'
+    },
+    {
+        key: 'connection_to_product',
+        display_name: 'Connection -> Product',
+        description: 'A Connection instance places a Product inside a connection context.',
+        parent_scope: 'Connection',
+        child_scope: 'Product'
+    },
+    {
+        key: 'module_to_assembly',
+        display_name: 'Module -> Assembly',
+        description: 'A Module is built from one or more Assembly instances.',
+        parent_scope: 'Module',
+        child_scope: 'Assembly'
+    },
+    {
+        key: 'space_to_product',
+        display_name: 'Space -> Product',
+        description: 'A Space contains or hosts a Product instance.',
+        parent_scope: 'Space',
+        child_scope: 'Product'
+    },
+    {
+        key: 'space_to_assembly',
+        display_name: 'Space -> Assembly',
+        description: 'A Space contains or hosts an Assembly instance.',
+        parent_scope: 'Space',
+        child_scope: 'Assembly'
+    },
+    {
+        key: 'space_to_module',
+        display_name: 'Space -> Module',
+        description: 'A Space contains or hosts a Module instance.',
+        parent_scope: 'Space',
+        child_scope: 'Module'
+    },
+    {
+        key: 'subsys_to_product',
+        display_name: 'SubSys -> Product',
+        description: 'A SubSys contains or hosts a Product instance.',
+        parent_scope: 'SubSys',
+        child_scope: 'Product'
+    },
+    {
+        key: 'sys_to_subsys',
+        display_name: 'Sys -> SubSys',
+        description: 'A Sys contains or hosts a SubSys instance.',
+        parent_scope: 'Sys',
+        child_scope: 'SubSys'
+    }
+];
+
 class ObjectTypeManager {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
@@ -18,7 +84,10 @@ class ObjectTypeManager {
         this.fieldTemplates = [];
         this.relationTypeRules = [];
         this.relationTypes = [];
-        this.availableRelationTypes = ['uses_object'];
+        this.instanceTypes = [];
+        this.instanceTypeFieldConfigs = [];
+        this.selectedInstanceTypeConfigKey = '';
+        this.availableRelationTypes = ['references_object'];
         this.selectedManagedListId = null;
         this.fieldModalTypeListenerAttached = false;
         this.fieldTemplateModalBehaviorAttached = false;
@@ -38,6 +107,8 @@ class ObjectTypeManager {
         this.fieldBindingsTable = null;
         this.managedListWorkspaceOpen = false;
         this.managedListDraggedNodeIds = [];
+        this.instanceTypeFieldPickerSelection = new Set();
+        this.instanceTypeFieldPickerTable = null;
         this.fieldHierarchySettingsAttached = false;
     }
     
@@ -53,6 +124,9 @@ class ObjectTypeManager {
                 <div class="admin-tabs">
                     <button class="admin-tab active" data-tab="object-types" onclick="adminManager.switchTab('object-types')">
                         Objekttyper
+                    </button>
+                    <button class="admin-tab" data-tab="instance-type-fields" onclick="adminManager.switchTab('instance-type-fields')">
+                        Instanstypfält
                     </button>
                     <button class="admin-tab" data-tab="managed-lists" onclick="adminManager.switchTab('managed-lists')">
                         Listor
@@ -83,6 +157,15 @@ class ObjectTypeManager {
                             <div class="type-details type-detail-drawer" id="type-details-container">
                                 <p class="empty-state">Välj en objekttyp för att visa detaljer</p>
                             </div>
+                        </div>
+                    </div>
+
+                    <div id="instance-type-fields-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Instanstypfält</h3>
+                        </div>
+                        <div id="instance-type-fields-tab-container">
+                            <p>Laddar...</p>
                         </div>
                     </div>
                     
@@ -693,11 +776,13 @@ class ObjectTypeManager {
             this.fieldTemplates = await FieldTemplatesAPI.getAll(false);
             this.renderFieldTemplateOptions();
             this.renderFieldTemplates();
+            this.renderInstanceTypeFieldsConfigEditor();
         } catch (error) {
             console.error('Failed to load field templates:', error);
             this.fieldTemplates = [];
             this.renderFieldTemplateOptions();
             this.renderFieldTemplates();
+            this.renderInstanceTypeFieldsConfigEditor();
         }
     }
 
@@ -706,15 +791,29 @@ class ObjectTypeManager {
             const response = await RelationTypeRulesAPI.getAll();
             this.relationTypeRules = Array.isArray(response?.items) ? response.items : [];
             this.relationTypes = Array.isArray(response?.relation_types) ? response.relation_types : [];
+            this.instanceTypes = Array.isArray(response?.instance_types) && response.instance_types.length
+                ? response.instance_types
+                : DEFAULT_INSTANCE_TYPES.slice();
+            this.instanceTypeFieldConfigs = Array.isArray(response?.instance_type_fields)
+                ? response.instance_type_fields
+                : [];
+            if (!this.selectedInstanceTypeConfigKey && this.instanceTypes.length) {
+                this.selectedInstanceTypeConfigKey = String(this.instanceTypes[0].key || '');
+            }
             this.availableRelationTypes = Array.isArray(response?.available_relation_types) && response.available_relation_types.length
                 ? response.available_relation_types
-                : ['uses_object'];
+                : ['references_object'];
             this.renderRelationTypeRules();
+            this.renderInstanceTypeFieldsConfigEditor();
         } catch (error) {
             console.error('Failed to load relation type rules:', error);
             const container = document.getElementById('relation-type-rules-container');
             if (container) {
                 container.innerHTML = '<p class="error">Kunde inte ladda relationsregler</p>';
+            }
+            const instanceTypeContainer = document.getElementById('instance-type-fields-tab-container');
+            if (instanceTypeContainer) {
+                instanceTypeContainer.innerHTML = '<p class="error">Kunde inte ladda instanstypfält</p>';
             }
         }
     }
@@ -722,6 +821,15 @@ class ObjectTypeManager {
     renderRelationTypeRules() {
         const container = document.getElementById('relation-type-rules-container');
         if (!container) return;
+        const cardinalityLabels = {
+            one_to_one: '1:1',
+            one_to_many: '1:M',
+            many_to_one: 'M:1',
+            many_to_many: 'M:M'
+        };
+        const objectTypeNameById = new Map(
+            (this.objectTypes || []).map(item => [Number(item.id), String(item.name || '').trim()])
+        );
 
         const previousTableState = this.relationRuleTableState
             || (this.relationTypeRuleTable ? {
@@ -738,16 +846,16 @@ class ObjectTypeManager {
                         <div class="section-header">
                             <h4>Objektpar</h4>
                         </div>
-                        <p class="form-help">Välj Source, Relationstyp och Target för varje objekttyp-par. En riktning är tillåten åt gången.</p>
+                        <p class="form-help">Välj källa, typ och mål för varje objekttyp-par. Typen kan vara semantisk eller strukturell. En riktning är tillåten åt gången.</p>
                     </div>
                     <div id="relation-type-rules-system-table"></div>
                 </div>
                 <div class="relation-rules-column relation-rules-right">
                     <div class="fields-section">
                         <div class="section-header">
-                            <h4>Relationstyper</h4>
+                            <h4>Semantiska Och Strukturella Typer</h4>
                         </div>
-                        <p class="form-help">Lista över alla tillgängliga relationstyper och deras beskrivningar.</p>
+                        <p class="form-help">Gemensam lista med semantiska relationstyper och strukturella relationstyper. Strukturella relationer lagras tekniskt som Instance.</p>
                     </div>
                     <div id="relation-types-system-table"></div>
                 </div>
@@ -765,33 +873,74 @@ class ObjectTypeManager {
         }
 
         const relationTypeRows = (this.relationTypes || []).map(item => ({
+            category: item.category || 'semantisk',
             key: item.key || '',
             display_name: item.display_name || '',
+            description: item.description || '',
+            cardinality: cardinalityLabels[String(item.cardinality || '').trim().toLowerCase()] || (item.cardinality || ''),
+            direction_label: item.is_directed ? 'Riktad' : 'Oriktad',
+            composition_label: item.is_composition ? 'Ja' : 'Nej',
+            source_scope: objectTypeNameById.get(Number(item.source_object_type_id)) || 'Alla',
+            target_scope: objectTypeNameById.get(Number(item.target_object_type_id)) || 'Alla',
+        }));
+
+        const instanceTypeRows = (this.instanceTypes || []).map(item => ({
+            category: item.category || 'strukturell',
+            key: item.key || '',
+            display_name: item.display_name || '',
+            cardinality: 'Struktur',
+            direction_label: 'Riktad',
+            composition_label: 'Ja',
+            parent_scope: item.parent_scope || '',
+            child_scope: item.child_scope || '',
+            source_scope: item.parent_scope || '',
+            target_scope: item.child_scope || '',
             description: item.description || ''
         }));
+
+        const combinedTypeRows = [...relationTypeRows, ...instanceTypeRows];
 
         this.relationTypesTable = new SystemTable({
             containerId: 'relation-types-system-table',
             tableId: 'relation-types-table',
             columns: [
+                { field: 'category', label: 'Kategori', className: 'col-type' },
                 { field: 'key', label: 'Key', className: 'col-id' },
                 { field: 'display_name', label: 'Namn', className: 'col-name' },
+                { field: 'cardinality', label: 'Kardinalitet', className: 'col-type' },
+                { field: 'direction_label', label: 'Riktning', className: 'col-type' },
+                { field: 'composition_label', label: 'Komposition', className: 'col-type' },
+                { field: 'source_scope', label: 'Source/Parent-scope', className: 'col-type' },
+                { field: 'target_scope', label: 'Target/Child-scope', className: 'col-type' },
                 { field: 'description', label: 'Beskrivning', className: 'col-description', multiline: true }
             ],
-            rows: relationTypeRows,
-            emptyText: 'Inga relationstyper hittades'
+            rows: combinedTypeRows,
+            emptyText: 'Inga typer hittades'
         });
         this.relationTypesTable.render();
 
         const rows = this.buildRelationPairRows();
-        const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'uses_object').trim().toLowerCase() || 'uses_object';
-        const availableTypes = (this.availableRelationTypes || [fallbackRelationType])
-            .map(type => String(type || '').trim().toLowerCase())
-            .filter(Boolean);
+        const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'references_object').trim().toLowerCase() || 'references_object';
+        const availableTypeSet = new Set(
+            (this.availableRelationTypes || [fallbackRelationType])
+                .map(type => String(type || '').trim().toLowerCase())
+                .filter(Boolean)
+        );
+        (this.instanceTypes || []).forEach(item => {
+            const key = String(item.key || '').trim().toLowerCase();
+            if (!key) return;
+            availableTypeSet.add(key);
+        });
+        const availableTypes = Array.from(availableTypeSet);
         const relationTypeMetaByKey = new Map(
             (this.relationTypes || [])
                 .map(item => [String(item.key || '').trim().toLowerCase(), item])
         );
+        (this.instanceTypes || []).forEach(item => {
+            const key = String(item.key || '').trim().toLowerCase();
+            if (!key) return;
+            relationTypeMetaByKey.set(key, item);
+        });
 
         this.relationTypeRuleTable = new SystemTable({
             containerId: 'relation-type-rules-system-table',
@@ -834,7 +983,7 @@ class ObjectTypeManager {
                 },
                 {
                     field: 'relation_type',
-                    label: 'Relationstyp',
+                    label: 'Typ',
                     className: 'col-relation-type',
                     render: (row) => {
                         const normalizedType = String(row.relation_type || '').trim().toLowerCase();
@@ -966,6 +1115,270 @@ class ObjectTypeManager {
         this.relationTypeRuleTable.render();
     }
 
+    getSelectedInstanceTypeConfigRows() {
+        const key = String(this.selectedInstanceTypeConfigKey || '').trim().toLowerCase();
+        if (!key) return [];
+        return (this.instanceTypeFieldConfigs || []).filter(item => String(item.instance_type_key || '').trim().toLowerCase() === key);
+    }
+
+    getFieldTemplateByIdMap() {
+        return new Map((this.fieldTemplates || []).map(template => [Number(template.id), template]));
+    }
+
+    getSelectedInstanceTypeFieldRows() {
+        const templateById = this.getFieldTemplateByIdMap();
+        return this.getSelectedInstanceTypeConfigRows()
+            .slice()
+            .sort((a, b) => Number(a?.display_order || 0) - Number(b?.display_order || 0))
+            .map((config, index) => {
+                const templateId = Number(config.field_template_id || 0);
+                const embeddedTemplate = (config?.field_template && typeof config.field_template === 'object')
+                    ? config.field_template
+                    : null;
+                const template = embeddedTemplate || templateById.get(templateId) || {};
+                return {
+                    id: templateId,
+                    order: index + 1,
+                    type: template.field_type || '',
+                    name: template.display_name || template.template_name || template.field_name || `Fält ${templateId}`,
+                    field_name: template.field_name || '',
+                    description: template.help_text || template.description || '',
+                    active: template.is_active !== false ? 'Aktiv' : 'Inaktiv'
+                };
+            });
+    }
+
+    getAvailableInstanceTypeFieldTemplateRows() {
+        const selectedTemplateIds = new Set(
+            this.getSelectedInstanceTypeConfigRows().map(item => Number(item.field_template_id))
+        );
+
+        return (this.fieldTemplates || [])
+            .filter(template => template && template.is_active !== false && !selectedTemplateIds.has(Number(template.id)))
+            .map(template => ({
+                id: Number(template.id),
+                selected: this.instanceTypeFieldPickerSelection.has(Number(template.id)),
+                type: template.field_type || '',
+                name: template.display_name || template.template_name || template.field_name || `Fält ${template.id}`,
+                field_name: template.field_name || '',
+                description: template.help_text || template.description || '',
+                active: template.is_active !== false ? 'Aktiv' : 'Inaktiv'
+            }));
+    }
+
+    updateInstanceTypeFieldPickerSelectionState() {
+        const count = this.instanceTypeFieldPickerSelection.size;
+        const counter = document.getElementById('instance-type-field-picker-selection-count');
+        const addButton = document.getElementById('instance-type-field-picker-confirm-btn');
+        if (counter) {
+            counter.textContent = count ? `${count} fält valda` : 'Inga fält valda';
+        }
+        if (addButton) {
+            addButton.disabled = count === 0;
+        }
+    }
+
+    renderInstanceTypeFieldPickerModal() {
+        const tableHost = document.getElementById('instance-type-field-picker-table');
+        if (!tableHost) return;
+
+        tableHost.innerHTML = '';
+        const rows = this.getAvailableInstanceTypeFieldTemplateRows();
+
+        if (typeof SystemTable !== 'function') {
+            tableHost.innerHTML = '<p class="error">SystemTable saknas</p>';
+            return;
+        }
+
+        this.instanceTypeFieldPickerTable = new SystemTable({
+            containerId: 'instance-type-field-picker-table',
+            tableId: `instance-type-field-picker-table-${this.selectedInstanceTypeConfigKey || 'default'}`,
+            columns: [
+                {
+                    field: 'selected',
+                    label: 'Välj',
+                    className: 'col-actions',
+                    width: 70,
+                    sortable: false,
+                    searchable: false,
+                    render: (row) => `<input type="checkbox" class="instance-type-field-picker-checkbox" data-template-id="${row.id}" ${row.selected ? 'checked' : ''}>`
+                },
+                { field: 'type', label: 'Typ', className: 'col-type', badge: 'type', width: 110 },
+                { field: 'name', label: 'Namn', className: 'col-name', width: 220 },
+                { field: 'field_name', label: 'Fältnamn', className: 'col-name', width: 190 },
+                { field: 'description', label: 'Beskrivning', className: 'col-description', width: 320 },
+                { field: 'active', label: 'Status', className: 'col-status', width: 90 }
+            ],
+            rows,
+            emptyText: 'Inga fler fält finns att lägga till',
+            onRender: () => {
+                tableHost.querySelectorAll('.instance-type-field-picker-checkbox').forEach(input => {
+                    input.addEventListener('change', () => {
+                        const templateId = Number(input.dataset.templateId || 0);
+                        if (!Number.isFinite(templateId) || templateId <= 0) return;
+                        if (input.checked) {
+                            this.instanceTypeFieldPickerSelection.add(templateId);
+                        } else {
+                            this.instanceTypeFieldPickerSelection.delete(templateId);
+                        }
+                        this.updateInstanceTypeFieldPickerSelectionState();
+                    });
+                });
+                this.updateInstanceTypeFieldPickerSelectionState();
+            }
+        });
+
+        this.instanceTypeFieldPickerTable.render();
+    }
+
+    openInstanceTypeFieldPicker() {
+        this.instanceTypeFieldPickerSelection = new Set();
+        this.renderInstanceTypeFieldPickerModal();
+        this.updateInstanceTypeFieldPickerSelectionState();
+        if (typeof openModal === 'function') {
+            openModal('instance-type-field-picker-modal');
+        }
+    }
+
+    async addSelectedFieldsToInstanceType() {
+        const selectedIds = Array.from(this.instanceTypeFieldPickerSelection)
+            .map(value => Number(value))
+            .filter(value => Number.isFinite(value) && value > 0);
+        if (!selectedIds.length) return;
+
+        const existingIds = this.getSelectedInstanceTypeConfigRows()
+            .map(item => Number(item.field_template_id))
+            .filter(value => Number.isFinite(value) && value > 0);
+        const nextIds = [...new Set([...existingIds, ...selectedIds])];
+
+        await this.saveInstanceTypeFieldConfig(nextIds);
+        this.instanceTypeFieldPickerSelection = new Set();
+    }
+
+    async saveInstanceTypeFieldConfig(fieldTemplateIds = []) {
+        const selectedKey = String(this.selectedInstanceTypeConfigKey || '').trim().toLowerCase();
+        if (!selectedKey) return;
+
+        const normalizedIds = Array.from(new Set(
+            (Array.isArray(fieldTemplateIds) ? fieldTemplateIds : [])
+                .map(value => Number(value))
+                .filter(value => Number.isFinite(value) && value > 0)
+        ));
+
+        const response = await RelationTypeRulesAPI.updateInstanceTypeFields(selectedKey, normalizedIds);
+        const current = (this.instanceTypeFieldConfigs || [])
+            .filter(item => String(item.instance_type_key || '').trim().toLowerCase() !== selectedKey);
+        const nextItems = Array.isArray(response?.items) ? response.items : [];
+        this.instanceTypeFieldConfigs = [...current, ...nextItems];
+    }
+
+    renderInstanceTypeFieldsConfigEditor() {
+        const container = document.getElementById('instance-type-fields-tab-container');
+        if (!container) return;
+
+        if (!this.instanceTypes.length) {
+            container.innerHTML = '<p class="empty-state">Inga instanstyper hittades</p>';
+            return;
+        }
+
+        if (!this.selectedInstanceTypeConfigKey) {
+            this.selectedInstanceTypeConfigKey = String(this.instanceTypes[0]?.key || '');
+        }
+
+        const selectedFieldRows = this.getSelectedInstanceTypeFieldRows();
+
+        container.innerHTML = `
+            <div class="fields-section">
+                <div class="section-header">
+                    <h4>Instanstypfält</h4>
+                    <button class="btn btn-primary btn-sm" id="open-instance-type-field-picker-btn">Lägg till fält</button>
+                </div>
+                <p class="form-help">Vald instanstyp får en egen fältlista. Lägg till flera fält samtidigt via dialogrutan, eller ta bort dem direkt från listan.</p>
+                <div class="form-group">
+                    <label for="instance-type-config-select">Instanstyp</label>
+                    <select id="instance-type-config-select" class="form-control">
+                        ${this.instanceTypes.map(item => `<option value="${escapeHtml(String(item.key || ''))}" ${String(item.key || '') === this.selectedInstanceTypeConfigKey ? 'selected' : ''}>${escapeHtml(item.display_name || item.key || 'Instanstyp')}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="fields-section">
+                    <div class="section-header">
+                        <h4>Aktiva Fält</h4>
+                    </div>
+                    <div id="instance-type-selected-fields-table"></div>
+                </div>
+            </div>
+        `;
+
+        const select = container.querySelector('#instance-type-config-select');
+        if (select) {
+            select.addEventListener('change', () => {
+                this.selectedInstanceTypeConfigKey = String(select.value || '');
+                this.instanceTypeFieldPickerSelection = new Set();
+                this.renderInstanceTypeFieldsConfigEditor();
+            });
+        }
+
+        container.querySelector('#open-instance-type-field-picker-btn')?.addEventListener('click', () => {
+            this.openInstanceTypeFieldPicker();
+        });
+
+        const selectedFieldsHost = container.querySelector('#instance-type-selected-fields-table');
+        if (selectedFieldsHost) {
+            if (typeof SystemTable !== 'function') {
+                selectedFieldsHost.innerHTML = '<p class="error">SystemTable saknas</p>';
+            } else {
+                this.instanceTypeSelectedFieldsTable = new SystemTable({
+                    containerId: 'instance-type-selected-fields-table',
+                    tableId: `instance-type-selected-fields-table-${this.selectedInstanceTypeConfigKey || 'default'}`,
+                    columns: [
+                        { field: 'order', label: 'ID', className: 'col-id', width: 72 },
+                        { field: 'type', label: 'Typ', className: 'col-type', badge: 'type', width: 110 },
+                        { field: 'name', label: 'Namn', className: 'col-name', width: 220 },
+                        { field: 'field_name', label: 'Fältnamn', className: 'col-name', width: 180 },
+                        { field: 'description', label: 'Beskrivning', className: 'col-description', width: 280 },
+                        { field: 'active', label: 'Status', className: 'col-status', width: 90 },
+                        {
+                            field: 'actions',
+                            label: 'Actions',
+                            className: 'col-actions',
+                            width: 110,
+                            sortable: false,
+                            searchable: false,
+                            render: (row) => `
+                                <div class="list-actions-inline">
+                                    <button class="btn btn-sm btn-danger instance-type-field-remove-btn" data-template-id="${row.id}">Ta bort</button>
+                                </div>
+                            `
+                        }
+                    ],
+                    rows: selectedFieldRows,
+                    emptyText: 'Inga fält tillagda för vald instanstyp',
+                    onRender: () => {
+                        selectedFieldsHost.querySelectorAll('.instance-type-field-remove-btn').forEach(button => {
+                            button.addEventListener('click', async () => {
+                                const templateId = Number(button.dataset.templateId || 0);
+                                if (!Number.isFinite(templateId) || templateId <= 0) return;
+                                const nextIds = selectedFieldRows
+                                    .map(row => Number(row.id))
+                                    .filter(id => id !== templateId);
+                                try {
+                                    await this.saveInstanceTypeFieldConfig(nextIds);
+                                    showToast('Instanstypfält uppdaterade', 'success');
+                                    this.renderInstanceTypeFieldsConfigEditor();
+                                } catch (error) {
+                                    console.error('Failed to remove instance type field:', error);
+                                    showToast(error.message || 'Kunde inte uppdatera instanstypfält', 'error');
+                                }
+                            });
+                        });
+                    }
+                });
+                this.instanceTypeSelectedFieldsTable.render();
+            }
+        }
+
+    }
+
     buildRelationPairRows() {
         const objectTypeById = new Map((this.objectTypes || []).map(type => [Number(type.id), type]));
         const pairMap = new Map();
@@ -1054,7 +1467,7 @@ class ObjectTypeManager {
                 };
             }
 
-            const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'uses_object').trim().toLowerCase() || 'uses_object';
+            const fallbackRelationType = String((this.availableRelationTypes || [])[0] || 'references_object').trim().toLowerCase() || 'references_object';
             const normalizedRelationType = String(relationType || fallbackRelationType).trim().toLowerCase() || fallbackRelationType;
 
             await RelationTypeRulesAPI.update(Number(selectedRule.id), {
@@ -3343,6 +3756,8 @@ class ObjectTypeManager {
         
         if (tabName === 'object-types') {
             document.getElementById('object-types-tab').classList.add('active');
+        } else if (tabName === 'instance-type-fields') {
+            document.getElementById('instance-type-fields-tab').classList.add('active');
         } else if (tabName === 'managed-lists') {
             document.getElementById('managed-lists-tab').classList.add('active');
         } else if (tabName === 'field-templates') {
@@ -3501,5 +3916,19 @@ async function saveFieldTemplate(event) {
     } catch (error) {
         console.error('Failed to save field template:', error);
         showToast(error.message || 'Kunde inte spara fältmall', 'error');
+    }
+}
+
+async function saveInstanceTypeFieldPickerSelection() {
+    if (!adminManager) return;
+
+    try {
+        await adminManager.addSelectedFieldsToInstanceType();
+        showToast('Instanstypfält uppdaterade', 'success');
+        closeModal();
+        adminManager.renderInstanceTypeFieldsConfigEditor();
+    } catch (error) {
+        console.error('Failed to add instance type fields:', error);
+        showToast(error.message || 'Kunde inte lägga till instanstypfält', 'error');
     }
 }

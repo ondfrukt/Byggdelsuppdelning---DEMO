@@ -1,10 +1,26 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
-from routes.relation_type_rules import validate_relation_type_scope, enforce_pair_relation_type
+from routes.relation_type_rules import (
+    validate_relation_type_scope,
+    enforce_pair_relation_type,
+    normalize_relation_direction,
+)
 
 bp = Blueprint('relation_entities', __name__, url_prefix='/api/relations')
-DEFAULT_RELATION_TYPE = 'uses_object'
+DEFAULT_RELATION_TYPE = 'references_object'
+
+
+def _normalize_limit(value, field_name):
+    if value in (None, ''):
+        return None, None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None, f'{field_name} must be an integer'
+    if parsed <= 0:
+        return None, f'{field_name} must be greater than 0'
+    return parsed, None
 
 
 def normalize_id_full(value):
@@ -76,6 +92,14 @@ def create_relation():
     if not source_object or not target_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
 
+    relation_type, source_object, target_object, _ = normalize_relation_direction(
+        relation_type=relation_type,
+        source_object=source_object,
+        target_object=target_object,
+    )
+    source_object_id = source_object.id
+    target_object_id = target_object.id
+
     relation_type, pair_type_error = enforce_pair_relation_type(
         relation_type=relation_type,
         source_object=source_object,
@@ -84,6 +108,14 @@ def create_relation():
     )
     if pair_type_error:
         return jsonify({'error': pair_type_error}), 422
+
+    max_targets_per_source, max_targets_error = _normalize_limit(data.get('max_targets_per_source'), 'max_targets_per_source')
+    if max_targets_error:
+        return jsonify({'error': max_targets_error}), 400
+
+    max_sources_per_target, max_sources_error = _normalize_limit(data.get('max_sources_per_target'), 'max_sources_per_target')
+    if max_sources_error:
+        return jsonify({'error': max_sources_error}), 400
 
     relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
     if relation_scope_error:
@@ -97,6 +129,8 @@ def create_relation():
         source_object_id=source_object_id,
         target_object_id=target_object_id,
         relation_type=relation_type,
+        max_targets_per_source=max_targets_per_source,
+        max_sources_per_target=max_sources_per_target,
         description=data.get('description'),
         relation_metadata=data.get('metadata', {})
     )
@@ -125,6 +159,7 @@ def create_relations_batch():
 
     existing_linked_id_fulls = get_linked_id_fulls(source_id)
     batch_linked_id_fulls = set()
+    linked_id_fulls_by_source = {source_id: existing_linked_id_fulls}
 
     created = []
     errors = []
@@ -133,6 +168,14 @@ def create_relations_batch():
         target_id = relation_data.get('targetId')
         relation_type = (relation_data.get('relationType') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
         metadata = relation_data.get('metadata') or {}
+        max_targets_per_source, max_targets_error = _normalize_limit(
+            relation_data.get('max_targets_per_source'),
+            'max_targets_per_source'
+        )
+        max_sources_per_target, max_sources_error = _normalize_limit(
+            relation_data.get('max_sources_per_target'),
+            'max_sources_per_target'
+        )
 
         if not target_id:
             errors.append({'index': index, 'targetId': target_id, 'error': 'targetId is required'})
@@ -146,34 +189,56 @@ def create_relations_batch():
         if not target_object:
             errors.append({'index': index, 'targetId': target_id, 'error': 'Target object not found'})
             continue
+        if max_targets_error:
+            errors.append({'index': index, 'targetId': target_id, 'error': max_targets_error})
+            continue
+        if max_sources_error:
+            errors.append({'index': index, 'targetId': target_id, 'error': max_sources_error})
+            continue
 
-        relation_type, pair_type_error = enforce_pair_relation_type(
+        relation_type, normalized_source_object, normalized_target_object, was_swapped = normalize_relation_direction(
             relation_type=relation_type,
             source_object=source_object,
             target_object=target_object,
+        )
+        normalized_source_id = normalized_source_object.id
+        normalized_target_id = normalized_target_object.id
+
+        relation_type, pair_type_error = enforce_pair_relation_type(
+            relation_type=relation_type,
+            source_object=normalized_source_object,
+            target_object=normalized_target_object,
             fallback=DEFAULT_RELATION_TYPE
         )
         if pair_type_error:
             errors.append({'index': index, 'targetId': target_id, 'error': pair_type_error})
             continue
 
-        relation_scope_error = validate_relation_type_scope(relation_type, source_object, target_object)
+        relation_scope_error = validate_relation_type_scope(
+            relation_type,
+            normalized_source_object,
+            normalized_target_object,
+        )
         if relation_scope_error:
             errors.append({'index': index, 'targetId': target_id, 'error': relation_scope_error})
             continue
 
-        target_id_full = normalize_id_full(target_object.id_full)
-        if target_id_full and (target_id_full in existing_linked_id_fulls or target_id_full in batch_linked_id_fulls):
+        source_linked_id_fulls = linked_id_fulls_by_source.setdefault(
+            normalized_source_id,
+            get_linked_id_fulls(normalized_source_id),
+        )
+        target_id_full = normalize_id_full(normalized_target_object.id_full)
+        if target_id_full and (target_id_full in source_linked_id_fulls or target_id_full in batch_linked_id_fulls):
             errors.append({
                 'index': index,
                 'targetId': target_id,
-                'error': f'An object with full ID {target_object.id_full} is already linked'
+                'error': f'An object with full ID {normalized_target_object.id_full} is already linked'
             })
             continue
 
         duplicate = ObjectRelation.query.filter_by(
-            source_object_id=source_id,
-            target_object_id=target_id,
+            source_object_id=normalized_source_id,
+            target_object_id=normalized_target_id,
             relation_type=relation_type
         ).first()
         if duplicate:
@@ -181,9 +246,11 @@ def create_relations_batch():
             continue
 
         relation = ObjectRelation(
-            source_object_id=source_id,
-            target_object_id=target_id,
+            source_object_id=normalized_source_id,
+            target_object_id=normalized_target_id,
             relation_type=relation_type,
+            max_targets_per_source=max_targets_per_source,
+            max_sources_per_target=max_sources_per_target,
             relation_metadata=metadata,
             description=metadata.get('description') if isinstance(metadata, dict) else None
         )
@@ -192,6 +259,7 @@ def create_relations_batch():
         created.append(relation.to_dict(include_objects=True))
         if target_id_full:
             batch_linked_id_fulls.add(target_id_full)
+            source_linked_id_fulls.add(target_id_full)
 
     if created:
         db.session.commit()

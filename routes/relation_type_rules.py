@@ -1,5 +1,6 @@
 import re
 from models import db, RelationTypeRule, RelationType, ObjectType
+from utils.instance_types import get_instance_type_specs
 
 
 def _normalize(value):
@@ -13,18 +14,24 @@ OBJECT_TYPE_ALIASES = {
     'BuildingPart': {'buildingpart', 'byggdel'},
     'BuildUpLine': {'buildupline', 'build up line', 'uppbyggnadsrad', 'uppbyggnadslinje'},
     'Connection': {'connection', 'anslutning'},
+    'Assembly': {'assembly'},
+    'Module': {'module'},
+    'Space': {'space'},
+    'Sys': {'system', 'sys'},
+    'System': {'system', 'sys'},
+    'SubSys': {'subsys', 'sub system', 'subsystem'},
 }
 
 
 RELATION_TYPE_RULES = {
-    'uses_object': {'source': None, 'target': None},
-    'references_object': {'source': None, 'target': None},
-    'applies_to': {'source': None, 'target': None},
     'connects_to': {'source': None, 'target': None},
-    'contains': {'source': None, 'target': None},
+    'has_requirement': {'source': None, 'target': None},
+    'has_document': {'source': None, 'target': None},
+    'has_property': {'source': None, 'target': None},
+    'references_object': {'source': None, 'target': None},
 }
 
-DEFAULT_RELATION_TYPE = 'uses_object'
+DEFAULT_RELATION_TYPE = 'references_object'
 
 
 def _matches_type_name(obj, canonical_type_name):
@@ -49,9 +56,14 @@ def get_available_relation_types():
         ]
     except Exception:
         configured_keys = []
+    instance_keys = [
+        str(item.get('key') or '').strip().lower()
+        for item in get_instance_type_specs()
+        if str(item.get('key') or '').strip()
+    ]
     source_keys = configured_keys if configured_keys else list(RELATION_TYPE_RULES.keys())
     ordered = [DEFAULT_RELATION_TYPE]
-    for key in source_keys:
+    for key in [*source_keys, *instance_keys]:
         if key and key not in ordered:
             ordered.append(key)
     return ordered
@@ -90,7 +102,7 @@ def get_relation_type_scope_rules():
     return rules
 
 
-def ensure_complete_relation_rule_matrix(default_relation_type=DEFAULT_RELATION_TYPE, default_is_allowed=True):
+def ensure_complete_relation_rule_matrix(default_relation_type=DEFAULT_RELATION_TYPE, default_is_allowed=False):
     """
     Ensure all directed object type pairs (source != target) have a relation rule row.
     Returns number of created rows; does not commit automatically.
@@ -123,6 +135,47 @@ def ensure_complete_relation_rule_matrix(default_relation_type=DEFAULT_RELATION_
             created += 1
 
     return created
+
+
+def reset_relation_rule_matrix(default_relation_type=DEFAULT_RELATION_TYPE, default_is_allowed=False):
+    """
+    Reset all directed object type pairs to the same neutral rule.
+    Returns number of rows updated or created; does not commit automatically.
+    """
+    object_type_ids = [item.id for item in ObjectType.query.order_by(ObjectType.id.asc()).all()]
+    if len(object_type_ids) < 2:
+        return 0
+
+    existing_rules = {
+        (rule.source_object_type_id, rule.target_object_type_id): rule
+        for rule in RelationTypeRule.query.all()
+    }
+
+    changed = 0
+    for source_id in object_type_ids:
+        for target_id in object_type_ids:
+            if source_id == target_id:
+                continue
+
+            pair = (source_id, target_id)
+            rule = existing_rules.get(pair)
+            if rule is None:
+                rule = RelationTypeRule(
+                    source_object_type_id=source_id,
+                    target_object_type_id=target_id,
+                )
+                db.session.add(rule)
+                existing_rules[pair] = rule
+                changed += 1
+
+            next_relation_type = default_relation_type
+            next_is_allowed = bool(default_is_allowed)
+            if rule.relation_type != next_relation_type or bool(rule.is_allowed) != next_is_allowed:
+                rule.relation_type = next_relation_type
+                rule.is_allowed = next_is_allowed
+                changed += 1
+
+    return changed
 
 
 def get_configured_relation_rule(source_object, target_object):
@@ -267,3 +320,54 @@ def infer_relation_type(source_object, target_object, fallback=DEFAULT_RELATION_
             best_key = key
 
     return best_key or fallback
+
+
+def normalize_relation_direction(relation_type, source_object, target_object):
+    """
+    Normalize source/target ordering to the canonical direction for the chosen type.
+
+    Returns:
+    (normalized_relation_type, normalized_source_object, normalized_target_object, was_swapped)
+    """
+    requested = str(relation_type or '').strip().lower()
+
+    instance_specs = {
+        str(item.get('key') or '').strip().lower(): item
+        for item in get_instance_type_specs()
+        if str(item.get('key') or '').strip()
+    }
+    instance_spec = instance_specs.get(requested)
+    if instance_spec:
+        parent_scope = instance_spec.get('parent_scope')
+        child_scope = instance_spec.get('child_scope')
+        if _matches_type_name(source_object, parent_scope) and _matches_type_name(target_object, child_scope):
+            return requested, source_object, target_object, False
+        if _matches_type_name(source_object, child_scope) and _matches_type_name(target_object, parent_scope):
+            return requested, target_object, source_object, True
+        return requested, source_object, target_object, False
+
+    forward_rule = get_configured_relation_rule(source_object, target_object)
+    reverse_rule = get_configured_relation_rule(target_object, source_object)
+
+    def _allowed_rule_type(rule, fallback_type):
+        if not rule or rule.is_allowed is False:
+            return None
+        normalized = str(rule.relation_type or '').strip().lower()
+        return normalized or fallback_type
+
+    forward_type = _allowed_rule_type(forward_rule, DEFAULT_RELATION_TYPE)
+    reverse_type = _allowed_rule_type(reverse_rule, DEFAULT_RELATION_TYPE)
+    requested_is_auto = not requested or requested == 'auto'
+
+    if requested_is_auto:
+        if forward_type:
+            return requested, source_object, target_object, False
+        if reverse_type:
+            return requested, target_object, source_object, True
+        return requested, source_object, target_object, False
+
+    if forward_type == requested:
+        return requested, source_object, target_object, False
+    if reverse_type == requested:
+        return requested, target_object, source_object, True
+    return requested, source_object, target_object, False
