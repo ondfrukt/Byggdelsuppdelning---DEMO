@@ -3115,8 +3115,9 @@ class ObjectTypeManager {
         try {
             await ObjectTypesAPI.delete(typeId);
             showToast('Objekttyp borttagen', 'success');
-            await this.loadObjectTypes();
             this.selectedType = null;
+            await this.loadObjectTypes();
+            await this.loadRelationTypeRules();
             this.renderTypeDetails();
         } catch (error) {
             console.error('Failed to delete type:', error);

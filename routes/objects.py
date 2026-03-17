@@ -859,6 +859,15 @@ def list_objects():
 
         def to_minimal_payload(obj):
             data = obj.to_dict(include_data=True).get('data', {})
+            minimal_fields = {
+                'namn',
+                'name',
+                'beskrivning',
+                'description',
+                'description - short',
+                'description short',
+                'kort beskrivning'
+            }
             payload = {
                 'id': obj.id,
                 'id_full': obj.id_full,
@@ -869,7 +878,7 @@ def list_objects():
                 'data': {
                     key: value
                     for key, value in data.items()
-                    if key.lower() in ['namn', 'name', 'beskrivning', 'description']
+                    if key.lower() in minimal_fields
                 }
             }
             return enrich_object_with_file_metadata(payload, obj)

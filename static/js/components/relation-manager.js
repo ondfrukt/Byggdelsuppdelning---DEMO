@@ -41,7 +41,9 @@ const relationModalState = {
     blockedIdFulls: new Set(),
     searchFocusState: null,
     allowNoSource: false,
-    eventsBound: false
+    eventsBound: false,
+    columnConfigOpen: false,
+    columnPreferencesByType: {}
 };
 
 function normalizeFieldKey(value) {
@@ -423,8 +425,7 @@ function cleanupRelationModalA11y(modal) {
 
 async function loadRelationCandidates() {
     const result = await ObjectsAPI.getAllPaginated({
-        type: relationModalState.selectedType,
-        minimal: true
+        type: relationModalState.selectedType
     });
 
     const loadedItems = Array.isArray(result) ? result : (result.items || []);
@@ -437,31 +438,171 @@ async function loadRelationCandidates() {
     });
 }
 
-function getRelationTableColumns() {
-    const selectedType = relationModalState.objectTypes.find(type => type.name === relationModalState.selectedType);
-    const fields = Array.isArray(selectedType?.fields) ? selectedType.fields : [];
-    const normalizedDescriptionAliases = new Set([
-        'description',
-        'descriptions',
-        'description short',
-        'description - short',
-        'beskrivning',
-        'kort beskrivning'
-    ].map(alias => normalizeFieldKey(alias)));
-    const nonNameFields = fields.filter(field => !['namn', 'name'].includes(String(field?.field_name || '').toLowerCase()));
-    const dynamicField = nonNameFields.find(field => {
-        const fieldKey = normalizeFieldKey(field?.field_name);
-        const displayKey = normalizeFieldKey(field?.display_name);
-        return normalizedDescriptionAliases.has(fieldKey) || normalizedDescriptionAliases.has(displayKey);
-    }) || nonNameFields[0];
-    const dynamicLabel = dynamicField?.display_name || 'Beskrivning';
+function getSelectedRelationObjectType() {
+    return relationModalState.objectTypes.find(type => type.name === relationModalState.selectedType) || null;
+}
 
-    return [
-        { field: 'display_name', label: 'Namn', sortType: 'text' },
-        { field: 'type', label: 'Typ', sortType: 'text' },
-        { field: 'dynamic', label: dynamicLabel, sortType: 'text', dynamicFieldName: dynamicField?.field_name },
-        { field: 'actions', label: 'Välj', sortable: false }
+function getRelationColumnPreferenceStorageKey() {
+    const typeKey = relationModalState.selectedType ? normalizeTypeName(relationModalState.selectedType) : '__all__';
+    return `relation-modal-columns:${typeKey}`;
+}
+
+function loadRelationColumnPreferences() {
+    const storageKey = getRelationColumnPreferenceStorageKey();
+    if (relationModalState.columnPreferencesByType[storageKey]) {
+        return relationModalState.columnPreferencesByType[storageKey];
+    }
+
+    let parsed = null;
+    try {
+        const raw = localStorage.getItem(storageKey);
+        parsed = raw ? JSON.parse(raw) : null;
+    } catch (_error) {
+        parsed = null;
+    }
+
+    const normalized = {
+        visibleFields: Array.isArray(parsed?.visibleFields) ? parsed.visibleFields : null
+    };
+    relationModalState.columnPreferencesByType[storageKey] = normalized;
+    return normalized;
+}
+
+function persistRelationColumnPreferences() {
+    const storageKey = getRelationColumnPreferenceStorageKey();
+    const prefs = loadRelationColumnPreferences();
+    relationModalState.columnPreferencesByType[storageKey] = prefs;
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(prefs));
+    } catch (_error) {
+        // Ignore storage failures
+    }
+}
+
+function getRelationAvailableColumns() {
+    const selectedType = getSelectedRelationObjectType();
+    const fields = Array.isArray(selectedType?.fields) ? [...selectedType.fields] : [];
+    fields.sort((a, b) => {
+        const orderA = Number.isFinite(Number(a?.display_order)) ? Number(a.display_order) : 999;
+        const orderB = Number.isFinite(Number(b?.display_order)) ? Number(b.display_order) : 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return relationTextCollator.compare(
+            String(a?.display_name || a?.field_name || ''),
+            String(b?.display_name || b?.field_name || '')
+        );
+    });
+
+    const baseColumns = [
+        { field: 'id_full', label: 'ID', sortType: 'text', locked: true },
+        { field: 'type', label: 'Typ', sortType: 'text', locked: true },
+        { field: 'display_name', label: 'Namn', sortType: 'text', locked: true },
+        { field: 'description_summary', label: 'Beskrivning', sortType: 'text' }
     ];
+
+    const seenFields = new Set(baseColumns.map(column => column.field));
+    fields.forEach((field) => {
+        const fieldName = String(field?.field_name || '').trim();
+        if (!fieldName || seenFields.has(fieldName)) return;
+        seenFields.add(fieldName);
+        baseColumns.push({
+            field: fieldName,
+            label: field.display_name || fieldName,
+            sortType: 'text',
+            fieldDefinition: field
+        });
+    });
+
+    baseColumns.push({ field: 'actions', label: 'Välj', sortable: false, locked: true });
+    return baseColumns;
+}
+
+function getDefaultRelationVisibleFields() {
+    return ['id_full', 'type', 'display_name', 'description_summary', 'actions'];
+}
+
+function getRelationTableColumns() {
+    const availableColumns = getRelationAvailableColumns();
+    const availableFieldSet = new Set(availableColumns.map(column => column.field));
+    const prefs = loadRelationColumnPreferences();
+    const preferredFields = Array.isArray(prefs.visibleFields) && prefs.visibleFields.length
+        ? prefs.visibleFields
+        : getDefaultRelationVisibleFields();
+
+    const visibleFields = preferredFields.filter(field => availableFieldSet.has(field));
+    ['id_full', 'type', 'display_name', 'actions'].forEach((field) => {
+        if (!visibleFields.includes(field) && availableFieldSet.has(field)) {
+            visibleFields.push(field);
+        }
+    });
+
+    const orderIndex = new Map(visibleFields.map((field, index) => [field, index]));
+    return availableColumns
+        .filter(column => visibleFields.includes(column.field))
+        .sort((a, b) => (orderIndex.get(a.field) ?? 999) - (orderIndex.get(b.field) ?? 999));
+}
+
+function renderRelationColumnConfig() {
+    const panel = document.getElementById('relation-column-config-panel');
+    const toggles = document.getElementById('relation-column-toggles');
+    const trigger = document.getElementById('relation-column-config-btn');
+    if (!panel || !toggles || !trigger) return;
+
+    panel.style.display = relationModalState.columnConfigOpen ? 'block' : 'none';
+    trigger.textContent = relationModalState.columnConfigOpen ? 'Dölj kolumner' : 'Kolumner';
+
+    const availableColumns = getRelationAvailableColumns().filter(column => column.field !== 'actions');
+    const visibleFields = new Set(getRelationTableColumns().map(column => column.field));
+
+    toggles.innerHTML = availableColumns.map(column => {
+        const checked = visibleFields.has(column.field);
+        const isLocked = column.locked === true;
+        return `
+            <label class="column-toggle">
+                <input type="checkbox"
+                       data-field="${escapeHtml(column.field)}"
+                       ${checked ? 'checked' : ''}
+                       ${isLocked ? 'disabled' : ''}>
+                ${escapeHtml(column.label)}
+            </label>
+        `;
+    }).join('');
+
+    toggles.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.addEventListener('change', (event) => {
+            const field = event.target.dataset.field;
+            const checked = event.target.checked;
+            const prefs = loadRelationColumnPreferences();
+            const currentFields = Array.isArray(prefs.visibleFields) && prefs.visibleFields.length
+                ? [...prefs.visibleFields]
+                : getDefaultRelationVisibleFields();
+
+            if (checked && !currentFields.includes(field)) {
+                const actionIndex = currentFields.indexOf('actions');
+                if (actionIndex >= 0) {
+                    currentFields.splice(actionIndex, 0, field);
+                } else {
+                    currentFields.push(field);
+                }
+            }
+
+            prefs.visibleFields = checked
+                ? currentFields
+                : currentFields.filter(item => item !== field);
+
+            persistRelationColumnPreferences();
+            applyRelationTableFilters();
+            renderRelationColumnConfig();
+            renderRelationTable();
+            if (typeof relationModalState.updatePagination === 'function') {
+                relationModalState.updatePagination();
+            }
+        });
+    });
+}
+
+function toggleRelationColumnConfig() {
+    relationModalState.columnConfigOpen = !relationModalState.columnConfigOpen;
+    renderRelationColumnConfig();
 }
 
 function getItemDataValueCaseInsensitive(item, fieldName) {
@@ -482,16 +623,17 @@ function getItemDataValueCaseInsensitive(item, fieldName) {
 }
 
 function getRelationDescriptionValue(item, preferredFieldName = null) {
-    const candidateFields = [
-        preferredFieldName,
-        'description - short',
-        'description',
-        'descriptions',
-        'beskrivning',
-        'kort beskrivning'
-    ].filter(Boolean);
+    if (window.ObjectListDisplayName?.resolveObjectDescription) {
+        const resolved = window.ObjectListDisplayName.resolveObjectDescription(item, {
+            preferredFields: preferredFieldName ? [preferredFieldName] : []
+        });
+        if (String(resolved || '').trim() !== '') {
+            return resolved;
+        }
+    }
 
-    for (const fieldName of candidateFields) {
+    const fallbackFields = [preferredFieldName].filter(Boolean);
+    for (const fieldName of fallbackFields) {
         const value = getItemDataValueCaseInsensitive(item, fieldName);
         if (value !== null && value !== undefined && String(value).trim() !== '') {
             return String(value);
@@ -502,12 +644,34 @@ function getRelationDescriptionValue(item, preferredFieldName = null) {
 }
 
 function getRelationCellValue(item, column) {
+    const data = item?.data || {};
+    if (column.field === 'id_full') return item.id_full || '-';
     if (column.field === 'display_name') return getObjectDisplayName(item);
     if (column.field === 'type') return item.object_type?.name || '-';
-    if (column.field === 'dynamic') {
-        return getRelationDescriptionValue(item, column.dynamicFieldName);
+    if (column.field === 'description_summary') {
+        return getRelationDescriptionValue(item);
     }
-    return '';
+    if (column.field === 'actions') {
+        return '';
+    }
+
+    const rawValue = getItemDataValueCaseInsensitive(data, column.field);
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+        return '-';
+    }
+    if (Array.isArray(rawValue)) {
+        return rawValue.map(value => String(value ?? '').trim()).filter(Boolean).join(', ') || '-';
+    }
+    if (typeof rawValue === 'object') {
+        return JSON.stringify(rawValue);
+    }
+    if (typeof rawValue === 'string' && /<[^>]+>/.test(rawValue)) {
+        if (typeof stripHtmlTags === 'function') {
+            return stripHtmlTags(rawValue).trim() || '-';
+        }
+        return rawValue.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || '-';
+    }
+    return String(rawValue);
 }
 
 function applyRelationTableFilters() {
@@ -646,24 +810,34 @@ function renderRelationTable() {
     const endIndex = startIndex + relationModalState.perPage;
     const pageItems = relationModalState.filteredItems.slice(startIndex, endIndex);
     tbody.innerHTML = pageItems.length === 0
-        ? '<tr><td colspan="4" class="empty-state">Inga objekt hittades.</td></tr>'
+        ? `<tr><td colspan="${columns.length}" class="empty-state">Inga objekt hittades.</td></tr>`
         : pageItems.map(item => {
             const inBasket = relationModalState.basket.some(b => b.id === item.id);
-            const dynamicValue = getRelationCellValue(item, columns[2]);
+            const rowCells = columns.map(column => {
+                if (column.field === 'actions') {
+                    return `
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-primary btn-sm relation-add-btn ${inBasket ? 'is-added' : ''}"
+                                data-id="${item.id}"
+                                aria-label="${inBasket ? `Redan tillagd: ${escapeHtml(getObjectDisplayName(item))}` : `Lägg till ${escapeHtml(getObjectDisplayName(item))}`}"
+                                ${inBasket ? 'disabled' : ''}
+                            >${inBasket ? '✓' : '+'}</button>
+                        </td>
+                    `;
+                }
+
+                const cellValue = getRelationCellValue(item, column);
+                if (column.field === 'type') {
+                    const typeName = String(cellValue || '-');
+                    return `<td><span class="object-type-badge" style="background-color: ${getObjectTypeColor(typeName)}">${escapeHtml(typeName)}</span></td>`;
+                }
+                return `<td class="${column.field === 'description_summary' ? 'col-description' : ''}">${escapeHtml(String(cellValue))}</td>`;
+            }).join('');
             return `
                 <tr tabindex="0" role="button" class="relation-select-row" data-id="${item.id}" aria-label="Välj ${escapeHtml(getObjectDisplayName(item))}">
-                    <td>${escapeHtml(getObjectDisplayName(item))}</td>
-                    <td>${escapeHtml(item.object_type?.name || '-')}</td>
-                    <td>${escapeHtml(String(dynamicValue))}</td>
-                    <td>
-                        <button
-                            type="button"
-                            class="btn btn-primary btn-sm relation-add-btn ${inBasket ? 'is-added' : ''}"
-                            data-id="${item.id}"
-                            aria-label="${inBasket ? `Redan tillagd: ${escapeHtml(getObjectDisplayName(item))}` : `Lägg till ${escapeHtml(getObjectDisplayName(item))}`}"
-                            ${inBasket ? 'disabled' : ''}
-                        >${inBasket ? '✓' : '+'}</button>
-                    </td>
+                    ${rowCells}
                 </tr>
             `;
         }).join('');
@@ -779,6 +953,7 @@ function bindRelationModalEvents() {
     const nextButton = document.getElementById('relation-next-page');
     const pageLabel = document.getElementById('relation-page-label');
     const clearBasket = document.getElementById('relation-clear-basket');
+    const columnConfigButton = document.getElementById('relation-column-config-btn');
 
     const updatePagination = () => {
         pageLabel.textContent = `Sida ${relationModalState.page} av ${relationModalState.totalPages}`;
@@ -804,6 +979,7 @@ function bindRelationModalEvents() {
         typeFilter.addEventListener('change', async (event) => {
             relationModalState.selectedType = event.target.value;
             relationModalState.page = 1;
+            relationModalState.columnConfigOpen = false;
             await refreshCandidatesAndRender();
         });
     }
@@ -833,12 +1009,19 @@ function bindRelationModalEvents() {
         });
     }
 
+    if (columnConfigButton) {
+        columnConfigButton.addEventListener('click', () => {
+            toggleRelationColumnConfig();
+        });
+    }
+
     relationModalState.eventsBound = true;
 }
 
 async function refreshCandidatesAndRender() {
     await loadRelationCandidates();
     applyRelationTableFilters();
+    renderRelationColumnConfig();
     renderRelationTable();
     renderBasket();
     if (typeof relationModalState.updatePagination === 'function') {
@@ -896,6 +1079,7 @@ async function showAddRelationModal(objectIdOrIds, options = {}) {
     relationModalState.allowNoSource = Boolean(options.allowNoSource);
     relationModalState.blockedIdFulls = new Set();
     relationModalState.searchFocusState = null;
+    relationModalState.columnConfigOpen = false;
 
     try {
         if (!relationModalState.sourceIds.length && !relationModalState.allowNoSource) {

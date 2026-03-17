@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate
+from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate, RelationTypeRule, RelationType
 from routes.relation_type_rules import ensure_complete_relation_rule_matrix
 import json
 import logging
@@ -330,12 +330,36 @@ def delete_object_type(id):
         # Check if there are objects of this type
         if len(object_type.objects) > 0:
             return jsonify({'error': 'Cannot delete object type that has objects'}), 400
+
+        deleted_relation_rules = RelationTypeRule.query.filter(
+            (RelationTypeRule.source_object_type_id == id) |
+            (RelationTypeRule.target_object_type_id == id)
+        ).delete(synchronize_session=False)
+
+        scoped_relation_types = RelationType.query.filter(
+            (RelationType.source_object_type_id == id) |
+            (RelationType.target_object_type_id == id)
+        ).all()
+        for relation_type in scoped_relation_types:
+            if relation_type.source_object_type_id == id:
+                relation_type.source_object_type_id = None
+            if relation_type.target_object_type_id == id:
+                relation_type.target_object_type_id = None
         
         db.session.delete(object_type)
         db.session.commit()
         
-        logger.info(f"Deleted object type: {object_type.name}")
-        return jsonify({'message': 'Object type deleted successfully'}), 200
+        logger.info(
+            "Deleted object type: %s (removed %s relation rules, cleared %s relation type scopes)",
+            object_type.name,
+            deleted_relation_rules,
+            len(scoped_relation_types)
+        )
+        return jsonify({
+            'message': 'Object type deleted successfully',
+            'deleted_relation_rules': deleted_relation_rules,
+            'cleared_relation_type_scopes': len(scoped_relation_types)
+        }), 200
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting object type: {str(e)}")

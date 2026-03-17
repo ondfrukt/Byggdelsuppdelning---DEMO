@@ -1,5 +1,5 @@
 """
-Migration: Add managed_list_links and managed_list_item_links tables and seed examples.
+Migration: Add managed_list_links and managed_list_item_links tables.
 """
 from sqlalchemy import inspect, text
 import logging
@@ -205,7 +205,7 @@ def seed_example_data(db):
 
 
 def run_migration(db):
-    """Create list-link tables if missing and seed example data."""
+    """Create list-link tables if missing."""
     try:
         engine = db.session.get_bind()
         inspector = inspect(engine)
@@ -263,8 +263,6 @@ def run_migration(db):
             db.session.execute(text("CREATE INDEX idx_managed_list_item_links_child ON managed_list_item_links(child_item_id)"))
         except Exception:
             pass
-
-        seed_example_data(db)
 
         db.session.commit()
         logger.info("Managed list links migration completed successfully")

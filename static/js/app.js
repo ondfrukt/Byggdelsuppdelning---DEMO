@@ -414,6 +414,37 @@ function getDuplicateRelationRowDescription(row) {
     return '-';
 }
 
+function getObjectDescriptionForRelationTables(obj, preferredFields = []) {
+    if (window.ObjectListDisplayName?.resolveObjectDescription) {
+        const resolved = window.ObjectListDisplayName.resolveObjectDescription(obj, { preferredFields });
+        if (String(resolved || '').trim() !== '') {
+            return resolved;
+        }
+    }
+
+    const data = obj?.data || {};
+    const fallbackFields = [
+        ...preferredFields,
+        'Beskrivning',
+        'beskrivning',
+        'Description - short',
+        'description - short',
+        'Description',
+        'description',
+        'Kort beskrivning',
+        'kort beskrivning'
+    ];
+
+    for (const fieldName of fallbackFields) {
+        const value = data?.[fieldName];
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            return String(value).trim();
+        }
+    }
+
+    return '';
+}
+
 function getDuplicateSortIndicator(field) {
     const context = window.currentDuplicateContext;
     if (!context || context.sortField !== field) return '↕';
@@ -444,7 +475,7 @@ function buildDuplicateRelationRows() {
             autoId: linkedObject.id_full || linkedObject.id_full || linkedObject.id || '?',
             type: linkedObject.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(linkedObject),
-            description: linkedObject.data?.beskrivning || linkedObject.data?.description || '',
+            description: getObjectDescriptionForRelationTables(linkedObject),
             relationDescription: relation.description || ''
         });
     });
@@ -457,7 +488,7 @@ function buildDuplicateRelationRows() {
             autoId: obj.id_full || obj.id_full || obj.id || '?',
             type: obj.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(obj),
-            description: obj.data?.beskrivning || obj.data?.description || '',
+            description: getObjectDescriptionForRelationTables(obj),
             relationDescription: 'Ny relation vid duplicering'
         });
     });
