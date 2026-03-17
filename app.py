@@ -95,12 +95,6 @@ def create_app():
             logger.warning(f"Relation type rules is_allowed migration may have already run: {str(e)}")
 
         try:
-            from migrations.add_tcbl_object_type import run_migration as run_tcbl_object_type_migration
-            run_tcbl_object_type_migration(db)
-        except Exception as e:
-            logger.warning(f"TCBL object type migration may have already run: {str(e)}")
-
-        try:
             from migrations.backfill_relation_type_rule_matrix import run_migration as run_relation_rule_matrix_backfill
             run_relation_rule_matrix_backfill(db)
         except Exception as e:
@@ -241,12 +235,6 @@ def create_app():
             run_identifier_migration(db)
         except Exception as e:
             logger.warning(f"Identifier normalization post-seed migration may have already run: {str(e)}")
-
-        try:
-            from migrations.add_tcbl_object_type import run_migration as run_tcbl_object_type_migration
-            run_tcbl_object_type_migration(db)
-        except Exception as e:
-            logger.warning(f"TCBL object type post-seed migration may have already run: {str(e)}")
 
         try:
             from migrations.remove_auto_id_from_objects import run_migration as run_remove_auto_id_migration
