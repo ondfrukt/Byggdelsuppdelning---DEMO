@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const {
     resolveObjectDisplayName,
+    resolveObjectDescription,
     normalizeTypeName,
     getValueByField
 } = require('../../static/js/components/object-list-display-name.js');
@@ -51,4 +52,27 @@ test('resolveObjectDisplayName falls back to id when data is empty', () => {
 
     const value = resolveObjectDisplayName(obj, { okänd: 'display_field' });
     assert.equal(value, 'OBJ-999');
+});
+
+test('resolveObjectDescription prefers provided field and supports case-insensitive lookup', () => {
+    const obj = {
+        data: {
+            'Description - short': 'Kort text',
+            Beskrivning: 'Längre text'
+        }
+    };
+
+    const value = resolveObjectDescription(obj, { preferredFields: ['description - short'] });
+    assert.equal(value, 'Kort text');
+});
+
+test('resolveObjectDescription falls back across known description aliases', () => {
+    const obj = {
+        data: {
+            'Kort beskrivning': 'Alias fungerar'
+        }
+    };
+
+    const value = resolveObjectDescription(obj);
+    assert.equal(value, 'Alias fungerar');
 });

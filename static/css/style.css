@@ -869,10 +869,10 @@ body {
 }
 
 .relation-modal {
-    width: 90vw;
-    max-width: 1400px;
-    height: min(92vh, 900px);
-    max-height: 92vh;
+    width: 96vw;
+    max-width: 1700px;
+    height: 95vh;
+    max-height: 95vh;
     overflow: hidden;
 }
 
@@ -904,7 +904,7 @@ body {
 
 .relation-modal-layout {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 2.4fr) minmax(340px, 1fr);
     gap: var(--spacing-lg);
     padding: 0 var(--spacing-lg) var(--spacing-lg);
     flex: 1;
@@ -928,6 +928,7 @@ body {
     display: flex;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-sm);
+    align-items: center;
 }
 
 .relation-filters .search-input {
@@ -935,8 +936,16 @@ body {
 }
 
 .relation-table-container {
-    max-height: 52vh;
+    max-height: 66vh;
     overflow: auto;
+}
+
+.relation-column-config-panel {
+    position: relative;
+    top: auto;
+    right: auto;
+    width: 100%;
+    margin-bottom: var(--spacing-sm);
 }
 
 .relation-add-btn {

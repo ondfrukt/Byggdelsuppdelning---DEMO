@@ -1,5 +1,13 @@
 (function (globalScope) {
     const DISPLAY_FALLBACK_FIELDS = ['name', 'title', 'label'];
+    const DESCRIPTION_FALLBACK_FIELDS = [
+        'description - short',
+        'description short',
+        'description',
+        'descriptions',
+        'beskrivning',
+        'kort beskrivning'
+    ];
 
     function normalizeTypeName(typeName) {
         return (typeName || '').toString().trim().toLowerCase();
@@ -43,8 +51,24 @@
         return obj?.id_full || '';
     }
 
+    function resolveObjectDescription(obj, options = {}) {
+        const data = obj?.data || {};
+        const preferredFields = Array.isArray(options.preferredFields) ? options.preferredFields : [];
+        const candidateFields = [...preferredFields, ...DESCRIPTION_FALLBACK_FIELDS];
+
+        for (const fieldName of candidateFields) {
+            const value = getValueByField(data, fieldName);
+            if (isNonEmpty(value)) {
+                return String(value).trim();
+            }
+        }
+
+        return '';
+    }
+
     const api = {
         resolveObjectDisplayName,
+        resolveObjectDescription,
         normalizeTypeName,
         getValueByField
     };
