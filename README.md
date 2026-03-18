@@ -4,6 +4,8 @@ Demoprojekt för ett objektbaserat informationssystem med fokus på byggdelar, r
 
 Den aktiva datamodellen ligger i paketet [models/](/workspaces/Byggdelsuppdelning---DEMO/models) och standardseedning/initiering sker via [new_database.py](/workspaces/Byggdelsuppdelning---DEMO/new_database.py).
 
+Schemaändringar och datakorrigeringar drivs av Python-migrationerna i [migrations/](/workspaces/Byggdelsuppdelning---DEMO/migrations), inte av fristående SQL-filer i reporoten.
+
 ## Systemet i korthet
 
 Systemet kretsar kring objekt av olika typer. Varje objekttyp kan ha egna fält, egen färg, egna listkolumner och egna relationsregler. Funktionaliteten täcker idag bland annat:
@@ -127,6 +129,8 @@ python scripts/export_defaults_from_db.py
 ## Tester
 
 Den automatiserade testytan är just nu liten och fokuserar främst på JS-hjälpfunktioner i `tests/js/`.
+
+Det finns för närvarande ingen aktiv YAML-baserad testrunner i repot; de testbara artefakterna som ska betraktas som aktuella är kodtesterna i `tests/` och den manuella verifiering som görs i appen.
 
 Om din Node-version stöder den inbyggda test-runnern kan tester köras med:
 

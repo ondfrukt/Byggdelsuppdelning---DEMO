@@ -89,26 +89,6 @@ class RelationManagerComponent {
         }
     }
 
-    async ensureSystemTableLoaded() {
-        if (typeof SystemTable === 'function') return true;
-
-        const existingScript = document.querySelector('script[data-system-table-loader="true"]');
-        if (!existingScript) {
-            const script = document.createElement('script');
-            script.src = '/static/js/components/system-table.js';
-            script.async = true;
-            script.dataset.systemTableLoader = 'true';
-            document.head.appendChild(script);
-        }
-
-        for (let i = 0; i < 20; i += 1) {
-            if (typeof SystemTable === 'function') return true;
-            await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        return typeof SystemTable === 'function';
-    }
-
     getLinkedObject(relation) {
         return relation.direction === 'incoming' ? (relation.source_object || {}) : (relation.target_object || {});
     }
@@ -133,10 +113,8 @@ class RelationManagerComponent {
             return;
         }
 
-        const hasSystemTable = await this.ensureSystemTableLoaded();
-        if (!hasSystemTable) {
-            console.warn('SystemTable is not available, using legacy relation table rendering');
-            this.renderRelationsLegacy(listContainer, visibleRelations);
+        if (typeof SystemTable !== 'function') {
+            listContainer.innerHTML = '<p class="empty-state">Tabellkomponenten kunde inte laddas</p>';
             return;
         }
 
@@ -219,70 +197,6 @@ class RelationManagerComponent {
             }
         });
         this.systemTable.render();
-    }
-
-    renderRelationsLegacy(listContainer, visibleRelations) {
-        const sortedRelations = [...visibleRelations].sort((a, b) => {
-            const aObj = this.getLinkedObject(a);
-            const bObj = this.getLinkedObject(b);
-            const aType = String(aObj?.object_type?.name || '');
-            const bType = String(bObj?.object_type?.name || '');
-            const typeCompare = relationTextCollator.compare(aType, bType);
-            if (typeCompare !== 0) return typeCompare;
-
-            const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.id_full || '');
-            const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.id_full || '');
-            return relationTextCollator.compare(aName, bName);
-        });
-
-        listContainer.innerHTML = `
-            <div class="table-container relation-compact-table-container">
-                <table class="data-table relation-compact-table">
-                    <thead>
-                        <tr>
-                            <th class="col-id">ID</th>
-                            <th class="col-name">Namn</th>
-                            <th class="col-type">Typ</th>
-                            <th class="col-actions"></th>
-                        </tr>
-                    </thead>
-                    <tbody>${sortedRelations.map(rel => this.renderRelationRow(rel)).join('')}</tbody>
-                </table>
-            </div>
-        `;
-
-        listContainer.querySelectorAll('.relation-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const objectId = parseInt(link.dataset.objectId, 10);
-                if (typeof viewObjectDetail === 'function') viewObjectDetail(objectId);
-            });
-        });
-
-        listContainer.querySelectorAll('.relation-delete-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteRelation(parseInt(btn.dataset.ownerObjectId, 10), parseInt(btn.dataset.relationId, 10)));
-        });
-    }
-
-    renderRelationRow(relation) {
-        const linkedObject = this.getLinkedObject(relation);
-        const displayName = linkedObject.data?.namn || linkedObject.data?.Namn || linkedObject.data?.name || linkedObject.id_full || 'Okänt objekt';
-        const autoId = linkedObject.id_full || 'N/A';
-        const typeName = linkedObject.object_type?.name || 'N/A';
-        const relationOwnerObjectId = relation.direction === 'incoming' ? parseInt(relation.target_object_id, 10) : parseInt(relation.source_object_id, 10);
-
-        return `
-            <tr class="relation-row">
-                <td class="col-id relation-id"><a href="#" data-object-id="${parseInt(linkedObject.id || 0, 10)}" class="relation-link">${escapeHtml(autoId)}</a></td>
-                <td class="col-name relation-name"><strong>${escapeHtml(displayName)}</strong></td>
-                <td class="col-type relation-type-cell">${escapeHtml(typeName)}</td>
-                <td class="col-actions relation-actions-cell">
-                    <button class="btn-icon btn-danger relation-delete-btn" data-owner-object-id="${relationOwnerObjectId}" data-relation-id="${parseInt(relation.id || 0, 10)}" aria-label="Ta bort relation med ${escapeHtml(displayName)}" title="Ta bort">
-                        <span aria-hidden="true">🗑️</span><span class="sr-only">Ta bort</span>
-                    </button>
-                </td>
-            </tr>
-        `;
     }
 
     async refresh() {
