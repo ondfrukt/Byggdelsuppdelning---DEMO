@@ -1,6 +1,6 @@
 function getChangeObjectName(objectPayload = {}) {
     const data = objectPayload?.data || {};
-    return data.Namn || data.namn || data.Name || data.name || objectPayload?.id_full || objectPayload?.id_full || '-';
+    return data.Namn || data.namn || data.Name || data.name || objectPayload?.id_full || '-';
 }
 
 function formatImpactActionLabel(action) {
@@ -230,7 +230,7 @@ class ChangeManagementDetailView {
             return {
                 impact_id: impact.id,
                 object_id: objectPayload.id,
-                id_full: objectPayload.id_full || objectPayload.id_full || '-',
+                id_full: objectPayload.id_full || '-',
                 object_type: objectPayload.object_type?.name || '-',
                 name: getChangeObjectName(objectPayload),
                 version: objectPayload.version || '-',

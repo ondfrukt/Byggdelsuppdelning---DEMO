@@ -221,7 +221,6 @@ function updateDetailPanelHeader(object) {
         object?.data?.name ||
         object?.data?.title ||
         object?.id_full ||
-        object?.id_full ||
         'Objektdetaljer';
 
     if (panelTitle) {
@@ -472,7 +471,7 @@ function buildDuplicateRelationRows() {
             key: `existing-${relation.id}`,
             kind: 'existing',
             id: relation.id,
-            autoId: linkedObject.id_full || linkedObject.id_full || linkedObject.id || '?',
+            autoId: linkedObject.id_full || linkedObject.id || '?',
             type: linkedObject.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(linkedObject),
             description: getObjectDescriptionForRelationTables(linkedObject),
@@ -485,7 +484,7 @@ function buildDuplicateRelationRows() {
             key: `added-${obj.id}`,
             kind: 'added',
             id: obj.id,
-            autoId: obj.id_full || obj.id_full || obj.id || '?',
+            autoId: obj.id_full || obj.id || '?',
             type: obj.object_type?.name || '-',
             name: getObjectDisplayNameForDuplicate(obj),
             description: getObjectDescriptionForRelationTables(obj),

@@ -2,6 +2,8 @@
 
 Detta dokument definierar standardmönstret för tabeller i projektet.
 
+Projektet innehåller fortfarande några äldre tabeller som använder `TableSort` och egen markup. De ska betraktas som legacy och migreras till `SystemTable` när de ändå berörs, inte kopieras som nytt mönster.
+
 ## Grundregel
 
 Alla nya tabeller i moduler, vyer och modaler ska byggas med `SystemTable`.
@@ -80,6 +82,7 @@ Objektlistan är projektets visuella referens för tabeller. Det innebär normal
 - Lägg modulspecifikt beteende i `columns.render`, `onRender` och event delegation.
 - Undvik egen sorterings- eller söklogik per modul om inte affärsregler kräver det.
 - Om kolumner är konfigurerbara ska både ordning och bredder kunna persistenteras.
+- Om du arbetar i en legacy-tabell med `TableSort`, migrera hellre till `SystemTable` än att bygga vidare på det äldre mönstret.
 
 ## Minimal exempelanvändning
 

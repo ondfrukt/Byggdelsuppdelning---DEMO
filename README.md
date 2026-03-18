@@ -2,6 +2,8 @@
 
 Demoprojekt för ett objektbaserat informationssystem med fokus på byggdelar, relationer, filobjekt och styrd administration. Projektet är byggt i Flask + vanilla JavaScript och fungerar som en flexibel sandlåda för datamodellering, UI-flöden och adminstyrning.
 
+Den aktiva datamodellen ligger i paketet [models/](/workspaces/Byggdelsuppdelning---DEMO/models) och standardseedning/initiering sker via [new_database.py](/workspaces/Byggdelsuppdelning---DEMO/new_database.py).
+
 ## Systemet i korthet
 
 Systemet kretsar kring objekt av olika typer. Varje objekttyp kan ha egna fält, egen färg, egna listkolumner och egna relationsregler. Funktionaliteten täcker idag bland annat:
@@ -50,6 +52,8 @@ Systemet kretsar kring objekt av olika typer. Varje objekttyp kan ha egna fält,
 - vanilla JavaScript
 - gemensamma komponenter i `static/js/components/`
 - `SystemTable` som standard för nya tabeller
+
+Projektet innehåller fortfarande ett mindre antal äldre tabellflöden som ännu inte migrerats fullt ut till `SystemTable`. När sådana ytor ändras ska de ses som migrationskandidater, inte som nya referensmönster.
 
 ## Seedad standarddata
 
@@ -120,6 +124,18 @@ Nyttiga kommandon:
 python scripts/export_defaults_from_db.py
 ```
 
+## Tester
+
+Den automatiserade testytan är just nu liten och fokuserar främst på JS-hjälpfunktioner i `tests/js/`.
+
+Om din Node-version stöder den inbyggda test-runnern kan tester köras med:
+
+```bash
+node --test tests/js/*.test.mjs
+```
+
+I miljöer utan stöd för `node --test` eller utan installerat `pytest` behöver verifiering ske manuellt eller via separat CI-miljö.
+
 ## Konfiguration
 
 Miljövariabler som används mest:
@@ -151,7 +167,9 @@ Några viktiga filer:
 
 - [app.py](/workspaces/Byggdelsuppdelning---DEMO/app.py): appfactory, migrationer och seedning
 - [config.py](/workspaces/Byggdelsuppdelning---DEMO/config.py): miljö- och databasinställningar
+- [new_database.py](/workspaces/Byggdelsuppdelning---DEMO/new_database.py): aktuell initiering och seedning från standardpayload
 - [templates/index.html](/workspaces/Byggdelsuppdelning---DEMO/templates/index.html): huvud-UI
+- [templates/testsida.html](/workspaces/Byggdelsuppdelning---DEMO/templates/testsida.html): enkel utvecklingssida för `develop`/lokal branch
 - [static/js/app.js](/workspaces/Byggdelsuppdelning---DEMO/static/js/app.js): vyväxling och globala UI-flöden
 - [static/js/components/system-table.js](/workspaces/Byggdelsuppdelning---DEMO/static/js/components/system-table.js): standardtabell
 

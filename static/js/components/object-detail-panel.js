@@ -258,7 +258,7 @@ class ObjectDetailPanel {
                 <div class="side-panel-header">
                     <div>
                         <h3>${displayName}</h3>
-                        <p class="side-panel-subtitle">${obj.id_full || obj.id_full} • ${obj.object_type?.name || 'Objekt'}</p>
+                        <p class="side-panel-subtitle">${obj.id_full} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
                     <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
                 </div>
@@ -343,7 +343,7 @@ class ObjectDetailPanel {
                 <div class="detail-list-header">
                     <div class="detail-header-item">
                         <span class="detail-label">ID</span>
-                        <span class="detail-value"><strong>${obj.id_full || obj.id_full}</strong></span>
+                        <span class="detail-value"><strong>${obj.id_full}</strong></span>
                     </div>
                     <div class="detail-header-item">
                         <span class="detail-label">Typ</span>

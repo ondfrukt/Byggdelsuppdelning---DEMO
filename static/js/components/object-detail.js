@@ -25,7 +25,7 @@ class ObjectDetailComponent {
                     <div class="view-header">
                         <div>
                             <button class="btn btn-secondary" onclick="goBack()">← Tillbaka</button>
-                            <h2>${this.object.id_full || this.object.id_full} - ${this.getDisplayName()}</h2>
+                            <h2>${this.object.id_full} - ${this.getDisplayName()}</h2>
                         </div>
                         <div>
                             <button class="btn btn-primary" onclick="editObject(${this.objectId})">

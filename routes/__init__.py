@@ -1,5 +1,3 @@
-from flask import Blueprint
-
 # Import new blueprints from route modules
 from routes.object_types import bp as object_types_bp
 from routes.objects import bp as objects_bp
