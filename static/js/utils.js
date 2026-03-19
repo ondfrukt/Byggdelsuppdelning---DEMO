@@ -373,14 +373,31 @@ function sanitizeRichTextHtml(html) {
     return template.innerHTML.trim();
 }
 
-function applyResizableColumnWidth(table, columnIndex, width) {
+function applyResizableColumnWidth(table, columnIndex, width, columnKey = '') {
     if (!table || !Number.isFinite(columnIndex) || !Number.isFinite(width)) return;
     const safeWidth = Math.max(40, Math.round(width));
+    const normalizedColumnKey = String(columnKey || '').trim();
     const col = ensureResizableTableCol(table, columnIndex);
     if (col) {
         col.style.width = `${safeWidth}px`;
         col.style.minWidth = `${safeWidth}px`;
         col.style.maxWidth = `${safeWidth}px`;
+    }
+
+    const selectorColumnKey = (
+        normalizedColumnKey
+        && typeof CSS !== 'undefined'
+        && typeof CSS.escape === 'function'
+    ) ? CSS.escape(normalizedColumnKey) : normalizedColumnKey.replace(/["\\]/g, '\\$&');
+
+    if (selectorColumnKey) {
+        table.querySelectorAll(`[data-column-key="${selectorColumnKey}"]`).forEach((cell) => {
+            cell.style.width = `${safeWidth}px`;
+            cell.style.minWidth = `${safeWidth}px`;
+            cell.style.maxWidth = `${safeWidth}px`;
+            cell.style.boxSizing = 'border-box';
+        });
+        return;
     }
 
     const rows = table.querySelectorAll('tr');
@@ -404,10 +421,19 @@ function ensureResizableTableColgroup(table) {
 
     let colgroup = table.querySelector(':scope > colgroup[data-resizable-columns="true"]');
     if (!colgroup) {
+        colgroup = table.querySelector(':scope > colgroup[data-system-table-colgroup="true"]');
+    }
+    if (!colgroup) {
+        colgroup = table.querySelector(':scope > colgroup[data-object-list-colgroup="true"]');
+    }
+    if (!colgroup) {
+        colgroup = table.querySelector(':scope > colgroup');
+    }
+    if (!colgroup) {
         colgroup = document.createElement('colgroup');
-        colgroup.dataset.resizableColumns = 'true';
         table.insertBefore(colgroup, table.firstChild);
     }
+    colgroup.dataset.resizableColumns = 'true';
 
     return colgroup;
 }
@@ -428,10 +454,21 @@ function ensureResizableTableCol(table, columnIndex) {
     return colgroup.children[columnIndex] || null;
 }
 
+function getResizableTableColumnWidths(table, headerSelector) {
+    const headers = getResizableTableHeaders(table, headerSelector);
+    return headers.map((header, columnIndex) => {
+        const col = ensureResizableTableCol(table, columnIndex);
+        const explicitWidth = Number.parseFloat(col?.style?.width || '');
+        if (Number.isFinite(explicitWidth) && explicitWidth > 0) {
+            return Math.round(explicitWidth);
+        }
+        return Math.round(header.getBoundingClientRect().width || 0);
+    });
+}
+
 function setResizableTableWidth(table) {
     if (!table) return;
-    const headers = getResizableTableHeaders(table);
-    const totalWidth = headers.reduce((sum, header) => sum + Math.round(header.getBoundingClientRect().width || 0), 0);
+    const totalWidth = getResizableTableColumnWidths(table).reduce((sum, width) => sum + width, 0);
     if (totalWidth > 0) {
         table.style.width = `${totalWidth}px`;
         table.style.minWidth = `${totalWidth}px`;
@@ -463,7 +500,7 @@ function freezeResizableTableColumns(table, options = {}) {
             ? persistedWidth
             : Math.max(minWidth, measuredWidth);
 
-        applyResizableColumnWidth(table, columnIndex, targetWidth);
+        applyResizableColumnWidth(table, columnIndex, targetWidth, columnKey);
     });
 
     setResizableTableWidth(table);
@@ -529,7 +566,9 @@ function makeTableColumnsResizable(options = {}) {
             event.stopPropagation();
 
             const startX = event.clientX;
-            const startWidth = header.getBoundingClientRect().width;
+            const widthsAtStart = getResizableTableColumnWidths(table, headerSelector);
+            const startWidth = widthsAtStart[columnIndex] || Math.round(header.getBoundingClientRect().width || 0);
+            const startTableWidth = widthsAtStart.reduce((sum, width) => sum + width, 0);
             let hasDragged = false;
 
             const onMouseMove = (moveEvent) => {
@@ -537,8 +576,11 @@ function makeTableColumnsResizable(options = {}) {
                     hasDragged = true;
                 }
                 const nextWidth = Math.max(minWidth, startWidth + (moveEvent.clientX - startX));
-                applyResizableColumnWidth(table, columnIndex, nextWidth);
-                setResizableTableWidth(table);
+                applyResizableColumnWidth(table, columnIndex, nextWidth, columnKey);
+                const nextTableWidth = Math.max(nextWidth, startTableWidth + (nextWidth - startWidth));
+                table.style.width = `${nextTableWidth}px`;
+                table.style.minWidth = `${nextTableWidth}px`;
+                table.style.maxWidth = `${nextTableWidth}px`;
                 document.body.classList.add('column-resize-active');
             };
 
@@ -548,8 +590,11 @@ function makeTableColumnsResizable(options = {}) {
                 document.body.classList.remove('column-resize-active');
 
                 const finalWidth = Math.max(minWidth, Math.round(header.getBoundingClientRect().width));
-                applyResizableColumnWidth(table, columnIndex, finalWidth);
-                setResizableTableWidth(table);
+                applyResizableColumnWidth(table, columnIndex, finalWidth, columnKey);
+                const finalTableWidth = Math.max(finalWidth, startTableWidth + (finalWidth - startWidth));
+                table.style.width = `${finalTableWidth}px`;
+                table.style.minWidth = `${finalTableWidth}px`;
+                table.style.maxWidth = `${finalTableWidth}px`;
                 if (hasDragged) {
                     header.dataset.suppressResizeClick = 'true';
                 }

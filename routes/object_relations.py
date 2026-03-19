@@ -1,12 +1,28 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
 from models import db, Object, ObjectRelation
-from routes.relation_type_rules import validate_relation_type_scope, enforce_pair_relation_type
+from routes.relation_type_rules import (
+    validate_relation_type_scope,
+    enforce_pair_relation_type,
+    normalize_relation_direction,
+)
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
-DEFAULT_RELATION_TYPE = 'uses_object'
+DEFAULT_RELATION_TYPE = 'references_object'
+
+
+def _normalize_limit(value, field_name):
+    if value in (None, ''):
+        return None, None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None, f'{field_name} must be an integer'
+    if parsed <= 0:
+        return None, f'{field_name} must be greater than 0'
+    return parsed, None
 
 
 def is_file_object(obj):
@@ -80,6 +96,19 @@ def create_relation(id):
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
         relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
+        relation_type, source_object, target_object, _ = normalize_relation_direction(
+            relation_type=relation_type,
+            source_object=source_object,
+            target_object=target_object,
+        )
+        max_targets_per_source, max_targets_error = _normalize_limit(data.get('max_targets_per_source'), 'max_targets_per_source')
+        if max_targets_error:
+            return jsonify({'error': max_targets_error}), 400
+
+        max_sources_per_target, max_sources_error = _normalize_limit(data.get('max_sources_per_target'), 'max_sources_per_target')
+        if max_sources_error:
+            return jsonify({'error': max_sources_error}), 400
+
         relation_type, pair_type_error = enforce_pair_relation_type(
             relation_type=relation_type,
             source_object=source_object,
@@ -93,15 +122,19 @@ def create_relation(id):
         if relation_scope_error:
             return jsonify({'error': relation_scope_error}), 422
 
+        canonical_source_id = source_object.id
+        canonical_target_id = target_object.id
         target_id_full = normalize_id_full(target_object.id_full)
-        if target_id_full and target_id_full in get_linked_id_fulls(id):
+        if target_id_full and target_id_full in get_linked_id_fulls(canonical_source_id):
             return jsonify({'error': f'Relation already exists for full ID: {target_object.id_full}'}), 409
 
         # Create relation
         relation = ObjectRelation(
-            source_object_id=id,
-            target_object_id=data['target_object_id'],
+            source_object_id=canonical_source_id,
+            target_object_id=canonical_target_id,
             relation_type=relation_type,
+            max_targets_per_source=max_targets_per_source,
+            max_sources_per_target=max_sources_per_target,
             description=data.get('description'),
             relation_metadata=data.get('metadata')
         )
@@ -158,6 +191,18 @@ def update_relation(id, relation_id):
         
         if 'metadata' in data:
             relation.relation_metadata = data['metadata']
+
+        if 'max_targets_per_source' in data:
+            max_targets_per_source, max_targets_error = _normalize_limit(data.get('max_targets_per_source'), 'max_targets_per_source')
+            if max_targets_error:
+                return jsonify({'error': max_targets_error}), 400
+            relation.max_targets_per_source = max_targets_per_source
+
+        if 'max_sources_per_target' in data:
+            max_sources_per_target, max_sources_error = _normalize_limit(data.get('max_sources_per_target'), 'max_sources_per_target')
+            if max_sources_error:
+                return jsonify({'error': max_sources_error}), 400
+            relation.max_sources_per_target = max_sources_per_target
         
         db.session.commit()
         

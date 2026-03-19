@@ -28,6 +28,10 @@ class ObjectListComponent {
         this.managedListDisplayByListId = new Map();
         this.bulkManagedMultiImportTableByField = {};
         this.bulkManagedMultiImportRowsByField = {};
+        this.tableSortState = {
+            sortColumn: null,
+            sortDirection: 'asc'
+        };
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -390,8 +394,8 @@ class ObjectListComponent {
             filteredObjects = this.objects.filter(obj => {
                 return obj.id_full.toLowerCase().includes(term) ||
                        String(obj.id_full || '').toLowerCase().includes(term) ||
-                       (obj.data && Object.values(obj.data).some(val => 
-                           String(val).toLowerCase().includes(term)
+                       (obj.data && Object.entries(obj.data).some(([fieldName, rawValue]) =>
+                           this.getResolvedColumnText(fieldName, rawValue).toLowerCase().includes(term)
                        ));
             });
         }
@@ -405,7 +409,7 @@ class ObjectListComponent {
                     const term = searchTerm.toLowerCase();
                     filteredObjects = filteredObjects.filter(obj => {
                         const value = this.getColumnValue(obj, field);
-                        return String(value).toLowerCase().includes(term);
+                        return this.getResolvedColumnText(field, value).toLowerCase().includes(term);
                     });
                 }
             }
@@ -460,6 +464,14 @@ class ObjectListComponent {
         // Initialize new TableSort instance
         if (typeof TableSort !== 'undefined' && table.id) {
             this.tableSortInstance = new TableSort(table.id);
+            this.tableSortInstance.onSortChange = (state) => {
+                this.tableSortState = {
+                    sortColumn: Number.isFinite(Number(state?.sortColumn)) ? Number(state.sortColumn) : null,
+                    sortDirection: state?.sortDirection === 'desc' ? 'desc' : 'asc'
+                };
+            };
+            this.tableSortInstance.setState(this.tableSortState);
+            this.tableSortInstance.applyCurrentSort();
         }
 
         this.enableColumnResizing(table);
@@ -818,19 +830,20 @@ class ObjectListComponent {
         if (fieldName === 'created_at') {
             return value || '';
         }
-        if (Array.isArray(value)) {
-            return value.map(item => this.normalizeSortableText(item)).join(' ');
+        const resolvedValue = this.resolveFieldDisplayValue(value, fieldName);
+        if (Array.isArray(resolvedValue)) {
+            return resolvedValue.map(item => this.normalizeSortableText(item)).join(' ');
         }
 
-        if (value && typeof value === 'object') {
-            return this.normalizeSortableText(JSON.stringify(value));
+        if (resolvedValue && typeof resolvedValue === 'object') {
+            return this.normalizeSortableText(JSON.stringify(resolvedValue));
         }
 
-        if (typeof value === 'boolean') {
-            return value ? 1 : 0;
+        if (typeof resolvedValue === 'boolean') {
+            return resolvedValue ? 1 : 0;
         }
 
-        return this.normalizeSortableText(value);
+        return this.normalizeSortableText(resolvedValue);
     }
 
     normalizeSortableText(value) {
@@ -880,7 +893,7 @@ class ObjectListComponent {
     }
     
     getColumnValue(obj, fieldName) {
-        if (fieldName === 'id_full') return obj.id_full || obj.id_full;
+        if (fieldName === 'id_full') return obj.id_full;
         if (fieldName === 'object_type') return obj.object_type?.name || '';
         if (fieldName === 'files') return Array.isArray(obj.files) ? obj.files : [];
         if (fieldName === 'created_at') return obj.created_at;
@@ -891,6 +904,83 @@ class ObjectListComponent {
         
         // Get from object data
         return obj.data?.[fieldName] || '';
+    }
+
+    decodeHtmlEntities(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&quot;/g, '"')
+            .replace(/&#34;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&apos;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&amp;/g, '&');
+    }
+
+    tryParseJsonString(value) {
+        if (typeof value !== 'string') return null;
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+
+        const candidates = [trimmed];
+        if (trimmed.includes('&')) {
+            candidates.push(this.decodeHtmlEntities(trimmed));
+        }
+
+        for (const candidate of candidates) {
+            const normalized = String(candidate || '').trim();
+            if (!normalized || !/^[\[{]/.test(normalized)) continue;
+            try {
+                return JSON.parse(normalized);
+            } catch (_error) {
+                // Ignore invalid JSON and continue with the next candidate.
+            }
+        }
+
+        return null;
+    }
+
+    getManagedListEntryLabel(entry) {
+        if (!entry || typeof entry !== 'object') return '';
+        if (Array.isArray(entry.path) && entry.path.length > 0) {
+            return entry.path
+                .map(part => String(part || '').trim())
+                .filter(Boolean)
+                .join(' > ');
+        }
+        return String(entry.label || '').trim();
+    }
+
+    normalizeSelectValue(value) {
+        if (Array.isArray(value)) return value;
+        if (!value || typeof value !== 'object') return value;
+
+        if (Array.isArray(value.selected)) {
+            return value.selected
+                .map(entry => this.getManagedListEntryLabel(entry) || entry?.selected_id)
+                .filter(item => item !== null && item !== undefined && item !== '');
+        }
+
+        if (Array.isArray(value.selected_ids)) {
+            return value.selected_ids;
+        }
+
+        if (value.selected_id !== undefined && value.selected_id !== null) {
+            return value.selected_id;
+        }
+
+        return value;
+    }
+
+    stringifyResolvedValue(value) {
+        if (Array.isArray(value)) {
+            return value.map(item => this.stringifyResolvedValue(item)).filter(Boolean).join(', ');
+        }
+        if (value && typeof value === 'object') {
+            return JSON.stringify(value);
+        }
+        return String(value ?? '');
     }
 
     getFieldDefinition(fieldName) {
@@ -942,11 +1032,14 @@ class ObjectListComponent {
         const fieldType = String(field?.field_type || '').toLowerCase();
         if (fieldType !== 'select') return value;
 
+        const parsedJsonValue = this.tryParseJsonString(value);
+        const normalizedValue = this.normalizeSelectValue(parsedJsonValue ?? value);
+
         const options = this.normalizeFieldOptions(field?.field_options);
         if (options?.source === 'managed_list') {
             const listId = Number(options.list_id);
             const listMap = this.managedListDisplayByListId.get(listId);
-            if (!listMap) return value;
+            if (!listMap) return normalizedValue;
 
             const resolveSingle = (rawValue) => {
                 if (rawValue === null || rawValue === undefined || rawValue === '') return rawValue;
@@ -961,19 +1054,19 @@ class ObjectListComponent {
                 return rawValue;
             };
 
-            if (Array.isArray(value)) {
-                return value.map(resolveSingle);
+            if (Array.isArray(normalizedValue)) {
+                return normalizedValue.map(resolveSingle);
             }
-            if (typeof value === 'string' && value.includes(',')) {
-                return value.split(',').map(part => resolveSingle(part.trim()));
+            if (typeof normalizedValue === 'string' && normalizedValue.includes(',')) {
+                return normalizedValue.split(',').map(part => resolveSingle(part.trim()));
             }
-            return resolveSingle(value);
+            return resolveSingle(normalizedValue);
         }
 
         const configuredOptions = this.parseFieldOptions(field?.field_options)
             .map(option => String(option ?? '').trim())
             .filter(Boolean);
-        if (!configuredOptions.length) return value;
+        if (!configuredOptions.length) return normalizedValue;
 
         const configuredMap = new Map(configuredOptions.map(option => [option, option]));
         const resolveConfigured = (rawValue) => {
@@ -981,13 +1074,13 @@ class ObjectListComponent {
             return configuredMap.get(key) || rawValue;
         };
 
-        if (Array.isArray(value)) {
-            return value.map(resolveConfigured);
+        if (Array.isArray(normalizedValue)) {
+            return normalizedValue.map(resolveConfigured);
         }
-        if (typeof value === 'string' && value.includes(',')) {
-            return value.split(',').map(part => resolveConfigured(part.trim()));
+        if (typeof normalizedValue === 'string' && normalizedValue.includes(',')) {
+            return normalizedValue.split(',').map(part => resolveConfigured(part.trim()));
         }
-        return resolveConfigured(value);
+        return resolveConfigured(normalizedValue);
     }
     
     formatColumnValue(obj, fieldName, value, column = null) {
@@ -1031,6 +1124,11 @@ class ObjectListComponent {
         }
 
         return this.highlightText(resolvedValue || '', fieldName);
+    }
+
+    getResolvedColumnText(fieldName, value, column = null) {
+        const resolvedValue = this.resolveFieldDisplayValue(value, fieldName, column);
+        return this.stringifyResolvedValue(resolvedValue);
     }
 
     isLikelyFileField(fieldName) {

@@ -89,26 +89,6 @@ class RelationManagerComponent {
         }
     }
 
-    async ensureSystemTableLoaded() {
-        if (typeof SystemTable === 'function') return true;
-
-        const existingScript = document.querySelector('script[data-system-table-loader="true"]');
-        if (!existingScript) {
-            const script = document.createElement('script');
-            script.src = '/static/js/components/system-table.js';
-            script.async = true;
-            script.dataset.systemTableLoader = 'true';
-            document.head.appendChild(script);
-        }
-
-        for (let i = 0; i < 20; i += 1) {
-            if (typeof SystemTable === 'function') return true;
-            await new Promise(resolve => setTimeout(resolve, 50));
-        }
-
-        return typeof SystemTable === 'function';
-    }
-
     getLinkedObject(relation) {
         return relation.direction === 'incoming' ? (relation.source_object || {}) : (relation.target_object || {});
     }
@@ -133,10 +113,8 @@ class RelationManagerComponent {
             return;
         }
 
-        const hasSystemTable = await this.ensureSystemTableLoaded();
-        if (!hasSystemTable) {
-            console.warn('SystemTable is not available, using legacy relation table rendering');
-            this.renderRelationsLegacy(listContainer, visibleRelations);
+        if (typeof SystemTable !== 'function') {
+            listContainer.innerHTML = '<p class="empty-state">Tabellkomponenten kunde inte laddas</p>';
             return;
         }
 
@@ -150,8 +128,8 @@ class RelationManagerComponent {
                 relation_id: Number(relation.id),
                 owner_object_id: relationOwnerObjectId,
                 linked_object_id: Number(linkedObject?.id),
-                id_full: linkedObject?.id_full || linkedObject?.id_full || 'N/A',
-                name: linkedObject?.data?.namn || linkedObject?.data?.Namn || linkedObject?.data?.name || linkedObject?.id_full || linkedObject?.id_full || 'Okänt objekt',
+                id_full: linkedObject?.id_full || 'N/A',
+                name: linkedObject?.data?.namn || linkedObject?.data?.Namn || linkedObject?.data?.name || linkedObject?.id_full || 'Okänt objekt',
                 type: linkedObject?.object_type?.name || 'N/A',
                 description: relation.description || linkedObject?.data?.beskrivning || linkedObject?.data?.description || ''
             };
@@ -221,70 +199,6 @@ class RelationManagerComponent {
         this.systemTable.render();
     }
 
-    renderRelationsLegacy(listContainer, visibleRelations) {
-        const sortedRelations = [...visibleRelations].sort((a, b) => {
-            const aObj = this.getLinkedObject(a);
-            const bObj = this.getLinkedObject(b);
-            const aType = String(aObj?.object_type?.name || '');
-            const bType = String(bObj?.object_type?.name || '');
-            const typeCompare = relationTextCollator.compare(aType, bType);
-            if (typeCompare !== 0) return typeCompare;
-
-            const aName = String(aObj?.data?.namn || aObj?.data?.Namn || aObj?.data?.name || aObj?.id_full || aObj?.id_full || '');
-            const bName = String(bObj?.data?.namn || bObj?.data?.Namn || bObj?.data?.name || bObj?.id_full || bObj?.id_full || '');
-            return relationTextCollator.compare(aName, bName);
-        });
-
-        listContainer.innerHTML = `
-            <div class="table-container relation-compact-table-container">
-                <table class="data-table relation-compact-table">
-                    <thead>
-                        <tr>
-                            <th class="col-id">ID</th>
-                            <th class="col-name">Namn</th>
-                            <th class="col-type">Typ</th>
-                            <th class="col-actions"></th>
-                        </tr>
-                    </thead>
-                    <tbody>${sortedRelations.map(rel => this.renderRelationRow(rel)).join('')}</tbody>
-                </table>
-            </div>
-        `;
-
-        listContainer.querySelectorAll('.relation-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const objectId = parseInt(link.dataset.objectId, 10);
-                if (typeof viewObjectDetail === 'function') viewObjectDetail(objectId);
-            });
-        });
-
-        listContainer.querySelectorAll('.relation-delete-btn').forEach(btn => {
-            btn.addEventListener('click', () => deleteRelation(parseInt(btn.dataset.ownerObjectId, 10), parseInt(btn.dataset.relationId, 10)));
-        });
-    }
-
-    renderRelationRow(relation) {
-        const linkedObject = this.getLinkedObject(relation);
-        const displayName = linkedObject.data?.namn || linkedObject.data?.Namn || linkedObject.data?.name || linkedObject.id_full || linkedObject.id_full || 'Okänt objekt';
-        const autoId = linkedObject.id_full || linkedObject.id_full || 'N/A';
-        const typeName = linkedObject.object_type?.name || 'N/A';
-        const relationOwnerObjectId = relation.direction === 'incoming' ? parseInt(relation.target_object_id, 10) : parseInt(relation.source_object_id, 10);
-
-        return `
-            <tr class="relation-row">
-                <td class="col-id relation-id"><a href="#" data-object-id="${parseInt(linkedObject.id || 0, 10)}" class="relation-link">${escapeHtml(autoId)}</a></td>
-                <td class="col-name relation-name"><strong>${escapeHtml(displayName)}</strong></td>
-                <td class="col-type relation-type-cell">${escapeHtml(typeName)}</td>
-                <td class="col-actions relation-actions-cell">
-                    <button class="btn-icon btn-danger relation-delete-btn" data-owner-object-id="${relationOwnerObjectId}" data-relation-id="${parseInt(relation.id || 0, 10)}" aria-label="Ta bort relation med ${escapeHtml(displayName)}" title="Ta bort">
-                        <span aria-hidden="true">🗑️</span><span class="sr-only">Ta bort</span>
-                    </button>
-                </td>
-            </tr>
-        `;
-    }
-
     async refresh() {
         await this.loadRelations();
     }
@@ -309,7 +223,7 @@ function setRelationModalFeedback(message = '', type = 'error') {
 }
 
 function getObjectDisplayName(obj) {
-    return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.id_full || obj?.id_full || 'Okänt objekt';
+    return obj?.data?.namn || obj?.data?.Namn || obj?.data?.name || obj?.data?.Name || obj?.id_full || 'Okänt objekt';
 }
 
 function isFileObjectType(typeName) {
@@ -361,7 +275,7 @@ function renderRelationModalSourceContext() {
     const sourceIds = Array.isArray(relationModalState.sourceIds) ? relationModalState.sourceIds : [];
     if (sourceIds.length > 1) {
         const labels = relationModalState.sourceObjects
-            .map(sourceObject => `${sourceObject.id_full || sourceObject.id_full || sourceObject.id} • ${getObjectDisplayName(sourceObject)}`)
+            .map(sourceObject => `${sourceObject.id_full || sourceObject.id} • ${getObjectDisplayName(sourceObject)}`)
             .slice(0, 3);
         const summary = labels.length ? labels.join(', ') : sourceIds.map(id => `ID ${id}`).slice(0, 3).join(', ');
         const extraCount = Math.max(sourceIds.length - 3, 0);
@@ -377,7 +291,7 @@ function renderRelationModalSourceContext() {
     }
 
     const sourceObject = relationModalState.sourceObject;
-    const autoId = sourceObject.id_full || sourceObject.id_full || relationModalState.sourceId;
+    const autoId = sourceObject.id_full || relationModalState.sourceId;
     const displayName = getObjectDisplayName(sourceObject);
     sourceElement.textContent = `Källobjekt: ${autoId} • ${displayName}`;
 }
@@ -682,7 +596,7 @@ function applyRelationTableFilters() {
 
         const searchableValues = [
             getObjectDisplayName(item),
-            item.id_full || item.id_full || '',
+            item.id_full || '',
             item.object_type?.name || '',
             item.data?.namn || '',
             item.data?.name || '',

@@ -2,6 +2,8 @@
 
 Detta dokument definierar standardmönstret för tabeller i projektet.
 
+Projektet innehåller fortfarande några äldre tabeller som använder `TableSort` och egen markup. De ska betraktas som legacy och migreras till `SystemTable` när de ändå berörs, inte kopieras som nytt mönster.
+
 ## Grundregel
 
 Alla nya tabeller i moduler, vyer och modaler ska byggas med `SystemTable`.
@@ -56,6 +58,14 @@ Tabeller som har kolumnbredder eller konfigurerbar kolumnordning ska följa samm
 
 Om manuell resize används ska beteendet vara fixed-layout-liknande: den kolumn som dras är den som synligt ändrar bredd.
 
+`SystemTable` är nu standard även för detta:
+
+- kolumnbredder är justerbara som standard
+- kolumner är flyttbara som standard
+- både kolumnordning och bredder persisteras via tabellens state
+
+Om en modul måste använda egen resize- eller drag/drop-logik ska det vara ett aktivt undantag och standardbeteendet stängas av med `resizableColumns: false` och/eller `reorderableColumns: false`.
+
 ## Visuell baseline
 
 Objektlistan är projektets visuella referens för tabeller. Det innebär normalt:
@@ -72,6 +82,7 @@ Objektlistan är projektets visuella referens för tabeller. Det innebär normal
 - Lägg modulspecifikt beteende i `columns.render`, `onRender` och event delegation.
 - Undvik egen sorterings- eller söklogik per modul om inte affärsregler kräver det.
 - Om kolumner är konfigurerbara ska både ordning och bredder kunna persistenteras.
+- Om du arbetar i en legacy-tabell med `TableSort`, migrera hellre till `SystemTable` än att bygga vidare på det äldre mönstret.
 
 ## Minimal exempelanvändning
 
@@ -79,10 +90,10 @@ Objektlistan är projektets visuella referens för tabeller. Det innebär normal
 const table = new SystemTable({
     containerId: 'my-table',
     columns: [
-        { field: 'id_full', label: 'ID', className: 'col-id' },
-        { field: 'type', label: 'Typ', className: 'col-type', badge: 'type' },
-        { field: 'name', label: 'Namn', className: 'col-name' },
-        { field: 'description', label: 'Beskrivning', className: 'col-description' }
+        { field: 'id_full', label: 'ID', className: 'col-id', width: 120 },
+        { field: 'type', label: 'Typ', className: 'col-type', badge: 'type', width: 140 },
+        { field: 'name', label: 'Namn', className: 'col-name', width: 220 },
+        { field: 'description', label: 'Beskrivning', className: 'col-description', width: 320 }
     ],
     rows,
     emptyText: 'Inga rader hittades'

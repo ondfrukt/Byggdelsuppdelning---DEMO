@@ -8,6 +8,7 @@ class ObjectDetailComponent {
         this.container = document.getElementById(containerId);
         this.objectId = objectId;
         this.object = null;
+        this.instances = [];
         this.activeTab = 'grunddata';
         this.managedListDisplayByListId = new Map();
     }
@@ -24,7 +25,7 @@ class ObjectDetailComponent {
                     <div class="view-header">
                         <div>
                             <button class="btn btn-secondary" onclick="goBack()">← Tillbaka</button>
-                            <h2>${this.object.id_full || this.object.id_full} - ${this.getDisplayName()}</h2>
+                            <h2>${this.object.id_full} - ${this.getDisplayName()}</h2>
                         </div>
                         <div>
                             <button class="btn btn-primary" onclick="editObject(${this.objectId})">
@@ -38,12 +39,25 @@ class ObjectDetailComponent {
                     
                     <div class="tabs">
                         <button class="tab-btn active" data-tab="grunddata">Grunddata</button>
+                        <button class="tab-btn" data-tab="instanser">Instanser</button>
                         <button class="tab-btn" data-tab="relationer">Relationer</button>
                         <button class="tab-btn" data-tab="dokument">Dokument</button>
                     </div>
                     
                     <div id="tab-grunddata" class="tab-content active">
                         ${this.renderGrunddata()}
+                    </div>
+
+                    <div id="tab-instanser" class="tab-content">
+                        <div id="instances-container-${this.objectId}" class="instances-tab-compact">
+                            <div class="instances-tab-actions">
+                                <p>Instanser visas här och kan också öppnas i separat panel.</p>
+                                <button type="button" class="btn btn-primary btn-sm" data-action="open-instance-workspace" data-object-id="${this.objectId}">
+                                    Öppna instanspanel
+                                </button>
+                            </div>
+                            <div id="instances-summary-table-${this.objectId}"></div>
+                        </div>
                     </div>
                     
                     <div id="tab-relationer" class="tab-content">
@@ -59,7 +73,9 @@ class ObjectDetailComponent {
             this.attachEventListeners();
             
             // Initialize relation and document managers
-            if (this.activeTab === 'relationer') {
+            if (this.activeTab === 'instanser') {
+                await this.loadInstances();
+            } else if (this.activeTab === 'relationer') {
                 await this.loadRelations();
             } else if (this.activeTab === 'dokument') {
                 await this.loadDocuments();
@@ -347,11 +363,79 @@ class ObjectDetailComponent {
         document.getElementById(`tab-${tabName}`).classList.add('active');
         
         // Load data for the active tab
-        if (tabName === 'relationer') {
+        if (tabName === 'instanser') {
+            await this.loadInstances();
+        } else if (tabName === 'relationer') {
             await this.loadRelations();
         } else if (tabName === 'dokument') {
             await this.loadDocuments();
         }
+    }
+
+    async loadInstances() {
+        const container = document.getElementById(`instances-container-${this.objectId}`);
+        if (!container) return;
+
+        container.querySelector('[data-action="open-instance-workspace"]')?.addEventListener('click', async () => {
+            await openInstanceWorkspace(this.objectId, this.object);
+        });
+
+        this.instances = await InstancesAPI.getAll({ object_id: this.objectId });
+        this.renderInstancesSummaryTable(container);
+        container.dataset.loaded = 'true';
+    }
+
+    getLinkedObjectForInstance(instance) {
+        const isOutgoing = Number(instance?.parent_object_id) === Number(this.objectId);
+        return isOutgoing ? instance?.child_object : instance?.parent_object;
+    }
+
+    getInstanceDisplayName(obj) {
+        if (!obj) return 'Okänt objekt';
+        if (window.ObjectListDisplayName?.resolveObjectDisplayName) {
+            return window.ObjectListDisplayName.resolveObjectDisplayName(obj);
+        }
+        return obj?.data?.namn || obj?.data?.name || obj?.id_full || `Objekt ${obj?.id || ''}`;
+    }
+
+    renderInstancesSummaryTable(container) {
+        const tableHostId = `instances-summary-table-${this.objectId}`;
+        const tableHost = document.getElementById(tableHostId);
+        if (!tableHost) return;
+
+        if (typeof SystemTable !== 'function') {
+            tableHost.innerHTML = '<p class="error">SystemTable saknas</p>';
+            return;
+        }
+
+        const rows = (this.instances || []).map((instance) => {
+            const linkedObject = this.getLinkedObjectForInstance(instance);
+            return {
+                instance_id: Number(instance.id),
+                direction: Number(instance.parent_object_id) === Number(this.objectId) ? 'Utgående' : 'Inkommande',
+                type: linkedObject?.object_type?.name || 'N/A',
+                name: this.getInstanceDisplayName(linkedObject),
+                id_full: linkedObject?.id_full || 'N/A',
+                instance_type: String(instance.instance_type || ''),
+            };
+        });
+
+        const table = new SystemTable({
+            containerId: tableHostId,
+            tableId: `instances-summary-table-${this.objectId}-system-table`,
+            columns: [
+                { field: 'id_full', label: 'ID', className: 'col-id', width: 110 },
+                { field: 'type', label: 'Typ', className: 'col-type', badge: 'type', width: 110 },
+                { field: 'name', label: 'Namn', className: 'col-name', width: 220 },
+                { field: 'instance_type', label: 'Instanstyp', className: 'col-name', width: 180 },
+                { field: 'direction', label: 'Riktning', className: 'col-status', width: 100 },
+            ],
+            rows,
+            emptyText: 'Inga instanser kopplade till detta objekt',
+            onRowClick: () => openInstanceWorkspace(this.objectId, this.object)
+        });
+
+        table.render();
     }
     
     async loadRelations() {

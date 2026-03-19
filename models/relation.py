@@ -13,6 +13,8 @@ class ObjectRelation(db.Model):
     source_object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     target_object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     relation_type = db.Column(db.String(100), nullable=False)
+    max_targets_per_source = db.Column(db.Integer)
+    max_sources_per_target = db.Column(db.Integer)
     description = db.Column(db.Text)
     relation_metadata = db.Column(JSON_TYPE)  # JSONB on PostgreSQL, JSON elsewhere
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -39,6 +41,8 @@ class ObjectRelation(db.Model):
             'objectB_id': self.target_object_id,
             'objectB_type': self.target_object.object_type.name if self.target_object and self.target_object.object_type else None,
             'relation_type': self.relation_type,
+            'max_targets_per_source': self.max_targets_per_source,
+            'max_sources_per_target': self.max_sources_per_target,
             'description': self.description,
             'metadata': self.relation_metadata,  # Return as 'metadata' in API
             'created_at': self.created_at.isoformat() if self.created_at else None

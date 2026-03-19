@@ -95,6 +95,12 @@ def create_app():
             logger.warning(f"Relation type rules is_allowed migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_instances_and_relation_limits import run_migration as run_instances_migration
+            run_instances_migration(db)
+        except Exception as e:
+            logger.warning(f"Instances migration may have already run: {str(e)}")
+
+        try:
             from migrations.backfill_relation_type_rule_matrix import run_migration as run_relation_rule_matrix_backfill
             run_relation_rule_matrix_backfill(db)
         except Exception as e:
@@ -214,6 +220,12 @@ def create_app():
             run_change_management_migration(db)
         except Exception as e:
             logger.warning(f"Change management migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_instance_type_fields import run_migration as run_instance_type_fields_migration
+            run_instance_type_fields_migration(db)
+        except Exception as e:
+            logger.warning(f"Instance type fields migration may have already run: {str(e)}")
         
         seed_data(app)
 
@@ -235,6 +247,12 @@ def create_app():
             run_identifier_migration(db)
         except Exception as e:
             logger.warning(f"Identifier normalization post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_instances_and_relation_limits import run_migration as run_instances_migration
+            run_instances_migration(db)
+        except Exception as e:
+            logger.warning(f"Instances post-seed migration may have already run: {str(e)}")
 
         try:
             from migrations.remove_auto_id_from_objects import run_migration as run_remove_auto_id_migration
