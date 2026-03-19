@@ -355,12 +355,15 @@ def get_tree_view_category_path(obj, tree_view, managed_list_cache=None):
     return [fallback_label]
 
 
-def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
+def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, relations_lookup=None):
     tree_nodes = []
     for root_object in root_objects:
-        outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
-        incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
-        relations = outgoing + incoming
+        if relations_lookup is not None:
+            relations = relations_lookup.get(root_object.id, [])
+        else:
+            outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
+            incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
+            relations = outgoing + incoming
 
         children = []
         children_by_type = {}
@@ -387,7 +390,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
                     'data': linked_object_data,
                     'kravtext': get_tree_requirement_text(linked_object),
                     'beskrivning': get_tree_short_description(linked_object),
-                    'files': collect_tree_files_for_object(linked_object)
+                    'files': collect_tree_files_for_object(linked_object, relations_lookup)
                 })
 
         for type_name in sorted(children_by_type.keys(), key=natural_sort_key):
@@ -412,7 +415,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
             'data': root_data,
             'kravtext': get_tree_requirement_text(root_object),
             'beskrivning': get_tree_short_description(root_object),
-            'files': collect_tree_files_for_object(root_object),
+            'files': collect_tree_files_for_object(root_object, relations_lookup),
             'children': children
         })
 
@@ -421,6 +424,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None):
 
 def build_category_group_tree(root_objects, tree_view, view_config):
     managed_list_cache = {}
+    relations_lookup = build_relations_lookup([obj.id for obj in root_objects])
     category_tree = {}
 
     for root_object in root_objects:
@@ -449,7 +453,7 @@ def build_category_group_tree(root_objects, tree_view, view_config):
                 'id': f"category-{tree_view}-{group_slug}-{index}",
                 'name': group_name,
                 'type': 'group',
-                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache)
+                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache, relations_lookup)
             })
         return nodes
 
@@ -781,8 +785,33 @@ def get_document_link_description(document, owner_object=None):
     return stem or 'PDF-dokument'
 
 
-def collect_tree_files_for_object(obj):
-    """Collect direct and indirectly linked files for an object in tree view."""
+def build_relations_lookup(object_ids):
+    """Batch-load all relations for a list of object IDs in a single query.
+
+    Returns a dict mapping each object_id to a list of its relations,
+    avoiding one query per object (N+1 problem).
+    """
+    if not object_ids:
+        return {}
+    all_relations = ObjectRelation.query.filter(
+        (ObjectRelation.source_object_id.in_(object_ids)) |
+        (ObjectRelation.target_object_id.in_(object_ids))
+    ).all()
+    lookup = {obj_id: [] for obj_id in object_ids}
+    for relation in all_relations:
+        if relation.source_object_id in lookup:
+            lookup[relation.source_object_id].append(relation)
+        if relation.target_object_id in lookup:
+            lookup[relation.target_object_id].append(relation)
+    return lookup
+
+
+def collect_tree_files_for_object(obj, relations_lookup=None):
+    """Collect direct and indirectly linked files for an object in tree view.
+
+    Pass relations_lookup (from build_relations_lookup) to avoid an extra
+    database query per object.
+    """
     files = []
     seen_ids = set()
 
@@ -801,10 +830,13 @@ def collect_tree_files_for_object(obj):
         add_document(document, owner=obj, source='direct')
 
     # Indirect files through related document/drawing objects
-    relations = ObjectRelation.query.filter(
-        (ObjectRelation.source_object_id == obj.id) |
-        (ObjectRelation.target_object_id == obj.id)
-    ).all()
+    if relations_lookup is not None:
+        relations = relations_lookup.get(obj.id, [])
+    else:
+        relations = ObjectRelation.query.filter(
+            (ObjectRelation.source_object_id == obj.id) |
+            (ObjectRelation.target_object_id == obj.id)
+        ).all()
 
     for relation in relations:
         linked_object = relation.target_object if relation.source_object_id == obj.id else relation.source_object
@@ -817,9 +849,9 @@ def collect_tree_files_for_object(obj):
     return files
 
 
-def enrich_object_with_file_metadata(payload, obj):
+def enrich_object_with_file_metadata(payload, obj, relations_lookup=None):
     """Attach file metadata used by list and table views."""
-    files = collect_tree_files_for_object(obj)
+    files = collect_tree_files_for_object(obj, relations_lookup)
     payload['files'] = files
     payload['file_count'] = len(files)
     payload['has_files'] = len(files) > 0
@@ -842,6 +874,9 @@ def list_objects():
             query = query.join(ObjectType).filter(ObjectType.name == object_type_name)
 
         objects = query.order_by(Object.created_at.desc()).all()
+
+        # Pre-fetch all relations in one query to avoid N+1 per object
+        relations_lookup = build_relations_lookup([obj.id for obj in objects])
 
         if search:
             search_lower = search.lower()
@@ -881,7 +916,7 @@ def list_objects():
                     if key.lower() in minimal_fields
                 }
             }
-            return enrich_object_with_file_metadata(payload, obj)
+            return enrich_object_with_file_metadata(payload, obj, relations_lookup)
 
         if page and per_page:
             total = len(objects)
@@ -892,7 +927,7 @@ def list_objects():
             page_objects = objects[start_index:end_index]
 
             items = [to_minimal_payload(obj) for obj in page_objects] if minimal else [
-                enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj)
+                enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj, relations_lookup)
                 for obj in page_objects
             ]
             return jsonify({
@@ -907,7 +942,7 @@ def list_objects():
             return jsonify([to_minimal_payload(obj) for obj in objects]), 200
 
         return jsonify([
-            enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj)
+            enrich_object_with_file_metadata(obj.to_dict(include_data=True), obj, relations_lookup)
             for obj in objects
         ]), 200
     except Exception as e:
@@ -1458,7 +1493,8 @@ def get_tree():
 
         if tree_view == 'system':
             # For system view, system objects themselves should be top-level nodes.
-            return jsonify(build_tree_root_nodes(root_objects, view_config)), 200
+            relations_lookup = build_relations_lookup([obj.id for obj in root_objects])
+            return jsonify(build_tree_root_nodes(root_objects, view_config, relations_lookup=relations_lookup)), 200
 
         return jsonify(build_category_group_tree(root_objects, tree_view, view_config)), 200
     except Exception as e:
