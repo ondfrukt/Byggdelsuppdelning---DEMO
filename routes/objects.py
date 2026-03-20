@@ -542,7 +542,6 @@ def build_category_group_tree(root_objects, tree_view, view_config):
                 'name': group_name,
                 'type': 'group',
                 'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache, tree_view=tree_view)
-                'children': child_groups + build_tree_root_nodes(group_data['objects'], view_config, managed_list_cache, relations_lookup)
             })
         return nodes
 
