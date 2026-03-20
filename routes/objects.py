@@ -360,15 +360,6 @@ def build_instance_child_nodes(parent_object, view_config, managed_list_cache=No
     visited_ids = set(visited_ids or set())
     if parent_object.id in visited_ids:
         return []
-def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, relations_lookup=None):
-    tree_nodes = []
-    for root_object in root_objects:
-        if relations_lookup is not None:
-            relations = relations_lookup.get(root_object.id, [])
-        else:
-            outgoing = ObjectRelation.query.filter_by(source_object_id=root_object.id).all()
-            incoming = ObjectRelation.query.filter_by(target_object_id=root_object.id).all()
-            relations = outgoing + incoming
 
     next_visited_ids = set(visited_ids)
     next_visited_ids.add(parent_object.id)
@@ -379,30 +370,6 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, re
         child_object = instance.child_object
         if not child_object or child_object.id in next_visited_ids:
             continue
-        for relation in relations:
-            linked_object = relation.target_object if relation.source_object_id == root_object.id else relation.source_object
-            direction = 'outgoing' if relation.source_object_id == root_object.id else 'incoming'
-
-            if linked_object:
-                type_name = linked_object.object_type.name
-                if type_name not in children_by_type:
-                    children_by_type[type_name] = []
-
-                display_name = get_display_name(linked_object, type_name, view_config)
-                linked_object_data = build_tree_display_data(linked_object, managed_list_cache)
-
-                children_by_type[type_name].append({
-                    'id': str(linked_object.id),
-                    'id_full': linked_object.id_full,
-                    'name': display_name,
-                    'type': type_name,
-                    'direction': direction,
-                    'created_at': linked_object.created_at.isoformat() if linked_object.created_at else None,
-                    'data': linked_object_data,
-                    'kravtext': get_tree_requirement_text(linked_object),
-                    'beskrivning': get_tree_short_description(linked_object),
-                    'files': collect_tree_files_for_object(linked_object, relations_lookup)
-                })
 
         type_name = child_object.object_type.name if child_object.object_type else 'Objekt'
         children_by_type.setdefault(type_name, [])
@@ -503,7 +470,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, tr
             'data': root_data,
             'kravtext': get_tree_requirement_text(root_object),
             'beskrivning': get_tree_short_description(root_object),
-            'files': collect_tree_files_for_object(root_object, relations_lookup),
+            'files': collect_tree_files_for_object(root_object),
             'children': children
         })
 
