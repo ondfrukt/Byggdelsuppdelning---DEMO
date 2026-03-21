@@ -122,7 +122,7 @@ function updateObjectsWorkspaceHeader(options = {}) {
         title = 'Objekt',
         showCreateButton = true,
         createButtonLabel = 'Skapa Objekt',
-        createButtonAction = 'showCreateObjectModal()'
+        createButtonAction = 'openCreateObjectTypeDropdown(this)'
     } = options;
 
     const objectsView = document.getElementById('objects-view');
@@ -168,7 +168,7 @@ async function loadObjectsView(options = {}) {
         title = 'Objekt',
         showCreateButton = true,
         createButtonLabel = 'Skapa Objekt',
-        createButtonAction = 'showCreateObjectModal()'
+        createButtonAction = 'openCreateObjectTypeDropdown(this)'
     } = options;
 
     const objectListWrapper = document.getElementById('objects-container-wrapper');
@@ -1193,12 +1193,77 @@ async function openCreateObjectRelationPicker() {
 }
 
 // Create new object
-async function showCreateObjectModal() {
+let _cachedObjectTypes = null;
+
+async function _loadObjectTypes() {
+    if (!_cachedObjectTypes) {
+        _cachedObjectTypes = await ObjectTypesAPI.getAll();
+    }
+    return _cachedObjectTypes;
+}
+
+async function openCreateObjectTypeDropdown(buttonEl) {
+    // Toggle: close if already open
+    const existing = document.getElementById('create-object-type-dropdown');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    let types;
+    try {
+        types = await _loadObjectTypes();
+    } catch (e) {
+        showToast('Kunde inte ladda objekttyper', 'error');
+        return;
+    }
+
+    const HIDDEN_TYPES = ['Classifications_system', 'Classification_node', 'FileObjekt'];
+    const visibleTypes = types.filter(t => !HIDDEN_TYPES.includes(t.name));
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'create-object-type-dropdown';
+    dropdown.className = 'create-object-type-dropdown';
+    dropdown.innerHTML = visibleTypes.map(type => {
+        const color = getObjectTypeColor(type.name);
+        return `<button type="button" class="create-object-type-item"
+                        data-type-id="${type.id}"
+                        data-type-name="${escapeHtml(type.name)}">
+                    <span class="object-type-badge" style="background-color:${color};">${escapeHtml(type.name)}</span>
+                </button>`;
+    }).join('');
+
+    dropdown.addEventListener('click', e => {
+        const item = e.target.closest('.create-object-type-item');
+        if (!item) return;
+        selectCreateObjectType(Number(item.dataset.typeId), item.dataset.typeName);
+    });
+
+    buttonEl.parentElement.style.position = 'relative';
+    buttonEl.parentElement.appendChild(dropdown);
+
+    // Close on outside click
+    setTimeout(() => {
+        document.addEventListener('click', function closeDropdown(e) {
+            if (!dropdown.contains(e.target) && e.target !== buttonEl) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        });
+    }, 0);
+}
+
+async function selectCreateObjectType(typeId, typeName) {
+    document.getElementById('create-object-type-dropdown')?.remove();
+    await showCreateObjectModal(typeId, typeName);
+}
+
+async function showCreateObjectModal(preselectedTypeId = null, preselectedTypeName = null) {
     const modal = document.getElementById('object-modal');
     const overlay = document.getElementById('modal-overlay');
-    
+
     if (!modal || !overlay) return;
-    
+
     // Clear previous form data
     window.currentObjectForm = null;
     window.currentDuplicateContext = null;
@@ -1209,18 +1274,25 @@ async function showCreateObjectModal() {
     if (formContainer) {
         formContainer.innerHTML = '';
     }
-    
+
+    // Update modal title
+    const titleEl = document.getElementById('object-modal-title');
+    if (titleEl) titleEl.textContent = preselectedTypeName ? `Skapa ${preselectedTypeName}` : 'Skapa Objekt';
+
+    // Show/hide the type selector row
+    const typeSelectGroup = document.getElementById('object-type-select-group');
+    if (typeSelectGroup) typeSelectGroup.style.display = preselectedTypeId ? 'none' : '';
+
     // Load object types
     try {
-        const types = await ObjectTypesAPI.getAll();
+        const types = await _loadObjectTypes();
         const typeSelect = document.getElementById('object-type-select');
-        
+
         if (typeSelect) {
             typeSelect.disabled = false;
             typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
                 types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
-            
-            // Listen for type selection
+
             typeSelect.onchange = async (e) => {
                 const typeId = e.target.value;
                 if (typeId) {
@@ -1232,13 +1304,25 @@ async function showCreateObjectModal() {
                     }
                 }
             };
+
+            // Pre-select type from dropdown
+            if (preselectedTypeId) {
+                typeSelect.value = String(preselectedTypeId);
+                const type = types.find(t => t.id == preselectedTypeId);
+                if (type) {
+                    const formComponent = new ObjectFormComponent(type);
+                    await formComponent.render('object-form-container');
+                    window.currentObjectForm = formComponent;
+                }
+            }
         }
-        
+
         modal.dataset.mode = 'create';
         modal.style.display = 'block';
         overlay.style.display = 'block';
         const catSection = document.getElementById('object-category-section');
-        if (catSection) catSection.style.display = 'none';
+        if (catSection) catSection.style.display = preselectedTypeId ? '' : 'none';
+        if (preselectedTypeId) await initCreateCategorySection(preselectedTypeName);
     } catch (error) {
         console.error('Failed to load object types:', error);
         showToast('Kunde inte ladda objekttyper', 'error');
@@ -1621,21 +1705,21 @@ async function editObject(objectId) {
         overlay.style.display = 'block';
 
         // Load category section (non-blocking)
-        loadModalCategorySection(objectId);
+        loadModalCategorySection(objectId, typeData.name);
     } catch (error) {
         console.error('Failed to load object for editing:', error);
         showToast('Kunde inte ladda objekt', 'error');
     }
 }
 
-async function loadModalCategorySection(objectId) {
+async function loadModalCategorySection(objectId, typeName) {
     const section = document.getElementById('object-category-section');
     const list = document.getElementById('object-category-assignments-list');
-    const select = document.getElementById('modal-cat-node-select');
-    if (!section || !list || !select) return;
+    if (!section || !list) return;
 
     section.style.display = 'block';
     section.dataset.objectId = objectId;
+    if (typeName) section.dataset.typeName = typeName;
     list.innerHTML = '<span style="color:#888;font-size:13px;">Laddar...</span>';
 
     try {
@@ -1643,13 +1727,25 @@ async function loadModalCategorySection(objectId) {
             fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json()),
             fetch('/api/classification-systems').then(r => r.json()),
         ]);
-        const allNodes = await Promise.all(
-            systems.map(sys => fetch(`/api/category-nodes?system_id=${sys.id}`).then(r => r.json()))
+
+        // Filter systems by type mapping (same as create mode)
+        const resolvedType = typeName || section.dataset.typeName || null;
+        const targetSystemName = _TYPE_CATEGORY_SYSTEM_MAP[resolvedType] || null;
+        const filteredSystems = targetSystemName
+            ? systems.filter(s => s.name === targetSystemName)
+            : systems;
+
+        // Load hierarchical tree data for the picker
+        const allRoots = await Promise.all(
+            filteredSystems.map(sys =>
+                fetch(`/api/category-nodes?system_id=${sys.id}&parent_id=null&include_children=true`).then(r => r.json())
+            )
         );
+        _catPickerSystems = filteredSystems.map((sys, i) => ({ name: sys.name, roots: allRoots[i] }));
 
         const assignedNodeIds = new Set(assignments.map(a => a.category_node_id));
+        section.dataset.assignedNodeIds = JSON.stringify([...assignedNodeIds]);
 
-        // Render assigned list
         if (assignments.length === 0) {
             list.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0 0 6px;">Ingen kategori kopplad ännu.</p>';
         } else {
@@ -1664,34 +1760,148 @@ async function loadModalCategorySection(objectId) {
                 </div>`;
             }).join('');
         }
-
-        // Populate select
-        let opts = '<option value="">— Välj nod —</option>';
-        systems.forEach((sys, i) => {
-            const nodes = allNodes[i];
-            if (!nodes.length) return;
-            opts += `<optgroup label="${escapeHtml(sys.name || '')}">`;
-            nodes.sort((a, b) => a.level - b.level || (a.name || '').localeCompare(b.name || '', 'sv'));
-            nodes.forEach(n => {
-                const indent = '\u00a0\u00a0'.repeat(n.level - 1);
-                const disabled = assignedNodeIds.has(n.id) ? ' disabled' : '';
-                opts += `<option value="${n.id}"${disabled}>${indent}${escapeHtml(n.name || '')}</option>`;
-            });
-            opts += '</optgroup>';
-        });
-        select.innerHTML = opts;
     } catch (e) {
         list.innerHTML = `<p style="color:#c0392b;font-size:13px;">Kunde inte ladda kategorier: ${e.message}</p>`;
     }
 }
 
-async function modalAddCategoryAssignment() {
-    const section = document.getElementById('object-category-section');
-    const select = document.getElementById('modal-cat-node-select');
-    const objectId = parseInt(section?.dataset.objectId, 10);
-    const nodeId = parseInt(select?.value, 10);
-    if (!objectId || !nodeId) return;
+let _pendingCategoryNodes = [];
+let _catPickerSystems = [];       // [{name, roots:[]}]
+let _catPickerExpandedIds = new Set();
 
+function openCategoryNodePicker() {
+    const picker = document.getElementById('cat-node-picker');
+    if (!picker) return;
+
+    // Set up event delegation once on the persistent container
+    const tree = document.getElementById('cat-node-picker-tree');
+    if (tree && !tree._delegationReady) {
+        tree._delegationReady = true;
+        tree.addEventListener('click', e => {
+            if (e.target.closest('.tree-toggle')) return; // toggle handles itself
+            const tr = e.target.closest('tr.tree-node:not(.already-selected)');
+            if (!tr) return;
+            _catPickerSelect(parseInt(tr.dataset.nodeId, 10), tr.dataset.nodeName);
+        });
+    }
+
+    _catPickerExpandedIds = new Set();
+    const searchInput = document.getElementById('cat-node-picker-search');
+    if (searchInput) searchInput.value = '';
+    _renderCatPickerTree('');
+    picker.style.display = 'flex';
+}
+
+function closeCategoryNodePicker() {
+    const picker = document.getElementById('cat-node-picker');
+    if (picker) picker.style.display = 'none';
+}
+
+function _catPickerSearch(term) {
+    _renderCatPickerTree(term);
+}
+
+function _catPickerToggle(nodeId) {
+    if (_catPickerExpandedIds.has(nodeId)) {
+        _catPickerExpandedIds.delete(nodeId);
+    } else {
+        _catPickerExpandedIds.add(nodeId);
+    }
+    const searchInput = document.getElementById('cat-node-picker-search');
+    _renderCatPickerTree(searchInput?.value || '');
+}
+
+function _renderCatPickerTree(term) {
+    const container = document.getElementById('cat-node-picker-tree');
+    if (!container) return;
+    const q = (term || '').trim().toLowerCase();
+
+    // Collect currently-selected ids
+    const section = document.getElementById('object-category-section');
+    const objectId = parseInt(section?.dataset.objectId, 10);
+    let alreadyIds;
+    if (!objectId) {
+        alreadyIds = new Set(_pendingCategoryNodes.map(n => n.id));
+    } else {
+        try { alreadyIds = new Set(JSON.parse(section.dataset.assignedNodeIds || '[]')); }
+        catch { alreadyIds = new Set(); }
+    }
+
+    function nodeMatches(node) {
+        if (!q) return true;
+        if ((node.name || '').toLowerCase().includes(q)) return true;
+        if ((node.code || '').toLowerCase().includes(q)) return true;
+        return (node.children || []).some(c => nodeMatches(c));
+    }
+
+    const rows = [];
+
+    function flattenNode(node, depth) {
+        if (!nodeMatches(node)) return;
+        const hasChildren = (node.children || []).length > 0;
+        const isExpanded = _catPickerExpandedIds.has(node.id) || (!!q && hasChildren);
+        rows.push({ node, depth, hasChildren, isExpanded });
+        if (hasChildren && isExpanded) {
+            node.children.forEach(c => flattenNode(c, depth + 1));
+        }
+    }
+
+    if (_catPickerSystems.length === 0) {
+        container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga kategorier tillgängliga.</p>';
+        return;
+    }
+
+    const showHeader = _catPickerSystems.length > 1;
+    let tableRows = '';
+
+    _catPickerSystems.forEach(sys => {
+        rows.length = 0;
+        sys.roots.forEach(n => flattenNode(n, 0));
+
+        if (showHeader) {
+            tableRows += `<tr class="tree-node-group"><td colspan="1" style="padding:6px 10px;font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;background:var(--bg-secondary);">${escapeHtml(sys.name)}</td></tr>`;
+        }
+
+        rows.forEach(({ node, depth, hasChildren, isExpanded }) => {
+            const isAlready = alreadyIds.has(node.id);
+            const indent = depth * 18;
+
+            const toggle = hasChildren
+                ? `<span class="tree-toggle${isExpanded ? ' expanded' : ''}" onclick="event.stopPropagation();_catPickerToggle(${node.id})">❯</span>`
+                : '<span class="tree-spacer"></span>';
+
+            const label = `<span class="tree-label">${escapeHtml(node.name || '')}</span>`;
+            const alreadyTag = isAlready ? ' <span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(redan vald)</span>' : '';
+
+            tableRows += `<tr class="tree-node${hasChildren ? ' has-children' : ''}${isAlready ? ' already-selected' : ''}" data-node-id="${node.id}" data-node-name="${escapeHtml(node.name || '')}">
+                <td><div class="tree-cell-content" style="padding-left:${indent}px">${toggle}${label}${alreadyTag}</div></td>
+            </tr>`;
+        });
+    });
+
+    if (!tableRows) {
+        container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga träffar.</p>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table cat-node-picker-table" style="width:100%;table-layout:fixed;"><tbody>${tableRows}</tbody></table>`;
+}
+
+async function _catPickerSelect(nodeId, nodeName) {
+    const section = document.getElementById('object-category-section');
+    const objectId = parseInt(section?.dataset.objectId, 10);
+
+    if (!objectId) {
+        // Create mode
+        if (_pendingCategoryNodes.some(n => n.id === nodeId)) { closeCategoryNodePicker(); return; }
+        _pendingCategoryNodes.push({ id: nodeId, name: nodeName });
+        _renderPendingCategoryList();
+        closeCategoryNodePicker();
+        return;
+    }
+
+    // Edit mode: save directly
+    const typeName = section?.dataset.typeName || null;
     try {
         const resp = await fetch('/api/object-category-assignments', {
             method: 'POST',
@@ -1702,19 +1912,79 @@ async function modalAddCategoryAssignment() {
             const err = await resp.json().catch(() => ({}));
             throw new Error(err.error || `HTTP ${resp.status}`);
         }
-        await loadModalCategorySection(objectId);
+        closeCategoryNodePicker();
+        await loadModalCategorySection(objectId, typeName);
     } catch (e) {
         showToast('Kunde inte koppla kategori: ' + e.message, 'error');
     }
 }
 
+const _TYPE_CATEGORY_SYSTEM_MAP = {
+    'Assembly': 'Byggdelar',
+    'Space':    'Utrymmen',
+    'System':   'System',
+};
+
+async function initCreateCategorySection(typeName) {
+    const section = document.getElementById('object-category-section');
+    const list = document.getElementById('object-category-assignments-list');
+    if (!section || !list) return;
+
+    section.dataset.objectId = '';
+    _pendingCategoryNodes = [];
+    _catPickerSystems = [];
+    _renderPendingCategoryList();
+
+    try {
+        const systems = await fetch('/api/classification-systems').then(r => r.json());
+
+        const targetSystemName = _TYPE_CATEGORY_SYSTEM_MAP[typeName] || null;
+        const filteredSystems = targetSystemName
+            ? systems.filter(s => s.name === targetSystemName)
+            : systems;
+
+        if (filteredSystems.length === 0) return;
+
+        const allRoots = await Promise.all(
+            filteredSystems.map(sys =>
+                fetch(`/api/category-nodes?system_id=${sys.id}&parent_id=null&include_children=true`).then(r => r.json())
+            )
+        );
+        _catPickerSystems = filteredSystems.map((sys, i) => ({ name: sys.name, roots: allRoots[i] }));
+    } catch (e) {
+        list.innerHTML = `<p style="color:#c0392b;font-size:13px;">Kunde inte ladda kategorier: ${e.message}</p>`;
+    }
+}
+
+function _renderPendingCategoryList() {
+    const list = document.getElementById('object-category-assignments-list');
+    if (!list) return;
+    if (_pendingCategoryNodes.length === 0) {
+        list.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0 0 6px;">Ingen kategori vald ännu.</p>';
+        return;
+    }
+    list.innerHTML = _pendingCategoryNodes.map((node, idx) => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+            <span>${escapeHtml(node.name)}</span>
+            <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:12px;"
+                    onclick="_removePendingCategoryNode(${idx})">✕</button>
+        </div>
+    `).join('');
+}
+
+function _removePendingCategoryNode(idx) {
+    _pendingCategoryNodes.splice(idx, 1);
+    _renderPendingCategoryList();
+}
+
 async function modalRemoveCategoryAssignment(assignmentId) {
     const section = document.getElementById('object-category-section');
     const objectId = parseInt(section?.dataset.objectId, 10);
+    const typeName = section?.dataset.typeName || null;
     try {
         const resp = await fetch(`/api/object-category-assignments/${assignmentId}`, { method: 'DELETE' });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        await loadModalCategorySection(objectId);
+        await loadModalCategorySection(objectId, typeName);
     } catch (e) {
         showToast('Kunde inte ta bort: ' + e.message, 'error');
     }
@@ -1795,6 +2065,16 @@ async function saveObject(event) {
                 }
             }
             resetCreateObjectRelationSelection();
+            if (_pendingCategoryNodes.length > 0 && Number.isFinite(createdObjectId)) {
+                await Promise.allSettled(_pendingCategoryNodes.map(node =>
+                    fetch('/api/object-category-assignments', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ object_id: createdObjectId, category_node_id: node.id, is_primary: true })
+                    })
+                ));
+                _pendingCategoryNodes = [];
+            }
         } else if (mode === 'create-file-object') {
             const batchState = window.currentFileObjectBatchUpload;
             const rows = Array.isArray(batchState?.rows) ? batchState.rows : [];

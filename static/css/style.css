@@ -235,7 +235,43 @@ body {
     gap: var(--spacing-sm);
     align-items: center;
     flex-wrap: wrap;
+    position: relative;
 }
+
+.create-object-type-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.14);
+    min-width: 200px;
+    z-index: 200;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.create-object-type-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    text-align: left;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.create-object-type-item:hover {
+    background: var(--bg-secondary);
+}
+
 
 /* Status Badge Styles */
 .status-badge.under-utveckling {
@@ -1315,6 +1351,108 @@ body {
     color: var(--text-secondary);
 }
 
+/* Category node tree picker */
+.cat-node-picker-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cat-node-picker-panel {
+    background: #ffffff;
+    border-radius: var(--radius-md);
+    box-shadow: 0 12px 32px rgba(2, 6, 23, 0.22);
+    width: 420px;
+    max-height: 520px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cat-node-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.cat-node-picker-search-row {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.cat-node-picker-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.cat-node-picker-tree {
+    padding: 0;
+}
+
+/* Form demo (admin Formulär-demo tab) */
+.form-demo-wrapper {
+    max-width: 860px;
+    padding: 24px;
+}
+
+.form-demo-form {
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: #f1f5f9;
+    font-size: 0.875rem;
+}
+
+.form-demo-form .form-control {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    padding: 5px 9px;
+    font-size: 0.85rem;
+}
+
+.form-demo-form .form-group {
+    margin-bottom: var(--spacing-sm);
+}
+
+.form-demo-form .form-group label {
+    margin-bottom: 3px;
+    font-size: 0.8rem;
+}
+
+
+
+.form-demo-form .form-help {
+    font-size: 0.72rem;
+}
+
+.form-demo-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-sm);
+    align-items: start;
+}
+
+.form-demo-fields .form-group {
+    margin-bottom: 0;
+}
+
+.form-demo-fields .form-group-half {
+    grid-column: span 1;
+}
+
+.form-demo-fields .form-group-full {
+    grid-column: span 2;
+}
+
 .managed-multi-select {
     display: flex;
     flex-direction: column;
@@ -1364,6 +1502,19 @@ body {
     color: #1d4ed8;
     font-size: 0.82rem;
     font-weight: 600;
+}
+
+.managed-multi-select-toolbar .managed-multi-select-search {
+    flex: 1;
+    min-width: 0;
+}
+
+.managed-multi-select-no-results {
+    width: 100%;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    display: none;
 }
 
 .managed-multi-select-options {
@@ -5582,7 +5733,8 @@ body.instance-workspace-open {
     background: rgba(37, 99, 235, 0.18);
 }
 
-#tree-system-table .tree-cell-content {
+#tree-system-table .tree-cell-content,
+.cat-node-picker-table .tree-cell-content {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -5590,7 +5742,9 @@ body.instance-workspace-open {
 }
 
 #tree-system-table .tree-toggle,
-#tree-system-table .tree-spacer {
+#tree-system-table .tree-spacer,
+.cat-node-picker-table .tree-toggle,
+.cat-node-picker-table .tree-spacer {
     width: 18px;
     min-width: 18px;
     display: inline-flex;
@@ -5598,22 +5752,39 @@ body.instance-workspace-open {
     justify-content: center;
 }
 
-#tree-system-table .tree-toggle {
+#tree-system-table .tree-toggle,
+.cat-node-picker-table .tree-toggle {
     color: var(--text-secondary);
     cursor: pointer;
     user-select: none;
 }
 
-#tree-system-table .tree-toggle.expanded {
+#tree-system-table .tree-toggle.expanded,
+.cat-node-picker-table .tree-toggle.expanded {
     color: var(--text-primary);
 }
 
-#tree-system-table .tree-label {
+#tree-system-table .tree-label,
+.cat-node-picker-table .tree-label {
     min-width: 0;
 }
 
 #tree-system-table .tree-label-group {
     color: var(--text-primary);
+}
+
+.cat-node-picker-table.data-table tbody tr.tree-node:hover td {
+    background: var(--bg-tertiary);
+    cursor: pointer;
+}
+
+.cat-node-picker-table.data-table tbody tr.tree-node.already-selected td {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.cat-node-picker-table.data-table tbody tr.tree-node.already-selected:hover td {
+    background: transparent;
 }
 
 #tree-system-table .tree-count {

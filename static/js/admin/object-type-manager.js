@@ -146,6 +146,9 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="tree-demo" onclick="adminManager.switchTab('tree-demo')">
                         Träd-demo
                     </button>
+                    <button class="admin-tab" data-tab="form-demo" onclick="adminManager.switchTab('form-demo')">
+                        Formulär-demo
+                    </button>
                 </div>
                 
                 <div class="admin-tab-content">
@@ -232,6 +235,14 @@ class ObjectTypeManager {
                             </div>
                         </div>
                         <div id="tree-demo-container"></div>
+                    </div>
+
+                    <div id="form-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Formulär-demo</h3>
+                            <span style="font-size:12px;color:var(--text-secondary);">Visuell referens för formulär och paneler</span>
+                        </div>
+                        <div id="form-demo-container"></div>
                     </div>
                 </div>
             </div>
@@ -3836,6 +3847,9 @@ class ObjectTypeManager {
         } else if (tabName === 'tree-demo') {
             document.getElementById('tree-demo-tab').classList.add('active');
             initTreeDemo('tree-demo-container');
+        } else if (tabName === 'form-demo') {
+            document.getElementById('form-demo-tab').classList.add('active');
+            initFormDemo('form-demo-container');
         }
     }
 }
@@ -4033,6 +4047,199 @@ function initTreeDemo(containerId) {
     _treeDemoInstance.render();
 }
 
+function openFormDemoModal() {
+    const modal = document.getElementById('form-demo-modal');
+    const overlay = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'block';
+    if (overlay) overlay.style.display = 'block';
+}
+
+function closeFormDemoModal() {
+    const modal = document.getElementById('form-demo-modal');
+    const overlay = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+}
+
+function filterMultiSelectChips(input) {
+    const term = input.value.trim().toLowerCase();
+    const optionsEl = input.closest('.managed-multi-select').querySelector('.managed-multi-select-options');
+    const chips = optionsEl.querySelectorAll('.managed-multi-option-chip');
+    const noResults = optionsEl.querySelector('.managed-multi-select-no-results');
+
+    let visibleCount = 0;
+    chips.forEach(chip => {
+        const match = !term || chip.textContent.trim().toLowerCase().includes(term);
+        chip.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+
+    if (noResults) noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function initFormDemo(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="form-demo-wrapper">
+            <div style="margin-bottom:16px;">
+                <button class="btn btn-secondary" onclick="openFormDemoModal()">Öppna som modal</button>
+            </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Skapa Objekt</h3>
+                </div>
+                <form class="form-demo-form" onsubmit="return false;">
+                    <div class="form-demo-fields" style="margin-bottom:var(--spacing-sm);">
+                        <div class="form-group form-group-full">
+                            <label for="demo-type-select">Objekttyp *</label>
+                            <select id="demo-type-select" class="form-control" required>
+                                <option value="">Välj objekttyp...</option>
+                                <option value="byggdel">Byggdel</option>
+                                <option value="konstruktion">Konstruktion</option>
+                                <option value="installation">Installation</option>
+                                <option value="oppning" selected>Öppning</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-benamning">Benämning *</label>
+                            <input type="text" id="demo-benamning" class="form-control" value="Fönster typ A" required>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-status">Status</label>
+                            <select id="demo-status" class="form-control">
+                                <option value="">Välj status...</option>
+                                <option value="ej_startad" selected>Ej startad</option>
+                                <option value="aktiv">Aktiv</option>
+                                <option value="granskning">Granskning</option>
+                                <option value="klar">Klar</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-material">Material</label>
+                            <select id="demo-material" class="form-control">
+                                <option value="">Välj material...</option>
+                                <option value="aluminium" selected>Aluminium</option>
+                                <option value="tra">Trä</option>
+                                <option value="stal">Stål</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-vikt">Vikt (kg)</label>
+                            <input type="number" id="demo-vikt" class="form-control" value="42" min="0" step="0.1">
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-datum">Planerat datum</label>
+                            <input type="date" id="demo-datum" class="form-control" value="2025-12-01">
+                        </div>
+                        <div class="form-group form-group-half" style="padding-top:22px;">
+                            <label><input type="checkbox" checked style="margin-right:6px;">Kritisk komponent</label>
+                            <small class="form-help" style="display:block;margin-top:3px;">Markera om komponenten är kritisk för projekttidslinjen.</small>
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="demo-beskrivning">Beskrivning</label>
+                            <textarea id="demo-beskrivning" class="form-control" rows="2">Aluminiumfönster med 3-glasenhet, U-värde ≤ 0,9. Leverantör ej vald — offertbegäran skickas Q4.</textarea>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label>Certifieringar <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— få alternativ</span></label>
+                            <div class="managed-multi-select">
+                                <div class="managed-multi-select-toolbar">
+                                    <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                    <div class="managed-multi-select-actions">
+                                        <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                        <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                    </div>
+                                </div>
+                                <div class="managed-multi-select-summary">
+                                    <span class="managed-multi-selected-badge">CE-märkning</span>
+                                    <span class="managed-multi-selected-badge">Svanen</span>
+                                </div>
+                                <div class="managed-multi-select-options">
+                                    <button type="button" class="managed-multi-option-chip selected">CE-märkning</button>
+                                    <button type="button" class="managed-multi-option-chip">BREEAM</button>
+                                    <button type="button" class="managed-multi-option-chip selected">Svanen</button>
+                                    <button type="button" class="managed-multi-option-chip">LEED</button>
+                                    <button type="button" class="managed-multi-option-chip">Miljöbyggnad</button>
+                                    <button type="button" class="managed-multi-option-chip">FSC</button>
+                                    <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label>Branschkoder <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— många alternativ</span></label>
+                            <div class="managed-multi-select">
+                                <div class="managed-multi-select-toolbar">
+                                    <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                    <div class="managed-multi-select-actions">
+                                        <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                        <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                    </div>
+                                </div>
+                                <div class="managed-multi-select-summary">
+                                    <span class="managed-multi-selected-badge">B02</span>
+                                    <span class="managed-multi-selected-badge">C14</span>
+                                </div>
+                                <div class="managed-multi-select-options">
+                                    <button type="button" class="managed-multi-option-chip">A01</button>
+                                    <button type="button" class="managed-multi-option-chip">A02</button>
+                                    <button type="button" class="managed-multi-option-chip">A03</button>
+                                    <button type="button" class="managed-multi-option-chip selected">B02</button>
+                                    <button type="button" class="managed-multi-option-chip">B05</button>
+                                    <button type="button" class="managed-multi-option-chip">B08</button>
+                                    <button type="button" class="managed-multi-option-chip">B11</button>
+                                    <button type="button" class="managed-multi-option-chip selected">C14</button>
+                                    <button type="button" class="managed-multi-option-chip">C17</button>
+                                    <button type="button" class="managed-multi-option-chip">C20</button>
+                                    <button type="button" class="managed-multi-option-chip">D01</button>
+                                    <button type="button" class="managed-multi-option-chip">D04</button>
+                                    <button type="button" class="managed-multi-option-chip">D07</button>
+                                    <button type="button" class="managed-multi-option-chip">E02</button>
+                                    <button type="button" class="managed-multi-option-chip">E05</button>
+                                    <button type="button" class="managed-multi-option-chip">E08</button>
+                                    <button type="button" class="managed-multi-option-chip">F01</button>
+                                    <button type="button" class="managed-multi-option-chip">F03</button>
+                                    <button type="button" class="managed-multi-option-chip">G02</button>
+                                    <button type="button" class="managed-multi-option-chip">G06</button>
+                                    <button type="button" class="managed-multi-option-chip">H01</button>
+                                    <button type="button" class="managed-multi-option-chip">H04</button>
+                                    <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section-divider" style="margin-top:4px;"><span>Kategori</span></div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                        <select class="form-control" style="flex:1;min-width:160px;font-size:0.82rem;">
+                            <option value="">Välj kategorinod...</option>
+                            <option value="klimatskal" selected>Klimatskal / Fönster och dörrar</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary btn-sm">Koppla</button>
+                    </div>
+                    <ul style="margin:0 0 8px;padding-left:1.1rem;font-size:0.82rem;color:var(--text-primary);">
+                        <li>Klimatskal / Fönster och dörrar <button type="button" class="btn-icon" style="font-size:0.75rem;padding:0 4px;line-height:1.4;" title="Ta bort">×</button></li>
+                    </ul>
+
+                    <div class="form-section-divider" style="margin-top:4px;"><span>Relationer</span></div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <div style="margin-bottom:4px;">
+                            <button type="button" class="btn btn-secondary btn-sm">Lägg till relationer</button>
+                        </div>
+                        <small class="form-help">Välj objekt att koppla direkt när det nya objektet skapas.</small>
+                        <div style="margin-top:6px;font-size:0.82rem;color:var(--text-secondary);">Inga relationer tillagda.</div>
+                    </div>
+
+                    <div class="modal-footer" style="padding-top:var(--spacing-md);margin-top:var(--spacing-md);">
+                        <button type="button" class="btn btn-secondary">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Spara</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
 // Save object type (create or update)
 async function saveObjectType(event) {
     event.preventDefault();
@@ -4057,6 +4264,7 @@ async function saveObjectType(event) {
             showToast('Objekttyp uppdaterad', 'success');
         }
         
+        if (typeof _cachedObjectTypes !== 'undefined') _cachedObjectTypes = null;
         closeModal();
         await adminManager.loadObjectTypes();
         if (typeof setObjectTypeColorMapFromTypes === 'function') {
