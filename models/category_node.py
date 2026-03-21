@@ -15,8 +15,6 @@ class CategoryNode(db.Model):
     code           = db.Column(db.String(50), nullable=False)
     name           = db.Column(db.String(200), nullable=False)
     level          = db.Column(db.Integer, nullable=False)  # 1, 2 or 3
-    revit_category = db.Column(db.String(100))
-    ifc_type       = db.Column(db.String(100))
     description    = db.Column(db.Text)
     sort_order     = db.Column(db.Integer, default=0, nullable=False)
     is_active      = db.Column(db.Boolean, nullable=False, default=True)
@@ -58,8 +56,6 @@ class CategoryNode(db.Model):
             'code':           self.code,
             'name':           self.name,
             'level':          self.level,
-            'revit_category': self.revit_category,
-            'ifc_type':       self.ifc_type,
             'description':    self.description,
             'sort_order':     self.sort_order,
             'is_active':      self.is_active,

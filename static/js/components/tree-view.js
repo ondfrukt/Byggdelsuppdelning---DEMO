@@ -49,6 +49,7 @@ class TreeView {
     }
 
     async loadAvailableFields() {
+        if (this._availableFieldsLoaded) return;
         try {
             const response = await fetch('/api/view-config/list-view');
             if (!response.ok) {
@@ -78,6 +79,7 @@ class TreeView {
 
             this.availableFields = Array.from(fieldMap.values())
                 .sort((a, b) => String(a.display_name || '').localeCompare(String(b.display_name || ''), 'sv'));
+            this._availableFieldsLoaded = true;
         } catch (error) {
             console.error('Failed to load tree view available fields:', error);
             this.availableFields = [];
@@ -89,12 +91,13 @@ class TreeView {
 
         const scrollState = options.preserveScroll ? this.captureScrollState() : null;
 
-        await this.loadAvailableFields();
-        await this.preloadManagedListDisplayMaps();
-
-        if (options.reloadData || !this.hasLoadedData) {
-            await this.loadData();
-        }
+        // Load available fields and tree data in parallel; managed list preload
+        // must follow field loading since it depends on the field definitions.
+        const needsData = options.reloadData || !this.hasLoadedData;
+        await Promise.all([
+            this.loadAvailableFields().then(() => this.preloadManagedListDisplayMaps()),
+            needsData ? this.loadData() : Promise.resolve(),
+        ]);
 
         this.container.innerHTML = `
             <div class="tree-view">
@@ -310,6 +313,7 @@ class TreeView {
                 className: this.getDynamicColumnClass(field),
                 field_type: field.field_type,
                 field_options: field.field_options,
+                is_tree_visible: field.is_tree_visible === true,
                 draggable: true
             }));
 
@@ -360,7 +364,13 @@ class TreeView {
 
         return orderedFields
             .map(field => fieldMap.get(field))
-            .filter(column => column && this.columnVisibility[column.field] !== false)
+            .filter(column => {
+                if (!column) return false;
+                const explicit = this.columnVisibility[column.field];
+                if (explicit !== undefined) return explicit !== false;
+                // Dynamic fields: use is_tree_visible. Fixed columns have no is_tree_visible → always show.
+                return column.is_tree_visible !== false;
+            })
             .map(column => ({
                 ...column,
                 width: this.getColumnWidth(column.field)
@@ -746,7 +756,7 @@ class TreeView {
     }
 
     async preloadManagedListDisplayMaps() {
-        this.managedListDisplayByListId = new Map();
+        if (this._managedListsLoaded) return;
 
         const managedListIds = (this.availableFields || [])
             .filter(field => String(field?.field_type || '').toLowerCase() === 'select')
@@ -781,6 +791,7 @@ class TreeView {
                 // Ignore lookup failures and fall back to raw values.
             }
         }));
+        this._managedListsLoaded = true;
     }
 
     resolveFieldDisplayValue(value, column = null) {
@@ -1180,13 +1191,14 @@ class TreeView {
     toggleNodeExpansion(nodeId) {
         if (!nodeId) return;
         const normalizedId = String(nodeId);
+        const prevVisibleIds = this._getVisibleNodeIds();
         if (this.expandedNodes.has(normalizedId)) {
             this.expandedNodes.delete(normalizedId);
         } else {
             this.expandedNodes.add(normalizedId);
         }
         this.persistCurrentModeState();
-        this.render({ preserveScroll: true });
+        this._rerenderTable({ preserveScroll: true, prevVisibleIds });
     }
 
     toggleSubtreeExpansion(nodeId) {
@@ -1197,6 +1209,7 @@ class TreeView {
         const expandableIds = this.collectExpandableNodeIds(nodeData, []);
         if (!expandableIds.length) return;
 
+        const prevVisibleIds = this._getVisibleNodeIds();
         const allExpanded = expandableIds.every(id => this.expandedNodes.has(id));
         if (allExpanded) {
             expandableIds.forEach(id => this.expandedNodes.delete(id));
@@ -1204,7 +1217,34 @@ class TreeView {
             expandableIds.forEach(id => this.expandedNodes.add(id));
         }
         this.persistCurrentModeState();
-        this.render({ preserveScroll: true });
+        this._rerenderTable({ preserveScroll: true, prevVisibleIds });
+    }
+
+    _getVisibleNodeIds() {
+        const container = this.container;
+        if (!container) return new Set();
+        return new Set(
+            Array.from(container.querySelectorAll('tr[data-node-id]')).map(el => el.dataset.nodeId)
+        );
+    }
+
+    _rerenderTable(options = {}) {
+        const scrollState = options.preserveScroll ? this.captureScrollState() : null;
+        if (this.systemTable) {
+            this.systemTable.render();
+        }
+        this.attachEventListeners();
+        if (options.prevVisibleIds) {
+            this.container.querySelectorAll('tr[data-node-id]').forEach(row => {
+                if (!options.prevVisibleIds.has(row.dataset.nodeId)) {
+                    row.classList.add('tree-row-entering');
+                }
+            });
+        }
+        this.applySelectionToDOM();
+        if (scrollState) {
+            this.restoreScrollState(scrollState);
+        }
     }
 
     setNodeClickHandler(handler) {

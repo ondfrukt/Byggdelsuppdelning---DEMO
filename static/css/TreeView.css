@@ -3,6 +3,21 @@
  * Optimized for maximum information density while maintaining readability and accessibility
  */
 
+@keyframes tree-row-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.tree-row-entering {
+    animation: tree-row-enter 0.15s ease-out both;
+}
+
 /* Override default tree view styles with compact design */
 .tree-view {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -216,24 +231,31 @@
     overflow-y: auto;
 }
 
-/* Compact toggle icons (12-14px) */
+/* Compact toggle icons */
 .tree-toggle {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 14px;
     height: 14px;
-    text-align: center;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1;
     cursor: pointer;
     user-select: none;
-    line-height: 14px;
+    color: var(--text-secondary);
     /* Ensure minimum clickable area of 24x24px for accessibility */
     padding: 5px;
     margin: -5px;
-    transition: transform 0.15s;
+    transform: rotate(0deg);
+    transition: transform 0.15s ease, color 0.1s;
+}
+
+.tree-toggle.expanded {
+    transform: rotate(90deg);
 }
 
 .tree-toggle:hover {
-    transform: scale(1.2);
+    color: var(--primary-color);
 }
 
 /* Compact spacer matching toggle size */
@@ -241,7 +263,8 @@
     display: inline-block;
     width: 14px;
     height: 14px;
-    margin-right: 5px;
+    padding: 5px;
+    margin: -5px;
 }
 
 /* Tree label with minimal spacing */

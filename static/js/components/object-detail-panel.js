@@ -25,14 +25,18 @@ class ObjectDetailPanel {
         window._detailPanel = this;
     }
     
-    async loadObject(objectId) {
+    async loadObject(objectId, prefetchedData = null) {
         try {
             this.objectId = objectId;
-            const response = await fetch(`/api/objects/${objectId}`);
-            if (!response.ok) {
-                throw new Error('Failed to load object');
+            if (prefetchedData) {
+                this.objectData = prefetchedData;
+            } else {
+                const response = await fetch(`/api/objects/${objectId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load object');
+                }
+                this.objectData = await response.json();
             }
-            this.objectData = await response.json();
             await this.preloadManagedListDisplayMaps();
         } catch (error) {
             console.error('Error loading object:', error);
@@ -170,14 +174,14 @@ class ObjectDetailPanel {
         return `<div class="detail-value">${formatFieldValue(value, fieldType)}</div>`;
     }
     
-    async render(objectId) {
+    async render(objectId, prefetchedData = null) {
         if (!this.container) return;
-        
+
         const previousObjectId = this.objectId;
         const isObjectChange = Boolean(objectId && String(objectId) !== String(previousObjectId));
 
         if (objectId) {
-            await this.loadObject(objectId);
+            await this.loadObject(objectId, prefetchedData);
         }
         
         if (!this.objectData) {

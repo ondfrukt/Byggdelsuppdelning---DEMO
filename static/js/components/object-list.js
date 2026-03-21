@@ -99,8 +99,27 @@ class ObjectListComponent {
         `;
         
         this.attachEventListeners();
-        await this.loadViewConfig();
-        await this.loadObjects();
+        await Promise.all([this.loadViewConfig(), this._fetchObjectsOnly()]);
+        this.renderObjects();
+    }
+
+    async _fetchObjectsOnly() {
+        try {
+            const filters = {};
+            if (this.selectedType) filters.type = this.selectedType;
+            if (this.searchTerm) filters.search = this.searchTerm;
+            this.objects = await ObjectsAPI.getAll(filters);
+            if (!this.selectedType) {
+                this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
+            }
+            const validIds = new Set(this.objects.map(obj => Number(obj.id)));
+            this.selectedObjectIds = new Set(
+                Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
+            );
+        } catch (error) {
+            console.error('Failed to fetch objects:', error);
+            showToast('Kunde inte ladda objekt', 'error');
+        }
     }
     
     attachEventListeners() {
@@ -139,21 +158,24 @@ class ObjectListComponent {
     
     async loadViewConfig() {
         try {
-            // Ensure object type colors are loaded before first table render.
-            // Otherwise custom types can briefly fall back to gray badges.
-            const objectTypes = await ObjectTypesAPI.getAll();
-            await this.loadTypeDisplayFieldMap();
-
-            // Load view configuration for the selected type
             if (this.selectedType) {
-                // Get object type by name
+                // Need object types to look up the type id; tree-display loads independently.
+                const [objectTypes] = await Promise.all([
+                    ObjectTypesAPI.getAll(),
+                    this.loadTypeDisplayFieldMap(),
+                ]);
                 const objType = objectTypes.find(t => t.name === this.selectedType);
                 if (objType) {
                     const response = await fetchAPI(`/view-config/list-view/${objType.id}`);
                     this.viewConfig = response;
                 }
             } else {
-                await this.loadGlobalViewConfig();
+                // All three fetches are independent when no type filter is active.
+                await Promise.all([
+                    ObjectTypesAPI.getAll(),
+                    this.loadTypeDisplayFieldMap(),
+                    this.loadGlobalViewConfig(),
+                ]);
             }
             await this.preloadManagedListDisplayMaps();
         } catch (error) {

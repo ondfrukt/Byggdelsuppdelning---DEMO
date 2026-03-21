@@ -503,7 +503,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, tr
             'data': root_data,
             'kravtext': get_tree_requirement_text(root_object),
             'beskrivning': get_tree_short_description(root_object),
-            'files': collect_tree_files_for_object(root_object, relations_lookup),
+            'files': collect_tree_files_for_object(root_object),
             'children': children
         })
 

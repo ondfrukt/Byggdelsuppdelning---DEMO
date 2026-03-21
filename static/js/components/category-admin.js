@@ -3,23 +3,22 @@
  * Integreras i admin-panelens flik-system.
  */
 
-const REVIT_CATEGORIES = [
-    '', 'Walls', 'Floors', 'Roofs', 'Doors', 'Windows',
-    'Ceilings', 'Columns', 'Beams', 'Stairs', 'Ramps',
-    'Generic Models', 'Furniture', 'Mechanical Equipment',
-];
-
 class CategoryAdmin {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
         this.systems = [];
         this.selectedSystemId = null;
-        this.treeData = [];          // root nodes for selected system
+        this.treeData = [];
         this.expandedNodeIds = new Set();
-        this.view = 'tree';          // 'tree' | 'system-list' | 'node-form' | 'system-form'
-        this.editingNode = null;
+
+        // Node selection / editing state
+        this.selectedNodeId = null;   // id of node shown in editor panel
+        this.editorMode = 'view';     // 'view' | 'new'
+        this.newNodeParentId = null;  // parent id when creating (null = root)
+
+        // System form view state
+        this.view = 'tree';           // 'tree' | 'system-list' | 'system-form'
         this.editingSystem = null;
-        this.parentContext = null;   // {id, code, name, level} when adding child
     }
 
     // -----------------------------------------------------------------------
@@ -61,11 +60,10 @@ class CategoryAdmin {
     async loadTree() {
         if (!this.selectedSystemId) { this.treeData = []; return; }
         try {
-            const roots = await this.api(
+            this.treeData = await this.api(
                 'GET',
                 `/api/category-nodes?system_id=${this.selectedSystemId}&level=1&include_children=true`
             );
-            this.treeData = roots;
         } catch (e) {
             console.error('Failed to load category tree', e);
             this.treeData = [];
@@ -81,22 +79,28 @@ class CategoryAdmin {
             this.renderSystemList();
         } else if (this.view === 'system-form') {
             this.renderSystemForm();
-        } else if (this.view === 'node-form') {
-            this.renderNodeForm();
         } else {
             this.renderTree();
         }
     }
 
     // -----------------------------------------------------------------------
-    // Tree view
+    // Tree view  (two-column layout matching managed-lists pattern)
     // -----------------------------------------------------------------------
     async renderTree() {
         this.view = 'tree';
         await this.loadTree();
+        this._renderTreeLayout();
+    }
+
+    _renderTreeLayout() {
         const systemOptions = this.systems.map(s =>
             `<option value="${s.id}" ${s.id === this.selectedSystemId ? 'selected' : ''}>${escapeHtml(s.name)}${s.version ? ' (' + escapeHtml(s.version) + ')' : ''}</option>`
         ).join('');
+
+        const treeHtml = this.treeData.length
+            ? this.treeData.map(n => this._renderNodeRow(n, 0)).join('')
+            : '<p class="empty-state" style="padding:12px;">Inga kategorinoder. Skapa en rotnod för att komma igång.</p>';
 
         this.container.innerHTML = `
             <div class="category-admin">
@@ -109,45 +113,195 @@ class CategoryAdmin {
                     </div>
                     <div style="display:flex;gap:8px;">
                         <button class="btn btn-secondary btn-sm" onclick="categoryAdmin.showSystemList()">Hantera system</button>
-                        ${this.selectedSystemId ? `<button class="btn btn-primary btn-sm" onclick="categoryAdmin.showNewRootNodeForm()">+ Ny rotnod</button>` : ''}
+                        ${this.selectedSystemId ? `<button class="btn btn-primary btn-sm" onclick="categoryAdmin.showNewNodeForm(null)">+ Ny rotnod</button>` : ''}
                     </div>
                 </div>
 
-                <div id="cat-tree-container" style="margin-top:16px;">
-                    ${this.treeData.length === 0
-                        ? '<p class="empty-state">Inga kategorinoder. Skapa en rotnod för att komma igång.</p>'
-                        : this.treeData.map(n => this._renderNodeRow(n, 0)).join('')
-                    }
+                <div class="managed-list-tree-editor-layout">
+                    <div class="managed-list-tree-panel">
+                        <div class="section-header">
+                            <h4>Träd</h4>
+                        </div>
+                        <div class="managed-list-tree-scroll">
+                            ${treeHtml}
+                        </div>
+                    </div>
+                    <div class="managed-list-editor-panel">
+                        <div class="section-header">
+                            <h4>Noddata</h4>
+                        </div>
+                        ${this._renderEditor()}
+                    </div>
                 </div>
             </div>
         `;
     }
 
-    _renderNodeRow(node, indent) {
+    _renderNodeRow(node, depth) {
         const hasChildren = node.children && node.children.length > 0;
         const isExpanded = this.expandedNodeIds.has(node.id);
-        const toggleBtn = hasChildren
-            ? `<button class="btn btn-link btn-sm" style="min-width:20px;padding:0 4px;" onclick="categoryAdmin.toggleExpand(${node.id})">${isExpanded ? '▾' : '▸'}</button>`
-            : `<span style="display:inline-block;min-width:20px;"></span>`;
+        const isSelected = this.selectedNodeId === node.id;
 
-        const revit = node.revit_category ? `<span style="color:#888;font-size:12px;margin-left:8px;">${escapeHtml(node.revit_category ?? '')}</span>` : '';
-        const inactiveTag = !node.is_active ? `<span style="color:#999;font-size:11px;margin-left:6px;">(inaktiv)</span>` : '';
+        const expanderSlot = hasChildren
+            ? `<button type="button" class="tree-toggle ${isExpanded ? 'expanded' : ''}"
+                   onclick="event.stopPropagation(); categoryAdmin.toggleExpand(${node.id})">
+                   ${isExpanded ? '▾' : '▸'}
+               </button>`
+            : '<span class="tree-spacer"></span>';
+
+        const inactiveFlag = !node.is_active
+            ? '<span class="managed-list-node-flag">Inaktiv</span>'
+            : '';
 
         const row = `
-            <div class="category-node-row" style="display:flex;align-items:center;padding:5px 8px;border-radius:4px;margin-left:${indent * 20}px;border-bottom:1px solid #f0f0f0;" onmouseover="this.style.background='#f8f8f8'" onmouseout="this.style.background=''">
-                ${toggleBtn}
-                <span style="font-size:11px;color:#888;min-width:28px;text-align:right;margin-right:6px;">Niv${node.level}</span>
-                <span style="font-weight:600;min-width:60px;">${escapeHtml(node.code ?? '')}</span>
-                <span style="margin-left:8px;flex:1;">${escapeHtml(node.name ?? '')}${revit}${inactiveTag}</span>
-                <div style="display:flex;gap:4px;margin-left:8px;">
-                    ${node.level < 3 ? `<button class="btn btn-secondary btn-sm" onclick="categoryAdmin.showAddChildForm(${node.id})">+ Undernod</button>` : ''}
-                    <button class="btn btn-secondary btn-sm" onclick="categoryAdmin.showEditNodeForm(${node.id})">Redigera</button>
-                    <button class="btn btn-danger btn-sm" onclick="categoryAdmin.deleteNode(${node.id})">Ta bort</button>
+            <div class="managed-list-tree-row">
+                <div class="managed-list-tree-node-row ${isSelected ? 'selected' : ''} ${!node.is_active ? 'inactive' : ''}"
+                     style="padding-left:${8 + depth * 16}px;"
+                     onclick="categoryAdmin.selectNode(${node.id})">
+                    <span class="tree-expander-slot">${expanderSlot}</span>
+                    <button type="button" class="managed-list-tree-node" style="cursor:pointer;">
+                        <span class="managed-list-tree-node-label">${escapeHtml(node.name ?? '')}</span>
+                        <span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">Niv${node.level}</span>
+                        ${inactiveFlag}
+                        ${hasChildren ? `<span class="managed-list-tree-node-count">${node.children.length}</span>` : ''}
+                    </button>
+                    ${node.level < 3
+                        ? `<button type="button" class="btn btn-sm btn-secondary managed-list-tree-add-child-btn" title="Lägg till undernod"
+                               onclick="event.stopPropagation(); categoryAdmin.showNewNodeForm(${node.id})">+</button>`
+                        : ''}
+                    <button type="button" class="btn btn-sm btn-danger managed-list-tree-delete-btn" title="Ta bort nod"
+                            onclick="event.stopPropagation(); categoryAdmin.deleteNode(${node.id})">-</button>
                 </div>
+                ${hasChildren && isExpanded
+                    ? node.children.map(c => this._renderNodeRow(c, depth + 1)).join('')
+                    : ''}
             </div>
-            ${hasChildren && isExpanded ? node.children.map(c => this._renderNodeRow(c, indent + 1)).join('') : ''}
         `;
         return row;
+    }
+
+    // -----------------------------------------------------------------------
+    // Editor panel (right column)
+    // -----------------------------------------------------------------------
+    _renderEditor() {
+        if (this.editorMode === 'new') {
+            return this._renderNodeForm(null, this.newNodeParentId);
+        }
+        if (this.selectedNodeId !== null) {
+            const node = this._findNode(this.selectedNodeId, this.treeData);
+            if (node) return this._renderNodeForm(node, null);
+        }
+        return `
+            <div class="managed-list-node-empty">
+                <p>Välj en nod i trädet till vänster för att redigera.</p>
+                <p>Använd + för att lägga till undernoder.</p>
+            </div>
+        `;
+    }
+
+    _renderNodeForm(node, parentId) {
+        // Determine level and parent
+        let level, parentName = null;
+        if (node) {
+            level = node.level;
+            // parentName not needed for edit
+        } else {
+            // Creating new
+            if (parentId) {
+                const parent = this._findNode(parentId, this.treeData);
+                level = parent ? parent.level + 1 : 1;
+                parentName = parent ? parent.name : null;
+            } else {
+                level = 1;
+            }
+        }
+
+        const parentInfo = parentName
+            ? `<div style="background:#f0f4ff;border-left:3px solid #4a6cf7;padding:8px 12px;border-radius:4px;margin-bottom:16px;font-size:13px;">
+                   Skapar undernod till: <strong>${escapeHtml(parentName)}</strong>
+               </div>`
+            : '';
+
+        const cancelBtn = node
+            ? ''
+            : `<button type="button" class="btn btn-secondary btn-sm" onclick="categoryAdmin.cancelNewNode()">Avbryt</button>`;
+
+        return `
+            <div class="managed-list-node-editor managed-list-node-editor-compact">
+                <div class="managed-list-node-editor-header">
+                    <h5>${node ? escapeHtml(node.name) : 'Ny nod – nivå ' + level}</h5>
+                    ${cancelBtn}
+                </div>
+                ${parentInfo}
+                <div id="node-editor-errors" style="color:#c0392b;margin-bottom:8px;display:none;font-size:13px;"></div>
+                <form id="node-editor-form" onsubmit="categoryAdmin.submitNodeForm(event)" autocomplete="off">
+                    <div class="managed-list-node-language-grid managed-list-node-language-grid-compact">
+                        <label>
+                            <span>Kod *</span>
+                            <input type="text" class="form-control" name="code" required value="${escapeHtml(node?.code || '')}" placeholder="T.ex. F2">
+                        </label>
+                        <label>
+                            <span>Namn *</span>
+                            <input type="text" class="form-control" name="name" required value="${escapeHtml(node?.name || '')}" placeholder="T.ex. Klimatskal">
+                        </label>
+                        <label style="grid-column: 1 / -1;">
+                            <span>Beskrivning</span>
+                            <textarea class="form-control" name="description" rows="3">${escapeHtml(node?.description || '')}</textarea>
+                        </label>
+                        <label>
+                            <span>Sorteringsordning</span>
+                            <input type="number" class="form-control" name="sort_order" value="${node?.sort_order ?? 0}" style="width:100px;">
+                        </label>
+                        <label class="managed-list-node-checkbox">
+                            <input type="checkbox" name="is_active" ${(node?.is_active !== false) ? 'checked' : ''}>
+                            Aktiv
+                        </label>
+                    </div>
+                </form>
+                <div class="managed-list-node-editor-footer">
+                    <button class="btn btn-primary" onclick="categoryAdmin.submitNodeForm()">Spara</button>
+                    ${node ? `<button type="button" class="btn btn-danger btn-sm" onclick="categoryAdmin.deleteNode(${node.id})">Ta bort</button>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    _findNode(id, nodes) {
+        for (const n of nodes) {
+            if (n.id === id) return n;
+            if (n.children) {
+                const found = this._findNode(id, n.children);
+                if (found) return found;
+            }
+        }
+        return null;
+    }
+
+    // -----------------------------------------------------------------------
+    // Node interactions
+    // -----------------------------------------------------------------------
+    selectNode(nodeId) {
+        this.selectedNodeId = nodeId;
+        this.editorMode = 'view';
+        this.newNodeParentId = null;
+        this._refreshEditorPanel();
+        this._refreshTreePanel();
+    }
+
+    showNewNodeForm(parentId) {
+        this.newNodeParentId = parentId;
+        this.editorMode = 'new';
+        this.selectedNodeId = null;
+        if (parentId) this.expandedNodeIds.add(parentId);
+        this._refreshEditorPanel();
+        this._refreshTreePanel();
+    }
+
+    cancelNewNode() {
+        this.editorMode = 'view';
+        this.newNodeParentId = null;
+        this._refreshEditorPanel();
+        this._refreshTreePanel();
     }
 
     toggleExpand(nodeId) {
@@ -156,13 +310,107 @@ class CategoryAdmin {
         } else {
             this.expandedNodeIds.add(nodeId);
         }
-        this.renderView();
+        this._refreshTreePanel();
     }
 
     onSystemChange(value) {
         this.selectedSystemId = value ? parseInt(value, 10) : null;
         this.expandedNodeIds.clear();
+        this.selectedNodeId = null;
+        this.editorMode = 'view';
         this.renderView();
+    }
+
+    // Re-render only the tree panel (preserves editor state)
+    _refreshTreePanel() {
+        const treePanel = this.container?.querySelector('.managed-list-tree-scroll');
+        if (!treePanel) return;
+        const treeHtml = this.treeData.length
+            ? this.treeData.map(n => this._renderNodeRow(n, 0)).join('')
+            : '<p class="empty-state" style="padding:12px;">Inga kategorinoder. Skapa en rotnod för att komma igång.</p>';
+        treePanel.innerHTML = treeHtml;
+    }
+
+    // Re-render only the editor panel
+    _refreshEditorPanel() {
+        const editorPanel = this.container?.querySelector('.managed-list-editor-panel');
+        if (!editorPanel) return;
+        editorPanel.innerHTML = `
+            <div class="section-header"><h4>Noddata</h4></div>
+            ${this._renderEditor()}
+        `;
+    }
+
+    // -----------------------------------------------------------------------
+    // Submit node form
+    // -----------------------------------------------------------------------
+    async submitNodeForm(e) {
+        if (e) e.preventDefault();
+        const form = document.getElementById('node-editor-form');
+        if (!form) return;
+        const errEl = document.getElementById('node-editor-errors');
+        if (errEl) errEl.style.display = 'none';
+
+        const isNew = this.editorMode === 'new';
+        const node = isNew ? null : this._findNode(this.selectedNodeId, this.treeData);
+
+        let level, parentId;
+        if (isNew) {
+            const parentNode = this.newNodeParentId
+                ? this._findNode(this.newNodeParentId, this.treeData)
+                : null;
+            level = parentNode ? parentNode.level + 1 : 1;
+            parentId = this.newNodeParentId ?? null;
+        } else {
+            level = node.level;
+            parentId = node.parent_id;
+        }
+
+        const body = {
+            system_id: isNew ? this.selectedSystemId : node.system_id,
+            parent_id: parentId,
+            level,
+            code: form.code.value.trim(),
+            name: form.name.value.trim(),
+            description: form.description.value.trim() || null,
+            sort_order: parseInt(form.sort_order.value, 10) || 0,
+            is_active: form.is_active.checked,
+        };
+
+        try {
+            let saved;
+            if (isNew) {
+                saved = await this.api('POST', '/api/category-nodes', body);
+            } else {
+                saved = await this.api('PUT', `/api/category-nodes/${node.id}`, body);
+            }
+            this.editorMode = 'view';
+            this.selectedNodeId = saved.id;
+            this.newNodeParentId = null;
+            if (parentId) this.expandedNodeIds.add(parentId);
+            await this.loadTree();
+            this._renderTreeLayout();
+        } catch (err) {
+            if (errEl) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+    }
+
+    async deleteNode(nodeId) {
+        if (!confirm('Ta bort noden? Detta kan inte ångras.')) return;
+        try {
+            await this.api('DELETE', `/api/category-nodes/${nodeId}`);
+            if (this.selectedNodeId === nodeId) {
+                this.selectedNodeId = null;
+                this.editorMode = 'view';
+            }
+            await this.loadTree();
+            this._renderTreeLayout();
+        } catch (e) {
+            alert('Kunde inte ta bort nod: ' + e.message);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -172,6 +420,11 @@ class CategoryAdmin {
         this.view = 'system-list';
         await this.loadSystems();
         this.renderSystemList();
+    }
+
+    async showTree() {
+        this.view = 'tree';
+        await this.renderTree();
     }
 
     renderSystemList() {
@@ -307,178 +560,18 @@ class CategoryAdmin {
             alert('Kunde inte ta bort: ' + e.message);
         }
     }
-
-    // -----------------------------------------------------------------------
-    // Node form
-    // -----------------------------------------------------------------------
-    showNewRootNodeForm() {
-        this.editingNode = null;
-        this.parentContext = null;
-        this.view = 'node-form';
-        this.renderNodeForm();
-    }
-
-    async showAddChildForm(parentId) {
-        try {
-            const parent = await this.api('GET', `/api/category-nodes/${parentId}`);
-            this.parentContext = parent;
-            this.editingNode = null;
-            this.view = 'node-form';
-            this.renderNodeForm();
-        } catch (e) {
-            alert('Kunde inte hämta föräldernod: ' + e.message);
-        }
-    }
-
-    async showEditNodeForm(nodeId) {
-        try {
-            const node = await this.api('GET', `/api/category-nodes/${nodeId}`);
-            this.editingNode = node;
-            this.parentContext = null;
-            if (node.parent_id) {
-                try {
-                    this.parentContext = await this.api('GET', `/api/category-nodes/${node.parent_id}`);
-                } catch (_) { /* ignore */ }
-            }
-            this.view = 'node-form';
-            this.renderNodeForm();
-        } catch (e) {
-            alert('Kunde inte hämta nod: ' + e.message);
-        }
-    }
-
-    renderNodeForm() {
-        const n = this.editingNode;
-        const parent = this.parentContext;
-        const level = n ? n.level : (parent ? parent.level + 1 : 1);
-        const title = n ? `Redigera: ${escapeHtml(n.code)} – ${escapeHtml(n.name)}` : 'Ny kategorinod';
-
-        const parentInfo = parent
-            ? `<div style="background:#f0f4ff;border-left:3px solid #4a6cf7;padding:8px 12px;border-radius:4px;margin-bottom:16px;font-size:13px;">
-                   Skapar undernod till: <strong>${escapeHtml(parent.code)} – ${escapeHtml(parent.name)}</strong> (nivå ${parent.level})
-               </div>`
-            : '';
-
-        const revitOptions = REVIT_CATEGORIES.map(c =>
-            `<option value="${c}" ${(n?.revit_category || '') === c ? 'selected' : ''}>${c || '— Välj —'}</option>`
-        ).join('');
-
-        this.container.innerHTML = `
-            <div class="category-admin">
-                <div class="admin-panel-header">
-                    <h3>${title}</h3>
-                    <button class="btn btn-secondary btn-sm" onclick="categoryAdmin.showTree()">← Avbryt</button>
-                </div>
-                ${parentInfo}
-                <form id="node-form" onsubmit="categoryAdmin.submitNodeForm(event)" style="max-width:520px;margin-top:16px;">
-                    <div id="node-form-errors" style="color:#c0392b;margin-bottom:12px;display:none;"></div>
-
-                    <div class="form-group">
-                        <label>Nivå</label>
-                        <input class="form-input" value="${level}" disabled style="background:#f5f5f5;color:#666;">
-                    </div>
-                    <div class="form-group">
-                        <label>Kod *</label>
-                        <input class="form-input" name="code" required value="${escapeHtml(n?.code || '')}" placeholder="T.ex. F, F2, F2.TRÄ">
-                    </div>
-                    <div class="form-group">
-                        <label>Namn *</label>
-                        <input class="form-input" name="name" required value="${escapeHtml(n?.name || '')}" placeholder="T.ex. Klimatskal">
-                    </div>
-                    <div class="form-group">
-                        <label>Revit-kategori</label>
-                        <select class="form-input" name="revit_category">${revitOptions}</select>
-                    </div>
-                    <div class="form-group">
-                        <label>IFC-typ</label>
-                        <input class="form-input" name="ifc_type" value="${escapeHtml(n?.ifc_type || '')}" placeholder="T.ex. IfcWall">
-                    </div>
-                    <div class="form-group">
-                        <label>Beskrivning</label>
-                        <textarea class="form-input" name="description" rows="3">${escapeHtml(n?.description || '')}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Sorteringsordning</label>
-                        <input class="form-input" type="number" name="sort_order" value="${n?.sort_order ?? 0}" style="width:100px;">
-                    </div>
-                    <div class="form-group">
-                        <label style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox" name="is_active" ${(n?.is_active !== false) ? 'checked' : ''}> Aktiv
-                        </label>
-                    </div>
-                    <div style="display:flex;gap:8px;margin-top:16px;">
-                        <button type="submit" class="btn btn-primary">Spara</button>
-                    </div>
-                </form>
-            </div>
-        `;
-    }
-
-    async submitNodeForm(e) {
-        e.preventDefault();
-        const form = e.target;
-        const errEl = form.querySelector('#node-form-errors');
-        errEl.style.display = 'none';
-
-        const n = this.editingNode;
-        const parent = this.parentContext;
-        const level = n ? n.level : (parent ? parent.level + 1 : 1);
-        const parentId = n ? n.parent_id : (parent ? parent.id : null);
-        const systemId = n ? n.system_id : this.selectedSystemId;
-
-        const body = {
-            system_id: systemId,
-            parent_id: parentId,
-            level,
-            code: form.code.value.trim(),
-            name: form.name.value.trim(),
-            revit_category: form.revit_category.value || null,
-            ifc_type: form.ifc_type.value.trim() || null,
-            description: form.description.value.trim() || null,
-            sort_order: parseInt(form.sort_order.value, 10) || 0,
-            is_active: form.is_active.checked,
-        };
-
-        try {
-            if (n) {
-                await this.api('PUT', `/api/category-nodes/${n.id}`, body);
-            } else {
-                await this.api('POST', '/api/category-nodes', body);
-            }
-            this.editingNode = null;
-            this.parentContext = null;
-            await this.showTree();
-        } catch (e) {
-            errEl.textContent = e.message;
-            errEl.style.display = 'block';
-        }
-    }
-
-    async showTree() {
-        this.view = 'tree';
-        await this.renderTree();
-    }
-
-    // -----------------------------------------------------------------------
-    // Delete node
-    // -----------------------------------------------------------------------
-    async deleteNode(nodeId) {
-        if (!confirm('Ta bort kategorinoden? Den kan inte ha barn eller kopplade objekt.')) return;
-        try {
-            await this.api('DELETE', `/api/category-nodes/${nodeId}`);
-            await this.renderTree();
-        } catch (e) {
-            alert('Kunde inte ta bort nod: ' + e.message);
-        }
-    }
-
 }
 
 // Singleton (matches pattern of other admin managers)
 let categoryAdmin;
 
 function initCategoryAdmin(containerId) {
-    if (categoryAdmin) { categoryAdmin.renderView(); return; }
+    const el = document.getElementById(containerId);
+    if (categoryAdmin) {
+        categoryAdmin.container = el;  // DOM kan ha återskapats – uppdatera referensen
+        categoryAdmin.renderView();
+        return;
+    }
     categoryAdmin = new CategoryAdmin(containerId);
     categoryAdmin.init();
 }

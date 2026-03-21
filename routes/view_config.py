@@ -151,6 +151,7 @@ def get_list_view_config():
                     'display_name': field.display_name or field.field_name,
                     'field_type': field.field_type,
                     'is_table_visible': field.is_table_visible,
+                    'is_tree_visible': bool(field.is_tree_visible),
                     'field_options': field.field_options
                 }
                 for field in sorted(obj_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)
@@ -277,6 +278,7 @@ def get_list_view_config_by_type(object_type_id):
                     'display_name': field.display_name or field.field_name,
                     'field_type': field.field_type,
                     'is_table_visible': field.is_table_visible,
+                    'is_tree_visible': bool(field.is_tree_visible),
                     'field_options': field.field_options
                 }
             for field in sorted(object_type.fields, key=lambda f: f.display_order or DEFAULT_DISPLAY_ORDER)

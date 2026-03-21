@@ -140,6 +140,12 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="categories" onclick="adminManager.switchTab('categories')">
                         Kategorier
                     </button>
+                    <button class="admin-tab" data-tab="table-demo" onclick="adminManager.switchTab('table-demo')">
+                        Tabell-demo
+                    </button>
+                    <button class="admin-tab" data-tab="tree-demo" onclick="adminManager.switchTab('tree-demo')">
+                        Träd-demo
+                    </button>
                 </div>
                 
                 <div class="admin-tab-content">
@@ -204,6 +210,28 @@ class ObjectTypeManager {
 
                     <div id="categories-tab" class="admin-tab-panel">
                         <div id="category-admin-container"></div>
+                    </div>
+
+                    <div id="table-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Tabell-demo</h3>
+                            <span style="font-size:12px;color:var(--text-secondary);">
+                                Ctrl+klick för att markera flera rader &nbsp;·&nbsp; Shift+klick för intervall
+                            </span>
+                        </div>
+                        <div id="table-demo-container"></div>
+                    </div>
+
+                    <div id="tree-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Träd-demo</h3>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button class="btn btn-sm btn-secondary" onclick="treeDemoExpandAll()">Expandera alla</button>
+                                <button class="btn btn-sm btn-secondary" onclick="treeDemoCollapseAll()">Fäll ihop alla</button>
+                                <span style="font-size:12px;color:var(--text-secondary);">Ctrl+klick för markering &nbsp;·&nbsp; Shift+klick för intervall</span>
+                            </div>
+                        </div>
+                        <div id="tree-demo-container"></div>
                     </div>
                 </div>
             </div>
@@ -322,6 +350,7 @@ class ObjectTypeManager {
                                         <th class="col-field-name">Fältnamn</th>
                                         <th class="col-status">Obligatorisk</th>
                                         <th class="col-detail-visible">Detaljvy</th>
+                                        <th class="col-detail-visible">Trädvy</th>
                                         <th class="col-width">Bredd</th>
                                         <th class="col-actions"></th>
                                     </tr>
@@ -375,6 +404,16 @@ class ObjectTypeManager {
                         onchange="adminManager.toggleFieldDetailVisible(${field.id}, this.checked)"
                         aria-label="Visa i detaljvy för ${escapeHtml(nameLabel)}"
                         title="Visa/dölj fält i detaljvy"
+                    >
+                </td>
+                <td class="col-detail-visible">
+                    <input
+                        type="checkbox"
+                        class="required-toggle"
+                        ${field.is_tree_visible ? 'checked' : ''}
+                        onchange="adminManager.toggleFieldTreeVisible(${field.id}, this.checked)"
+                        aria-label="Visa i trädvy för ${escapeHtml(nameLabel)}"
+                        title="Visa fält som kolumn i trädvyn som standard"
                     >
                 </td>
                 <td class="col-width">
@@ -3677,6 +3716,23 @@ class ObjectTypeManager {
         }
     }
 
+    async toggleFieldTreeVisible(fieldId, isTreeVisible) {
+        if (!this.selectedType) return;
+        const field = (this.selectedType.fields || []).find(item => Number(item.id) === Number(fieldId));
+        if (!field) return;
+        const nextValue = Boolean(isTreeVisible);
+        if (field.is_tree_visible === nextValue) return;
+
+        try {
+            await ObjectTypesAPI.updateField(this.selectedType.id, fieldId, { is_tree_visible: nextValue });
+            field.is_tree_visible = nextValue;
+        } catch (error) {
+            console.error('Failed to update field tree visibility:', error);
+            showToast(error.message || 'Kunde inte uppdatera synlighet i trädvy', 'error');
+            this.renderTypeDetails();
+        }
+    }
+
     attachFieldRowDragAndDrop() {
         const tbody = document.querySelector('#type-details-container .admin-fields-table tbody');
         if (!tbody) return;
@@ -3774,6 +3830,12 @@ class ObjectTypeManager {
         } else if (tabName === 'categories') {
             document.getElementById('categories-tab').classList.add('active');
             initCategoryAdmin('category-admin-container');
+        } else if (tabName === 'table-demo') {
+            document.getElementById('table-demo-tab').classList.add('active');
+            initTableDemo('table-demo-container');
+        } else if (tabName === 'tree-demo') {
+            document.getElementById('tree-demo-tab').classList.add('active');
+            initTreeDemo('tree-demo-container');
         }
     }
 }
@@ -3785,6 +3847,190 @@ let adminManager = null;
 function initializeAdminPanel() {
     adminManager = new ObjectTypeManager('admin-container');
     adminManager.render();
+}
+
+function initTableDemo(containerId) {
+
+    const rows = [
+        { id: 1, name: 'Ytterväggar',       type: 'Byggdel',    status: 'Aktiv',    updated: '2025-11-03', responsible: 'Anna Lindqvist',  note: 'Reviderad ritning inkommen' },
+        { id: 2, name: 'Innerväggar',        type: 'Byggdel',    status: 'Aktiv',    updated: '2025-10-28', responsible: 'Björn Ström',     note: '' },
+        { id: 3, name: 'Bärande pelare',     type: 'Konstruktion', status: 'Granskning', updated: '2025-11-10', responsible: 'Cecilia Nyman', note: 'Väntar på konstruktörens svar' },
+        { id: 4, name: 'Takstolar',          type: 'Konstruktion', status: 'Aktiv',    updated: '2025-09-15', responsible: 'David Ekman',    note: '' },
+        { id: 5, name: 'Fönster typ A',      type: 'Öppning',    status: 'Ej startad', updated: '2025-11-01', responsible: 'Anna Lindqvist', note: 'Leverantör ej vald' },
+        { id: 6, name: 'Fönster typ B',      type: 'Öppning',    status: 'Ej startad', updated: '2025-11-01', responsible: 'Anna Lindqvist', note: '' },
+        { id: 7, name: 'Entrédörr',          type: 'Öppning',    status: 'Aktiv',    updated: '2025-10-20', responsible: 'Björn Ström',     note: 'Brandklass EI60' },
+        { id: 8, name: 'Grundplatta',        type: 'Konstruktion', status: 'Klar',     updated: '2025-08-30', responsible: 'Cecilia Nyman', note: '' },
+        { id: 9, name: 'Trapplopp plan 1–2', type: 'Byggdel',    status: 'Granskning', updated: '2025-11-08', responsible: 'David Ekman',   note: 'Tillgänglighetsanpassning krävs' },
+        { id: 10, name: 'Ventilationsschakt', type: 'Installation', status: 'Aktiv',  updated: '2025-10-05', responsible: 'Erik Bergman',  note: '' },
+        { id: 11, name: 'Rörschakt',         type: 'Installation', status: 'Aktiv',   updated: '2025-10-05', responsible: 'Erik Bergman',   note: '' },
+        { id: 12, name: 'Yttertak',          type: 'Byggdel',    status: 'Klar',     updated: '2025-09-01', responsible: 'Björn Ström',     note: 'Godkänd besiktning' },
+    ];
+
+    const statusColor = {
+        'Aktiv':       '#16a34a',
+        'Klar':        '#2563eb',
+        'Granskning':  '#d97706',
+        'Ej startad':  '#94a3b8',
+    };
+
+    new SystemTable({
+        containerId,
+        tableId: 'admin-demo-table',
+        rowId: 'id',
+        selectable: true,
+        columnVisibility: true,
+        batchActions: [
+            {
+                label: 'Ändra status',
+                action(selectedRows) {
+                    showToast(`${selectedRows.length} rad(er) markerade — batch-åtgärd här`, 'info');
+                }
+            },
+            {
+                label: 'Exportera',
+                action(selectedRows) {
+                    showToast(`Exporterar ${selectedRows.length} rad(er)`, 'success');
+                }
+            }
+        ],
+        columns: [
+            { field: 'id',          label: 'ID',           width: 56,  className: 'col-id' },
+            { field: 'name',        label: 'Namn',         width: 220, className: 'col-name' },
+            { field: 'type',        label: 'Typ',          width: 130, className: 'col-type' },
+            {
+                field: 'status',
+                label: 'Status',
+                width: 120,
+                className: 'col-status',
+                render(row) {
+                    const color = statusColor[row.status] || '#94a3b8';
+                    return `<span style="display:inline-flex;align-items:center;gap:5px;">
+                        <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        ${escapeHtml(row.status)}
+                    </span>`;
+                }
+            },
+            { field: 'responsible', label: 'Ansvarig',     width: 170, className: 'col-default' },
+            { field: 'updated',     label: 'Uppdaterad',   width: 120, className: 'col-date' },
+            { field: 'note',        label: 'Anteckning',   className: 'col-description',
+                render(row) { return row.note ? escapeHtml(row.note) : '<span style="color:var(--text-tertiary,#94a3b8)">—</span>'; }
+            },
+        ],
+        rows,
+    }).render();
+}
+
+let _treeDemoInstance = null;
+
+function treeDemoExpandAll()  { _treeDemoInstance?.expandAll(); }
+function treeDemoCollapseAll() { _treeDemoInstance?.collapseAll(); }
+
+function initTreeDemo(containerId) {
+    const statusColor = {
+        'Aktiv':       '#16a34a',
+        'Klar':        '#2563eb',
+        'Granskning':  '#d97706',
+        'Ej startad':  '#94a3b8',
+    };
+
+    function statusBadge(row) {
+        const color = statusColor[row.status] || '#94a3b8';
+        return `<span style="display:inline-flex;align-items:center;gap:5px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+            ${escapeHtml(row.status)}
+        </span>`;
+    }
+
+    const rows = [
+        {
+            id: 1, name: 'Stomme', type: 'Grupp', status: 'Aktiv', responsible: 'Anna Lindqvist', updated: '2025-11-10', note: '',
+            children: [
+                {
+                    id: 2, name: 'Bärande väggar', type: 'Konstruktion', status: 'Aktiv', responsible: 'Anna Lindqvist', updated: '2025-11-03', note: '',
+                    children: [
+                        { id: 3, name: 'Yttervägg norr',   type: 'Byggdel', status: 'Klar',       responsible: 'Björn Ström',   updated: '2025-09-01', note: 'Godkänd besiktning', children: [] },
+                        { id: 4, name: 'Yttervägg söder',  type: 'Byggdel', status: 'Klar',       responsible: 'Björn Ström',   updated: '2025-09-01', note: '', children: [] },
+                        { id: 5, name: 'Yttervägg öster',  type: 'Byggdel', status: 'Granskning', responsible: 'Cecilia Nyman', updated: '2025-11-08', note: 'Brandkrav EI60', children: [] },
+                        { id: 6, name: 'Yttervägg väster', type: 'Byggdel', status: 'Granskning', responsible: 'Cecilia Nyman', updated: '2025-11-08', note: '', children: [] },
+                    ]
+                },
+                {
+                    id: 7, name: 'Pelare och balkar', type: 'Konstruktion', status: 'Aktiv', responsible: 'Cecilia Nyman', updated: '2025-11-10', note: '',
+                    children: [
+                        { id: 8,  name: 'Stålpelare plan 1', type: 'Byggdel', status: 'Aktiv',     responsible: 'David Ekman',   updated: '2025-10-15', note: '', children: [] },
+                        { id: 9,  name: 'Stålpelare plan 2', type: 'Byggdel', status: 'Aktiv',     responsible: 'David Ekman',   updated: '2025-10-15', note: '', children: [] },
+                        { id: 10, name: 'Takbalk typ A',     type: 'Byggdel', status: 'Ej startad', responsible: 'David Ekman',  updated: '2025-11-01', note: 'Leverantör ej vald', children: [] },
+                    ]
+                },
+                { id: 11, name: 'Grundplatta', type: 'Byggdel', status: 'Klar', responsible: 'Cecilia Nyman', updated: '2025-08-30', note: '', children: [] },
+            ]
+        },
+        {
+            id: 12, name: 'Klimatskal', type: 'Grupp', status: 'Aktiv', responsible: 'Björn Ström', updated: '2025-11-05', note: '',
+            children: [
+                {
+                    id: 13, name: 'Tak', type: 'Konstruktion', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: '',
+                    children: [
+                        { id: 14, name: 'Yttertak',   type: 'Byggdel', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: 'Godkänd besiktning', children: [] },
+                        { id: 15, name: 'Takstolar',  type: 'Byggdel', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: '', children: [] },
+                    ]
+                },
+                {
+                    id: 16, name: 'Fönster och dörrar', type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: '',
+                    children: [
+                        { id: 17, name: 'Fönster typ A',  type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: 'Leverantör ej vald', children: [] },
+                        { id: 18, name: 'Fönster typ B',  type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: '', children: [] },
+                        { id: 19, name: 'Entrédörr',      type: 'Öppning', status: 'Aktiv',     responsible: 'Björn Ström',    updated: '2025-10-20', note: 'Brandklass EI60', children: [] },
+                    ]
+                },
+            ]
+        },
+        {
+            id: 20, name: 'Installationer', type: 'Grupp', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '',
+            children: [
+                { id: 21, name: 'Ventilationsschakt', type: 'Installation', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '', children: [] },
+                { id: 22, name: 'Rörschakt',          type: 'Installation', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '', children: [] },
+                {
+                    id: 23, name: 'El', type: 'Installation', status: 'Granskning', responsible: 'Erik Bergman', updated: '2025-11-07', note: '',
+                    children: [
+                        { id: 24, name: 'Huvudcentral',  type: 'Installation', status: 'Granskning', responsible: 'Erik Bergman', updated: '2025-11-07', note: '', children: [] },
+                        { id: 25, name: 'Undercentral A', type: 'Installation', status: 'Ej startad', responsible: 'Erik Bergman', updated: '2025-11-01', note: '', children: [] },
+                    ]
+                },
+            ]
+        },
+    ];
+
+    _treeDemoInstance = new TreeTable({
+        containerId,
+        tableId: 'admin-tree-demo',
+        nodeId: 'id',
+        nameField: 'name',
+        rowId: 'id',
+        selectable: true,
+        columnVisibility: true,
+        batchActions: [
+            {
+                label: 'Ändra status',
+                action(selectedRows) {
+                    showToast(`${selectedRows.length} rad(er) markerade — batch-åtgärd här`, 'info');
+                }
+            }
+        ],
+        columns: [
+            { field: 'name',        label: 'Namn',       width: 260, className: 'col-name col-tree-name' },
+            { field: 'type',        label: 'Typ',        width: 130, className: 'col-type' },
+            { field: 'status',      label: 'Status',     width: 120, className: 'col-status', render: statusBadge },
+            { field: 'responsible', label: 'Ansvarig',   width: 170, className: 'col-default' },
+            { field: 'updated',     label: 'Uppdaterad', width: 120, className: 'col-date' },
+            { field: 'note',        label: 'Anteckning', className: 'col-description',
+              render(row) { return row.note ? escapeHtml(row.note) : '<span style="color:var(--text-tertiary,#94a3b8)">—</span>'; }
+            },
+        ],
+        rows,
+    });
+
+    _treeDemoInstance.render();
 }
 
 // Save object type (create or update)

@@ -21,6 +21,7 @@ class ObjectField(db.Model):
     force_presence_on_all_objects = db.Column(db.Boolean, nullable=False, default=False)
     is_table_visible = db.Column(db.Boolean, nullable=False, default=True)
     is_detail_visible = db.Column(db.Boolean, nullable=False, default=True)
+    is_tree_visible = db.Column(db.Boolean, nullable=False, default=False)
     help_text = db.Column(db.String(500))
     display_order = db.Column(db.Integer)
     detail_width = db.Column(db.String(10))
@@ -47,6 +48,7 @@ class ObjectField(db.Model):
             'force_presence_on_all_objects': bool(self.force_presence_on_all_objects),
             'is_table_visible': self.is_table_visible,
             'is_detail_visible': bool(self.is_detail_visible),
+            'is_tree_visible': bool(self.is_tree_visible),
             'help_text': self.help_text,
             'display_order': self.display_order,
             'detail_width': self.detail_width,

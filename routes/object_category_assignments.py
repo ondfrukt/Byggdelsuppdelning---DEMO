@@ -55,7 +55,8 @@ def create_assignment():
 
     if not Object.query.get(object_id):
         return jsonify({'error': f'Object {object_id} not found'}), 404
-    if not CategoryNode.query.get(category_node_id):
+    node = CategoryNode.query.get(category_node_id)
+    if not node:
         return jsonify({'error': f'CategoryNode {category_node_id} not found'}), 404
 
     existing = ObjectCategoryAssignment.query.filter_by(
@@ -63,6 +64,22 @@ def create_assignment():
     ).first()
     if existing:
         return jsonify({'error': 'Assignment already exists'}), 409
+
+    # Enforce one assignment per classification system per object
+    existing_in_system = (
+        ObjectCategoryAssignment.query
+        .join(CategoryNode, ObjectCategoryAssignment.category_node_id == CategoryNode.id)
+        .filter(
+            ObjectCategoryAssignment.object_id == object_id,
+            CategoryNode.system_id == node.system_id,
+        )
+        .first()
+    )
+    if existing_in_system:
+        return jsonify({
+            'error': 'Objektet är redan kopplat till en nod i detta klassificeringssystem. Ta bort den befintliga kopplingen först.',
+            'existing_assignment_id': existing_in_system.id,
+        }), 409
 
     is_primary = bool(data.get('is_primary', True))
 

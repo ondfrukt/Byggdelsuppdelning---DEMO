@@ -186,6 +186,12 @@ def create_app():
             logger.warning(f"Detail visibility migration may have already run: {str(e)}")
 
         try:
+            from migrations.add_tree_visibility_to_object_fields import run_migration as run_tree_visibility_migration
+            run_tree_visibility_migration(db)
+        except Exception as e:
+            logger.warning(f"Tree visibility migration may have already run: {str(e)}")
+
+        try:
             from migrations.add_field_governance import run_migration as run_field_governance_migration
             run_field_governance_migration(db)
         except Exception as e:

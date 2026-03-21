@@ -799,9 +799,10 @@ async function showDuplicateObjectModal(objectId) {
     formContainer.innerHTML = '';
 
     const sourceObject = await ObjectsAPI.getById(objectId);
-    const typeData = await ObjectTypesAPI.getById(sourceObject.object_type.id);
-
-    const relations = await ObjectsAPI.getRelations(objectId);
+    const [typeData, relations] = await Promise.all([
+        ObjectTypesAPI.getById(sourceObject.object_type.id),
+        ObjectsAPI.getRelations(objectId),
+    ]);
 
     typeSelect.innerHTML = `<option value="${typeData.id}" selected>${typeData.name}</option>`;
     typeSelect.disabled = true;
@@ -1038,10 +1039,10 @@ async function openDetailPanel(objectId, options = {}) {
         if (!panel.classList.contains('active')) {
             panel.classList.add('active');
         }
-        
+
         // Uppdatera panel-header (namn + kategori)
         updateDetailPanelHeader(object);
-        
+
         // Skapa eller återanvänd enhetlig detaljpanel-instans
         if (!currentDetailPanelInstance) {
             currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
@@ -1049,9 +1050,9 @@ async function openDetailPanel(objectId, options = {}) {
                 showHeader: false
             });
         }
-        
-        // Rendera komponenten för det valda objektet
-        await currentDetailPanelInstance.render(objectId);
+
+        // Skicka in redan-hämtat objekt så att render() inte behöver hämta det igen
+        await currentDetailPanelInstance.render(objectId, object);
         if (requestId !== activeDetailPanelRequestId) return;
         
     } catch (error) {
@@ -1658,7 +1659,7 @@ async function loadModalCategorySection(objectId) {
                     ? '<span style="font-size:11px;background:#e8f0fe;color:#4a6cf7;padding:1px 5px;border-radius:8px;margin-left:5px;">Primär</span>'
                     : '';
                 return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-                    <span><strong>${escapeHtml(node.code || '')}</strong> <span style="margin-left:4px;">${escapeHtml(node.name || '')}</span>${badge}</span>
+                    <span>${escapeHtml(node.name || '')}${badge}</span>
                     <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:12px;" onclick="modalRemoveCategoryAssignment(${a.id})">✕</button>
                 </div>`;
             }).join('');
@@ -1670,11 +1671,11 @@ async function loadModalCategorySection(objectId) {
             const nodes = allNodes[i];
             if (!nodes.length) return;
             opts += `<optgroup label="${escapeHtml(sys.name || '')}">`;
-            nodes.sort((a, b) => a.level - b.level || a.code.localeCompare(b.code));
+            nodes.sort((a, b) => a.level - b.level || (a.name || '').localeCompare(b.name || '', 'sv'));
             nodes.forEach(n => {
                 const indent = '\u00a0\u00a0'.repeat(n.level - 1);
                 const disabled = assignedNodeIds.has(n.id) ? ' disabled' : '';
-                opts += `<option value="${n.id}"${disabled}>${indent}${escapeHtml(n.code)} – ${escapeHtml(n.name || '')}</option>`;
+                opts += `<option value="${n.id}"${disabled}>${indent}${escapeHtml(n.name || '')}</option>`;
             });
             opts += '</optgroup>';
         });
@@ -1970,7 +1971,7 @@ async function openFileObjectDetailPanel(objectId) {
             });
         }
 
-        await currentFileObjectsDetailPanelInstance.render(objectId);
+        await currentFileObjectsDetailPanelInstance.render(objectId, object);
     } catch (error) {
         console.error('Failed to load file object detail:', error);
         showToast('Kunde inte ladda filobjektsdetaljer', 'error');

@@ -11,13 +11,6 @@ from models.object_category_assignment import ObjectCategoryAssignment
 logger = logging.getLogger(__name__)
 bp = Blueprint('category_nodes', __name__, url_prefix='/api/category-nodes')
 
-REVIT_CATEGORIES = [
-    'Walls', 'Floors', 'Roofs', 'Doors', 'Windows',
-    'Ceilings', 'Columns', 'Beams', 'Stairs', 'Ramps',
-    'Generic Models', 'Furniture', 'Mechanical Equipment',
-]
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -148,8 +141,6 @@ def create_node():
         code=code,
         name=name,
         level=level,
-        revit_category=(data.get('revit_category') or '').strip() or None,
-        ifc_type=(data.get('ifc_type') or '').strip() or None,
         description=(data.get('description') or '').strip() or None,
         sort_order=int(data.get('sort_order', 0)),
         is_active=bool(data.get('is_active', True)),
@@ -198,10 +189,6 @@ def update_node(node_id):
             return jsonify({'error': 'name cannot be empty'}), 400
         node.name = name
 
-    if 'revit_category' in data:
-        node.revit_category = (data['revit_category'] or '').strip() or None
-    if 'ifc_type' in data:
-        node.ifc_type = (data['ifc_type'] or '').strip() or None
     if 'description' in data:
         node.description = (data['description'] or '').strip() or None
     if 'sort_order' in data:
