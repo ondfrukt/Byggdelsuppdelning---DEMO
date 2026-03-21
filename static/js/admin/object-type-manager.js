@@ -137,6 +137,9 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="relation-type-rules" onclick="adminManager.switchTab('relation-type-rules')">
                         Relationsregler
                     </button>
+                    <button class="admin-tab" data-tab="categories" onclick="adminManager.switchTab('categories')">
+                        Kategorier
+                    </button>
                 </div>
                 
                 <div class="admin-tab-content">
@@ -197,6 +200,10 @@ class ObjectTypeManager {
                         <div id="relation-type-rules-container">
                             <p>Laddar...</p>
                         </div>
+                    </div>
+
+                    <div id="categories-tab" class="admin-tab-panel">
+                        <div id="category-admin-container"></div>
                     </div>
                 </div>
             </div>
@@ -3764,6 +3771,9 @@ class ObjectTypeManager {
             document.getElementById('field-templates-tab').classList.add('active');
         } else if (tabName === 'relation-type-rules') {
             document.getElementById('relation-type-rules-tab').classList.add('active');
+        } else if (tabName === 'categories') {
+            document.getElementById('categories-tab').classList.add('active');
+            initCategoryAdmin('category-admin-container');
         }
     }
 }

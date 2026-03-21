@@ -20,6 +20,9 @@ class ObjectDetailPanel {
             showHeader: options.showHeader !== false, // Show header by default
             ...options
         };
+
+        // Store reference once so inline onclick handlers in category tab can reach this instance
+        window._detailPanel = this;
     }
     
     async loadObject(objectId) {
@@ -285,7 +288,7 @@ class ObjectDetailPanel {
                         data-tab="relations">
                     Relationer
                 </button>
-                <button class="tab-btn ${this.activeTab === 'files' ? 'active' : ''}" 
+                <button class="tab-btn ${this.activeTab === 'files' ? 'active' : ''}"
                         data-tab="files">
                     Filer
                 </button>
@@ -313,10 +316,10 @@ class ObjectDetailPanel {
         } else if (this.activeTab === 'files') {
             return this.renderFilesTab();
         }
-        
+
         return '';
     }
-    
+
     renderDetails() {
         const obj = this.objectData;
         const data = obj.data || {};

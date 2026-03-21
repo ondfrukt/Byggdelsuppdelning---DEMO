@@ -1236,6 +1236,8 @@ async function showCreateObjectModal() {
         modal.dataset.mode = 'create';
         modal.style.display = 'block';
         overlay.style.display = 'block';
+        const catSection = document.getElementById('object-category-section');
+        if (catSection) catSection.style.display = 'none';
     } catch (error) {
         console.error('Failed to load object types:', error);
         showToast('Kunde inte ladda objekttyper', 'error');
@@ -1616,9 +1618,104 @@ async function editObject(objectId) {
         modal.dataset.objectId = objectId;
         modal.style.display = 'block';
         overlay.style.display = 'block';
+
+        // Load category section (non-blocking)
+        loadModalCategorySection(objectId);
     } catch (error) {
         console.error('Failed to load object for editing:', error);
         showToast('Kunde inte ladda objekt', 'error');
+    }
+}
+
+async function loadModalCategorySection(objectId) {
+    const section = document.getElementById('object-category-section');
+    const list = document.getElementById('object-category-assignments-list');
+    const select = document.getElementById('modal-cat-node-select');
+    if (!section || !list || !select) return;
+
+    section.style.display = 'block';
+    section.dataset.objectId = objectId;
+    list.innerHTML = '<span style="color:#888;font-size:13px;">Laddar...</span>';
+
+    try {
+        const [assignments, systems] = await Promise.all([
+            fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json()),
+            fetch('/api/classification-systems').then(r => r.json()),
+        ]);
+        const allNodes = await Promise.all(
+            systems.map(sys => fetch(`/api/category-nodes?system_id=${sys.id}`).then(r => r.json()))
+        );
+
+        const assignedNodeIds = new Set(assignments.map(a => a.category_node_id));
+
+        // Render assigned list
+        if (assignments.length === 0) {
+            list.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0 0 6px;">Ingen kategori kopplad ännu.</p>';
+        } else {
+            list.innerHTML = assignments.map(a => {
+                const node = a.category_node || {};
+                const badge = a.is_primary
+                    ? '<span style="font-size:11px;background:#e8f0fe;color:#4a6cf7;padding:1px 5px;border-radius:8px;margin-left:5px;">Primär</span>'
+                    : '';
+                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+                    <span><strong>${escapeHtml(node.code || '')}</strong> <span style="margin-left:4px;">${escapeHtml(node.name || '')}</span>${badge}</span>
+                    <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:12px;" onclick="modalRemoveCategoryAssignment(${a.id})">✕</button>
+                </div>`;
+            }).join('');
+        }
+
+        // Populate select
+        let opts = '<option value="">— Välj nod —</option>';
+        systems.forEach((sys, i) => {
+            const nodes = allNodes[i];
+            if (!nodes.length) return;
+            opts += `<optgroup label="${escapeHtml(sys.name || '')}">`;
+            nodes.sort((a, b) => a.level - b.level || a.code.localeCompare(b.code));
+            nodes.forEach(n => {
+                const indent = '\u00a0\u00a0'.repeat(n.level - 1);
+                const disabled = assignedNodeIds.has(n.id) ? ' disabled' : '';
+                opts += `<option value="${n.id}"${disabled}>${indent}${escapeHtml(n.code)} – ${escapeHtml(n.name || '')}</option>`;
+            });
+            opts += '</optgroup>';
+        });
+        select.innerHTML = opts;
+    } catch (e) {
+        list.innerHTML = `<p style="color:#c0392b;font-size:13px;">Kunde inte ladda kategorier: ${e.message}</p>`;
+    }
+}
+
+async function modalAddCategoryAssignment() {
+    const section = document.getElementById('object-category-section');
+    const select = document.getElementById('modal-cat-node-select');
+    const objectId = parseInt(section?.dataset.objectId, 10);
+    const nodeId = parseInt(select?.value, 10);
+    if (!objectId || !nodeId) return;
+
+    try {
+        const resp = await fetch('/api/object-category-assignments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ object_id: objectId, category_node_id: nodeId, is_primary: true }),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || `HTTP ${resp.status}`);
+        }
+        await loadModalCategorySection(objectId);
+    } catch (e) {
+        showToast('Kunde inte koppla kategori: ' + e.message, 'error');
+    }
+}
+
+async function modalRemoveCategoryAssignment(assignmentId) {
+    const section = document.getElementById('object-category-section');
+    const objectId = parseInt(section?.dataset.objectId, 10);
+    try {
+        const resp = await fetch(`/api/object-category-assignments/${assignmentId}`, { method: 'DELETE' });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        await loadModalCategorySection(objectId);
+    } catch (e) {
+        showToast('Kunde inte ta bort: ' + e.message, 'error');
     }
 }
 

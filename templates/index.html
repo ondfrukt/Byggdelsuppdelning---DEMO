@@ -112,6 +112,16 @@
                     </select>
                 </div>
                 <div id="object-form-container"></div>
+                <div id="object-category-section" style="display:none;">
+                    <div class="form-section-divider">
+                        <span>Kategori</span>
+                    </div>
+                    <div id="object-category-assignments-list"></div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;">
+                        <select id="modal-cat-node-select" class="form-control" style="flex:1;min-width:160px;font-size:0.85rem;"></select>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="modalAddCategoryAssignment()">Koppla</button>
+                    </div>
+                </div>
                 <div id="object-create-relations-group" class="form-group" style="display:none;">
                     <label>Relationer (valfritt)</label>
                     <div class="create-relations-actions">
@@ -518,6 +528,7 @@
     <script src="{{ url_for('static', filename='js/components/tree-view.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail-panel.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/table-sort.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/category-admin.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin/object-type-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/change-management.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>

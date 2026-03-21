@@ -226,7 +226,7 @@ def create_app():
             run_instance_type_fields_migration(db)
         except Exception as e:
             logger.warning(f"Instance type fields migration may have already run: {str(e)}")
-        
+
         seed_data(app)
 
         # Re-run after seed to guarantee canonical 'namn' field on freshly seeded databases.
@@ -277,6 +277,18 @@ def create_app():
             run_relation_entity_type_sync_migration(db)
         except Exception as e:
             logger.warning(f"Relation entity type sync migration may have already run: {str(e)}")
+
+        try:
+            from migrations.add_classification_system import run_migration as run_classification_system_post_seed_migration
+            run_classification_system_post_seed_migration(db)
+        except Exception as e:
+            logger.warning(f"Classification system post-seed migration may have already run: {str(e)}")
+
+        try:
+            from migrations.seed_category_relation_rules import run_migration as run_category_relation_rules_migration
+            run_category_relation_rules_migration(db)
+        except Exception as e:
+            logger.warning(f"Category relation rules seed may have already run: {str(e)}")
     
     # Register blueprints
     register_blueprints(app)
