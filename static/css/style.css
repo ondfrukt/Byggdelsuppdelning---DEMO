@@ -1235,7 +1235,7 @@ body {
 
 #object-form-fields {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
     gap: var(--spacing-sm);
     align-items: start;
 }
@@ -1244,20 +1244,15 @@ body {
     margin-bottom: 0;
 }
 
-.form-group-compact {
-    grid-column: span 3;
+#object-form-fields .form-group-half,
+#object-form-fields .form-group-compact,
+#object-form-fields .form-group-third {
+    grid-column: span 1;
 }
 
-.form-group-half {
-    grid-column: span 3;
-}
-
-.form-group-third {
+#object-form-fields .form-group-full,
+#object-form-fields .form-section-full {
     grid-column: span 2;
-}
-
-.form-group-full {
-    grid-column: span 6;
 }
 
 .form-section-full {
@@ -1273,16 +1268,21 @@ body {
 
 #object-main-form {
     font-size: 0.9rem;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: var(--spacing-md);
+}
+
+#object-main-form .form-control {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    padding: 6px 10px;
+    font-size: 0.9rem;
 }
 
 #object-main-form .form-group label {
     margin-bottom: 4px;
     font-size: 0.82rem;
-}
-
-#object-main-form .form-control {
-    padding: 6px 10px;
-    font-size: 0.9rem;
 }
 
 #object-main-form .form-help {
