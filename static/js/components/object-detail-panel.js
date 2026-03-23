@@ -38,6 +38,7 @@ class ObjectDetailPanel {
                 this.objectData = await response.json();
             }
             await this.preloadManagedListDisplayMaps();
+            await this.preloadCategoryNodeNames();
         } catch (error) {
             console.error('Error loading object:', error);
             throw error;
@@ -95,6 +96,27 @@ class ObjectDetailPanel {
             } catch (_error) {
                 // Ignore lookup failures and keep raw value fallback.
             }
+        }));
+    }
+
+    async preloadCategoryNodeNames() {
+        this.categoryNodeNameById = new Map();
+        const fields = Array.isArray(this.objectData?.object_type?.fields)
+            ? this.objectData.object_type.fields : [];
+        const data = this.objectData?.data || {};
+        const nodeIds = fields
+            .filter(f => String(f?.field_type || '').toLowerCase() === 'category_node')
+            .map(f => parseInt(data[f.field_name], 10))
+            .filter(id => Number.isFinite(id) && id > 0);
+
+        await Promise.all([...new Set(nodeIds)].map(async (nodeId) => {
+            try {
+                const r = await fetch(`/api/category-nodes/${nodeId}?include_path=true`);
+                if (!r.ok) return;
+                const node = await r.json();
+                const display = node?.path_string || node?.name;
+                if (display) this.categoryNodeNameById.set(nodeId, display);
+            } catch (_) { /* keep raw id as fallback */ }
         }));
     }
 
@@ -211,9 +233,6 @@ class ObjectDetailPanel {
             window.currentFileUpload = null;
         }
 
-        if (this.options.layout === 'detail') {
-            this._loadCategoryMeta(obj.id);
-        }
 
         if (this.activeTab === 'relations') {
             await this.loadRelationsIfNeeded();
@@ -224,18 +243,6 @@ class ObjectDetailPanel {
         }
     }
 
-    async _loadCategoryMeta(objectId) {
-        const span = document.getElementById(`detail-cat-meta-${objectId}`);
-        if (!span) return;
-        try {
-            const assignments = await fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json());
-            if (!assignments.length) { span.textContent = '—'; return; }
-            span.textContent = assignments.map(a => a.category_node?.name || '').filter(Boolean).join(', ');
-        } catch (_) {
-            span.textContent = '—';
-        }
-    }
-    
     attachEventListeners() {
         if (!this.container) return;
         
@@ -394,10 +401,6 @@ class ObjectDetailPanel {
                         <span class="detail-label">BaseID</span>
                         <span class="detail-value">${obj.main_id || obj.id_full || 'N/A'}</span>
                     </div>
-                    <div class="detail-header-item">
-                        <span class="detail-label">Kategori</span>
-                        <span class="detail-value" id="detail-cat-meta-${obj.id}">—</span>
-                    </div>
                 </div>
             `;
         }
@@ -418,7 +421,13 @@ class ObjectDetailPanel {
 
             const key = entry?.key || fieldName;
             const rawValue = entry?.value;
-            const value = this.resolveManagedListDisplayValue(rawValue, field);
+            let value = this.resolveManagedListDisplayValue(rawValue, field);
+            if (String(field?.field_type || '').toLowerCase() === 'category_node') {
+                const nodeId = parseInt(rawValue, 10);
+                if (Number.isFinite(nodeId) && this.categoryNodeNameById?.has(nodeId)) {
+                    value = this.categoryNodeNameById.get(nodeId);
+                }
+            }
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);

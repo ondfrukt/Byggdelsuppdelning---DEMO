@@ -111,6 +111,8 @@ class ObjectFormComponent {
         this.setupManagedListHierarchySelectors(container);
         await this.initializeRichTextEditors(container);
         this.applyConnectionNameRules();
+        this.setupCategoryNodeFields(container);
+        this.setupTagFields(container);
     }
 
     getManagedListFieldOptions(field) {
@@ -955,10 +957,72 @@ class ObjectFormComponent {
                 }
                 break;
                 
+            case 'computed': {
+                const displayVal = value ? String(value) : '';
+                inputHtml = `<div class="form-control" style="background:var(--bg-secondary);color:var(--text-secondary);cursor:default;min-height:36px;">${escapeHtml(displayVal) || '<em style="opacity:.5">Beräknas vid sparande</em>'}</div>`;
+                break;
+            }
+            case 'tag': {
+                const tagOpts = this.normalizeFieldOptions(field.field_options) || {};
+                const tagListId = Number(tagOpts.list_id || 0);
+                let initialTags = [];
+                if (Array.isArray(value)) {
+                    initialTags = value.map(String).filter(Boolean);
+                } else if (typeof value === 'string' && value.trim()) {
+                    try { initialTags = JSON.parse(value); } catch (_) { initialTags = value.split(',').map(s => s.trim()).filter(Boolean); }
+                }
+                const tagsJson = escapeHtml(JSON.stringify(initialTags));
+                const chipsHtml = initialTags.map(t =>
+                    `<span class="tag-chip">${escapeHtml(t)}<button type="button" class="tag-chip-remove" data-tag="${escapeHtml(t)}" aria-label="Ta bort">×</button></span>`
+                ).join('');
+                inputHtml = `
+                    <div class="tag-field-widget" data-list-id="${tagListId}" data-field-name="${escapeHtml(field.field_name)}">
+                        <input type="hidden" id="field-${field.field_name}" name="${field.field_name}" value="${tagsJson}">
+                        <div class="tag-field-input-row">
+                            <div class="tag-chips-container">${chipsHtml}</div>
+                            <input type="text" class="tag-text-input" placeholder="Lägg till tagg..." autocomplete="off">
+                        </div>
+                        <div class="tag-suggestions" style="display:none;"></div>
+                    </div>`;
+                break;
+            }
+            case 'relation_list': {
+                const rlItems = value ? String(value).split('\n').map(s => s.trim()).filter(Boolean) : [];
+                const rlContent = rlItems.length
+                    ? rlItems.map(i => `- ${escapeHtml(i)}`).join('<br>')
+                    : '<span style="color:var(--text-secondary);">—</span>';
+                inputHtml = `<div class="form-control relation-list-display" style="min-height:36px;background:var(--bg-secondary);cursor:default;">${rlContent}</div>`;
+                break;
+            }
+            case 'category_node': {
+                const catOpts = this.normalizeFieldOptions(field.field_options) || {};
+                const catSystemId = Number(catOpts.system_id || 0);
+                const catSystemName = escapeHtml(catOpts.system_name || '');
+                const catNodeId = value ? String(value) : '';
+                inputHtml = `
+                    <div class="category-field-widget"
+                         data-field-name="${escapeHtml(field.field_name)}"
+                         data-system-id="${catSystemId}"
+                         data-system-name="${catSystemName}">
+                        <input type="hidden"
+                               id="field-${field.field_name}"
+                               name="${field.field_name}"
+                               value="${escapeHtml(catNodeId)}">
+                        <div class="category-field-display form-control"
+                             style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:38px;">
+                            <span class="category-field-label"
+                                  data-label-for="${escapeHtml(field.field_name)}">${catNodeId ? '…' : 'Välj kategorinod…'}</span>
+                            <span style="font-size:11px;color:var(--text-secondary);">▼</span>
+                        </div>
+                    </div>
+                `;
+                break;
+            }
+
             default:
                 inputHtml = `
-                    <input type="text" 
-                           id="field-${field.field_name}" 
+                    <input type="text"
+                           id="field-${field.field_name}"
                            name="${field.field_name}"
                            value="${escapeHtml(value)}"
                            ${required}
@@ -973,6 +1037,126 @@ class ObjectFormComponent {
                 ${field.help_text ? `<small class="form-help">${escapeHtml(field.help_text)}</small>` : ''}
             </div>
         `;
+    }
+
+    setupTagFields(container) {
+        container.querySelectorAll('.tag-field-widget').forEach(widget => {
+            const listId = Number(widget.dataset.listId || 0);
+            const hidden = widget.querySelector('input[type="hidden"]');
+            const textInput = widget.querySelector('.tag-text-input');
+            const chipsContainer = widget.querySelector('.tag-chips-container');
+            const suggestionsBox = widget.querySelector('.tag-suggestions');
+            let allSuggestions = [];
+
+            const getTags = () => {
+                try { return JSON.parse(hidden.value || '[]'); } catch (_) { return []; }
+            };
+            const setTags = (tags) => {
+                hidden.value = JSON.stringify(tags);
+                chipsContainer.innerHTML = tags.map(t =>
+                    `<span class="tag-chip">${escapeHtml(t)}<button type="button" class="tag-chip-remove" data-tag="${escapeHtml(t)}" aria-label="Ta bort">×</button></span>`
+                ).join('');
+                bindChipRemove();
+            };
+            const bindChipRemove = () => {
+                chipsContainer.querySelectorAll('.tag-chip-remove').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        setTags(getTags().filter(t => t !== btn.dataset.tag));
+                    });
+                });
+            };
+            bindChipRemove();
+
+            const addTag = async (tag) => {
+                tag = tag.trim();
+                if (!tag) return;
+                const current = getTags();
+                if (current.includes(tag)) { textInput.value = ''; hideSuggestions(); return; }
+                // Add to managed list if new
+                if (listId && !allSuggestions.includes(tag)) {
+                    try {
+                        await fetch(`/api/managed-lists/${listId}/items`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ label: tag, value: tag })
+                        });
+                        allSuggestions.push(tag);
+                    } catch (_) {}
+                }
+                setTags([...current, tag]);
+                textInput.value = '';
+                hideSuggestions();
+            };
+
+            const showSuggestions = (q) => {
+                const filtered = allSuggestions.filter(s =>
+                    s.toLowerCase().includes(q.toLowerCase()) && !getTags().includes(s)
+                );
+                if (!filtered.length && !q.trim()) { hideSuggestions(); return; }
+                const items = filtered.slice(0, 10).map(s =>
+                    `<div class="tag-suggestion-item" data-value="${escapeHtml(s)}">${escapeHtml(s)}</div>`
+                ).join('');
+                const createItem = q.trim() && !allSuggestions.includes(q.trim())
+                    ? `<div class="tag-suggestion-item tag-suggestion-new" data-value="${escapeHtml(q.trim())}">Skapa "${escapeHtml(q.trim())}"</div>`
+                    : '';
+                suggestionsBox.innerHTML = items + createItem;
+                suggestionsBox.style.display = (items || createItem) ? '' : 'none';
+                suggestionsBox.querySelectorAll('.tag-suggestion-item').forEach(el => {
+                    el.addEventListener('mousedown', (e) => { e.preventDefault(); addTag(el.dataset.value); });
+                });
+            };
+            const hideSuggestions = () => { suggestionsBox.style.display = 'none'; };
+
+            // Load suggestions
+            if (listId) {
+                fetch(`/api/managed-lists/${listId}/items`).then(r => r.ok ? r.json() : []).then(items => {
+                    allSuggestions = items.map(i => i.label || i.value || '').filter(Boolean);
+                }).catch(() => {});
+            }
+
+            textInput.addEventListener('input', () => showSuggestions(textInput.value));
+            textInput.addEventListener('focus', () => showSuggestions(textInput.value));
+            textInput.addEventListener('blur', () => setTimeout(hideSuggestions, 150));
+            textInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addTag(textInput.value); }
+                if (e.key === 'Escape') { hideSuggestions(); }
+            });
+        });
+    }
+
+    setupCategoryNodeFields(container) {
+        container.querySelectorAll('.category-field-widget').forEach(widget => {
+            const fieldName = widget.dataset.fieldName;
+            const systemId  = Number(widget.dataset.systemId  || 0);
+            const systemName = widget.dataset.systemName || '';
+            const hidden   = widget.querySelector('input[type="hidden"]');
+            const display  = widget.querySelector('.category-field-display');
+            const labelEl  = widget.querySelector('.category-field-label');
+
+            // Resolve existing value to a name
+            if (hidden && hidden.value) {
+                fetch(`/api/category-nodes/${hidden.value}?include_path=true`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(node => { if (node && labelEl) labelEl.textContent = node.path_string || node.name || hidden.value; })
+                    .catch(() => {});
+            }
+
+            // Open picker on click
+            if (display) {
+                display.addEventListener('click', () => {
+                    if (typeof window.openCatFieldPicker === 'function') {
+                        window.openCatFieldPicker(systemId, systemName, (nodeId, nodeName) => {
+                            if (hidden) hidden.value = String(nodeId);
+                            // Fetch full path string instead of leaf name only
+                            fetch(`/api/category-nodes/${nodeId}?include_path=true`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(node => { if (labelEl) labelEl.textContent = node?.path_string || nodeName; })
+                                .catch(() => { if (labelEl) labelEl.textContent = nodeName; });
+                        });
+                    }
+                });
+            }
+        });
     }
 
     getFieldLayoutClass(field) {
@@ -2104,6 +2288,19 @@ class ObjectFormComponent {
             
             if (field.field_type === 'boolean') {
                 // Boolean fields don't need to be checked (checkbox can be unchecked)
+                return;
+            }
+
+            if (field.field_type === 'category_node') {
+                const widget = input.closest?.('.category-field-widget') || input.parentElement;
+                const display = widget?.querySelector?.('.category-field-display');
+                if (!input.value || !input.value.trim()) {
+                    isValid = false;
+                    missingFields.push({ name: field.display_name || field.field_name, type: field.field_type, value: '' });
+                    display?.classList.add('error');
+                } else {
+                    display?.classList.remove('error');
+                }
                 return;
             }
 

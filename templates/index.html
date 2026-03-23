@@ -104,7 +104,7 @@
                 <h3 id="object-modal-title">Skapa Objekt</h3>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
-            <form id="object-main-form" onsubmit="saveObject(event)">
+            <form id="object-main-form" onsubmit="saveObject(event)" novalidate>
                 <div class="form-group" id="object-type-select-group">
                     <label for="object-type-select">Objekttyp *</label>
                     <select id="object-type-select" class="form-control" required>
@@ -112,15 +112,6 @@
                     </select>
                 </div>
                 <div id="object-form-container"></div>
-                <div id="object-category-section" style="display:none;">
-                    <div class="form-section-divider">
-                        <span>Kategori</span>
-                    </div>
-                    <div id="object-category-assignments-list"></div>
-                    <div style="margin-top:8px;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="openCategoryNodePicker()">+ Välj kategori...</button>
-                    </div>
-                </div>
                 <div id="object-create-relations-group" class="form-group" style="display:none;">
                     <label>Relationer (valfritt)</label>
                     <div class="create-relations-actions">
@@ -311,27 +302,6 @@
         </div>
     </div>
 
-    <!-- Bulk Category Modal -->
-    <div id="bulk-category-modal" class="modal">
-        <div class="modal-content" style="max-width:600px;">
-            <div class="modal-header">
-                <h3>Byt kategori</h3>
-                <button class="close-btn" type="button" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body" style="padding:var(--spacing-md);">
-                <p id="bulk-category-summary" class="form-help" style="margin-bottom:10px;"></p>
-                <input type="text" id="bulk-cat-search" class="form-control"
-                       placeholder="Sök kategorier..."
-                       style="margin-bottom:8px;"
-                       oninput="currentObjectListComponent?.filterBulkCatTree(this.value)">
-                <div id="bulk-cat-tree" style="max-height:420px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
-            </div>
-        </div>
-    </div>
-
     <!-- Relation Modal -->
     <div id="relation-modal" class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="relation-modal-title" aria-describedby="relation-modal-description">
         <div class="modal-content relation-modal-content">
@@ -491,6 +461,13 @@
                     </div>
                     <div id="field-hierarchy-labels-container"></div>
                 </div>
+                <div class="form-group" id="field-computed-fields-group" style="display: none;">
+                    <label>Källfält</label>
+                    <div id="field-computed-source-checkboxes" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;padding:6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-secondary);"></div>
+                    <small class="form-help">Välj vilka fält som ska kombineras i det beräknade värdet.</small>
+                    <label style="margin-top:8px;">Separator</label>
+                    <input type="text" id="field-computed-separator" class="form-control" placeholder="t.ex. ↔" value=" ↔ ">
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
                         Avbryt
@@ -543,7 +520,37 @@
                         <option value="datetime">Datum & Tid</option>
                         <option value="boolean">Ja/Nej</option>
                         <option value="select">Val (dropdown/lista)</option>
+                        <option value="category_node">Kategorinod</option>
+                        <option value="relation_list">Relationslista (read-only)</option>
+                        <option value="tag">Taggar</option>
+                        <option value="computed">Beräknat fält</option>
                     </select>
+                </div>
+                <div class="form-group" id="template-computed-fields-group" style="display: none;">
+                    <label>Separator</label>
+                    <input type="text" id="template-computed-separator" class="form-control" placeholder="t.ex. ↔" value=" ↔ ">
+                    <small class="form-help">Källfälten väljs när du lägger till fältet på ett objekt. Separatorn är ett standardvärde som kan ändras per objekt.</small>
+                </div>
+                <div class="form-group" id="template-tag-list-group" style="display: none;">
+                    <label for="template-tag-list-select">Tagglista</label>
+                    <select id="template-tag-list-select" class="form-control">
+                        <option value="">Välj lista...</option>
+                    </select>
+                    <small class="form-help">Välj vilken lista taggarna ska hämtas från och sparas i.</small>
+                </div>
+                <div class="form-group" id="template-relation-type-group" style="display: none;">
+                    <label for="template-relation-object-type">Objekttyp att visa</label>
+                    <select id="template-relation-object-type" class="form-control">
+                        <option value="">Välj objekttyp...</option>
+                    </select>
+                    <small class="form-help">Visar namnen på alla kopplade objekt av vald typ.</small>
+                </div>
+                <div class="form-group" id="template-category-system-group" style="display: none;">
+                    <label for="template-category-system-select">Kategorisystem</label>
+                    <select id="template-category-system-select" class="form-control">
+                        <option value="">Välj kategorisystem...</option>
+                    </select>
+                    <small class="form-help">Välj vilket kategorisystem som ska gälla för detta fält.</small>
                 </div>
                 <div class="form-group" id="template-option-source-group" style="display: none;">
                     <label for="template-option-source">Alternativkälla</label>

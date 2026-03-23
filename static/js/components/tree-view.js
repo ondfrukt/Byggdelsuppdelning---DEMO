@@ -13,6 +13,7 @@ class TreeView {
         this._data = [];
         this._availableFields = []; // [{field_name, display_name, field_type, is_tree_visible}]
         this._nodeTypeMap = {};     // numericId -> typeName
+        this._categoryNodePathById = {}; // nodeId -> path_string
     }
 
     // -------------------------------------------------------------------------
@@ -53,6 +54,7 @@ class TreeView {
 
         this._nodeTypeMap = {};
         this._collectTypes(this._data);
+        await this._preloadCategoryNodePaths();
 
         this.treeTable = new TreeTable({
             containerId: 'tv-inner',
@@ -63,7 +65,7 @@ class TreeView {
             rows: this._data,
             emptyText: this._emptyText(),
             globalSearch: true,
-            columnSearch: false,
+            columnSearch: true,
             selectable: false,
             columnVisibility: true,
             resizableColumns: true,
@@ -72,19 +74,39 @@ class TreeView {
             onRender: () => this._onAfterRender(),
         });
 
-        // Expand all nodes at every level by default
-        const preExpand = (nodes) => {
-            nodes.forEach(node => {
-                const children = Array.isArray(node.children) ? node.children : [];
-                if (children.length > 0) {
-                    this.treeTable.expandedNodes.add(String(node.id));
-                    preExpand(children);
-                }
-            });
-        };
-        preExpand(this._data);
-
         this.treeTable.render();
+        this._loadFilesForNodes();
+    }
+
+    _collectObjectNodes(nodes, out = []) {
+        if (!Array.isArray(nodes)) return out;
+        for (const n of nodes) {
+            if (n.type !== 'category_node') out.push(n);
+            this._collectObjectNodes(n.children, out);
+        }
+        return out;
+    }
+
+    async _loadFilesForNodes() {
+        const allNodes = this._collectObjectNodes(this._data);
+        if (!allNodes.length) return;
+
+        const ids = allNodes.map(n => n.id).join(',');
+        try {
+            const resp = await fetch(`/api/objects/files-batch?ids=${ids}`);
+            if (!resp.ok) return;
+            const fileMap = await resp.json();
+
+            // Patch node data and re-render affected cells
+            for (const node of allNodes) {
+                const files = fileMap[String(node.id)];
+                if (!files || !files.length) continue;
+                node.files = files;
+                node.file_count = files.length;
+            }
+            // Re-render the table to reflect updated file data
+            if (this.treeTable) this.treeTable.render();
+        } catch (_e) { /* silent */ }
     }
 
     // -------------------------------------------------------------------------
@@ -159,6 +181,26 @@ class TreeView {
                 hidden: false,
                 render: (node) => node.type === 'category_node' ? '' : escapeHtml(node.id_full || ''),
             },
+            {
+                field: 'files',
+                label: 'Filer',
+                className: 'col-files',
+                width: 160,
+                hidden: true,
+                render: (node) => {
+                    if (node.type === 'category_node') return '';
+                    const files = Array.isArray(node.files) ? node.files : [];
+                    if (!files.length) return '';
+                    return files.map(f => {
+                        const name = escapeHtml(f.filename || 'Dokument');
+                        const url = escapeHtml(f.url || '');
+                        const isPdf = (f.mime_type || '').includes('pdf') || url.toLowerCase().includes('.pdf');
+                        const previewAttr = isPdf ? ` data-preview-url="${url}"` : '';
+                        const previewClass = isPdf ? ' js-pdf-preview-link' : '';
+                        return `<a href="${url}" class="tree-file-link${previewClass}"${previewAttr} target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="${name}">${name}</a>`;
+                    }).join('<br>');
+                },
+            },
         ];
 
         // Dynamic columns from available fields — hidden by default unless is_tree_visible
@@ -174,8 +216,13 @@ class TreeView {
                     if (node.type === 'category_node') return '';
                     const raw = node.data?.[f.field_name];
                     if (raw == null || raw === '') return '';
-                    const str = Array.isArray(raw) ? raw.join(', ') : String(raw);
-                    return table.highlightText(str, f.field_name);
+                    let str;
+                    if (f.field_type === 'category_node') {
+                        str = this._categoryNodePathById[String(raw)] || String(raw);
+                    } else {
+                        str = Array.isArray(raw) ? raw.join(', ') : String(raw);
+                    }
+                    return table.highlightText(escapeHtml(str), f.field_name);
                 },
             }));
 
@@ -286,6 +333,36 @@ class TreeView {
             }
             this._collectTypes(node.children);
         });
+    }
+
+    async _preloadCategoryNodePaths() {
+        const catFields = this._availableFields.filter(f => f.field_type === 'category_node');
+        if (!catFields.length) return;
+
+        const nodeIds = new Set();
+        const collectFromNodes = (nodes) => {
+            if (!Array.isArray(nodes)) return;
+            nodes.forEach(node => {
+                if (node.type !== 'category_node') {
+                    catFields.forEach(f => {
+                        const val = node.data?.[f.field_name];
+                        if (val != null && val !== '') nodeIds.add(String(val));
+                    });
+                }
+                collectFromNodes(node.children);
+            });
+        };
+        collectFromNodes(this._data);
+
+        await Promise.all(Array.from(nodeIds).map(async id => {
+            if (this._categoryNodePathById[id]) return;
+            try {
+                const r = await fetch(`/api/category-nodes/${id}?include_path=true`);
+                if (!r.ok) return;
+                const data = await r.json();
+                this._categoryNodePathById[id] = data.path_string || data.name || id;
+            } catch (_) {}
+        }));
     }
 
     // -------------------------------------------------------------------------

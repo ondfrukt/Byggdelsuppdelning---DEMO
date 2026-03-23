@@ -157,7 +157,14 @@ def create_node():
 @bp.route('/<int:node_id>', methods=['GET'])
 def get_node(node_id):
     node = CategoryNode.query.get_or_404(node_id)
-    return jsonify(node.to_dict()), 200
+    include_path = request.args.get('include_path', 'false').lower() in ('1', 'true', 'yes')
+    result = node.to_dict()
+    if include_path:
+        ancestors = node.get_ancestors()  # root → parent order
+        path_names = [a.name for a in ancestors] + [node.name]
+        result['path'] = path_names
+        result['path_string'] = ' › '.join(path_names)
+    return jsonify(result), 200
 
 
 # ---------------------------------------------------------------------------
@@ -280,8 +287,8 @@ def object_tree():
         objs = ObjModel.query.filter(ObjModel.id.in_(primary_obj_ids)).all()
         objects_map = {obj.id: obj for obj in objs}
 
-    # Batch-load direct relations where a primary object is the source
-    relations_by_source = {}  # source_id -> [target_id, ...]
+    # Batch-load relations for all primary objects (both directions)
+    relations_by_source = {}  # source_id -> [(target_id, relation_type), ...]
     if primary_obj_ids:
         relation_rows = (
             db.session.query(
@@ -297,7 +304,7 @@ def object_tree():
                 (rel.target_object_id, rel.relation_type)
             )
 
-    # Batch-load all related (target) objects not already in objects_map
+    # Batch-load all related target objects not already in objects_map
     all_related_ids = {
         tid
         for targets in relations_by_source.values()
@@ -331,6 +338,7 @@ def object_tree():
             'created_at': obj.created_at.isoformat() if obj.created_at else None,
             'data': dict(data),
             'files': [],
+            'file_count': 0,
         }
 
     def _build_obj_node(obj):

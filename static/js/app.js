@@ -1108,6 +1108,20 @@ function formatFieldValue(value, fieldType) {
         }
         case 'textarea':
             return escapeHtml(String(value)).replace(/\r?\n/g, '<br>');
+        case 'tag': {
+            let tags = [];
+            if (Array.isArray(value)) { tags = value.map(String).filter(Boolean); }
+            else if (typeof value === 'string' && value.trim()) {
+                try { tags = JSON.parse(value); } catch (_) { tags = value.split(',').map(s => s.trim()).filter(Boolean); }
+            }
+            if (!tags.length) return '-';
+            return '<span class="tag-display">' + tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('') + '</span>';
+        }
+        case 'relation_list': {
+            const items = String(value).split('\n').map(s => s.trim()).filter(Boolean);
+            if (!items.length) return '-';
+            return items.map(i => `- ${escapeHtml(i)}`).join('<br>');
+        }
         default:
             return escapeHtml(String(value));
     }
@@ -1320,9 +1334,6 @@ async function showCreateObjectModal(preselectedTypeId = null, preselectedTypeNa
         modal.dataset.mode = 'create';
         modal.style.display = 'block';
         overlay.style.display = 'block';
-        const catSection = document.getElementById('object-category-section');
-        if (catSection) catSection.style.display = preselectedTypeId ? '' : 'none';
-        if (preselectedTypeId) await initCreateCategorySection(preselectedTypeName);
     } catch (error) {
         console.error('Failed to load object types:', error);
         showToast('Kunde inte ladda objekttyper', 'error');
@@ -1704,70 +1715,19 @@ async function editObject(objectId) {
         modal.style.display = 'block';
         overlay.style.display = 'block';
 
-        // Load category section (non-blocking)
-        loadModalCategorySection(objectId, typeData.name);
     } catch (error) {
         console.error('Failed to load object for editing:', error);
         showToast('Kunde inte ladda objekt', 'error');
     }
 }
 
-async function loadModalCategorySection(objectId, typeName) {
-    const section = document.getElementById('object-category-section');
-    const list = document.getElementById('object-category-assignments-list');
-    if (!section || !list) return;
-
-    section.style.display = 'block';
-    section.dataset.objectId = objectId;
-    if (typeName) section.dataset.typeName = typeName;
-    list.innerHTML = '<span style="color:#888;font-size:13px;">Laddar...</span>';
-
-    try {
-        const [assignments, systems] = await Promise.all([
-            fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json()),
-            fetch('/api/classification-systems').then(r => r.json()),
-        ]);
-
-        // Filter systems by type mapping (same as create mode)
-        const resolvedType = typeName || section.dataset.typeName || null;
-        const targetSystemName = _TYPE_CATEGORY_SYSTEM_MAP[resolvedType] || null;
-        const filteredSystems = targetSystemName
-            ? systems.filter(s => s.name === targetSystemName)
-            : systems;
-
-        // Load hierarchical tree data for the picker
-        const allRoots = await Promise.all(
-            filteredSystems.map(sys =>
-                fetch(`/api/category-nodes?system_id=${sys.id}&parent_id=null&include_children=true`).then(r => r.json())
-            )
-        );
-        _catPickerSystems = filteredSystems.map((sys, i) => ({ name: sys.name, roots: allRoots[i] }));
-
-        const assignedNodeIds = new Set(assignments.map(a => a.category_node_id));
-        section.dataset.assignedNodeIds = JSON.stringify([...assignedNodeIds]);
-
-        if (assignments.length === 0) {
-            list.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0 0 6px;">Ingen kategori kopplad ännu.</p>';
-        } else {
-            list.innerHTML = assignments.map(a => {
-                const node = a.category_node || {};
-                const badge = a.is_primary
-                    ? '<span style="font-size:11px;background:#e8f0fe;color:#4a6cf7;padding:1px 5px;border-radius:8px;margin-left:5px;">Primär</span>'
-                    : '';
-                return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-                    <span>${escapeHtml(node.name || '')}${badge}</span>
-                    <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:12px;" onclick="modalRemoveCategoryAssignment(${a.id})">✕</button>
-                </div>`;
-            }).join('');
-        }
-    } catch (e) {
-        list.innerHTML = `<p style="color:#c0392b;font-size:13px;">Kunde inte ladda kategorier: ${e.message}</p>`;
-    }
+// REMOVED: loadModalCategorySection — category is now a proper field type (category_node)
+function loadModalCategorySection() {
 }
 
-let _pendingCategoryNodes = [];
-let _catPickerSystems = [];       // [{name, roots:[]}]
+let _catPickerSystems = [];           // [{name, roots:[]}]
 let _catPickerExpandedIds = new Set();
+let _catFieldPickerCallback = null;   // set when picker is opened for a form field
 
 function openCategoryNodePicker() {
     const picker = document.getElementById('cat-node-picker');
@@ -1785,16 +1745,79 @@ function openCategoryNodePicker() {
         });
     }
 
+    // Set up drag-to-move on header (once)
+    const panel = picker.querySelector('.cat-node-picker-panel');
+    const header = picker.querySelector('.cat-node-picker-header');
+    if (panel && header && !header._dragReady) {
+        header._dragReady = true;
+        let startX, startY, startLeft, startTop;
+        header.addEventListener('mousedown', e => {
+            if (e.target.closest('button')) return;
+            // Resolve current position (may be centered via transform or already dragged)
+            const rect = panel.getBoundingClientRect();
+            panel.style.left = rect.left + 'px';
+            panel.style.top = rect.top + 'px';
+            panel.style.transform = 'none';
+            panel.classList.add('dragging');
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+            const onMove = mv => {
+                panel.style.left = Math.max(0, startLeft + mv.clientX - startX) + 'px';
+                panel.style.top = Math.max(0, startTop + mv.clientY - startY) + 'px';
+            };
+            const onUp = () => {
+                panel.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // Reset to centered position each time it opens
+    if (panel) {
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.transform = '';
+    }
+
     _catPickerExpandedIds = new Set();
     const searchInput = document.getElementById('cat-node-picker-search');
     if (searchInput) searchInput.value = '';
     _renderCatPickerTree('');
-    picker.style.display = 'flex';
+    picker.style.display = 'block';
 }
 
 function closeCategoryNodePicker() {
     const picker = document.getElementById('cat-node-picker');
     if (picker) picker.style.display = 'none';
+    _catFieldPickerCallback = null;
+}
+
+/**
+ * Open the category node picker scoped to a single classification system.
+ * @param {number} systemId
+ * @param {string} systemName
+ * @param {function} callback  Called with (nodeId, nodeName) when user picks a node.
+ */
+async function openCatFieldPicker(systemId, systemName, callback) {
+    _catFieldPickerCallback = callback;
+
+    // Load nodes for this specific system
+    _catPickerSystems = [];
+    _catPickerExpandedIds = new Set();
+    try {
+        const roots = await fetch(`/api/category-nodes?system_id=${systemId}&parent_id=null&include_children=true`)
+            .then(r => r.ok ? r.json() : []);
+        _catPickerSystems = [{ name: systemName, roots: Array.isArray(roots) ? roots : [] }];
+    } catch (_) {
+        _catPickerSystems = [{ name: systemName, roots: [] }];
+    }
+
+    openCategoryNodePicker();
 }
 
 function _catPickerSearch(term) {
@@ -1817,15 +1840,7 @@ function _renderCatPickerTree(term) {
     const q = (term || '').trim().toLowerCase();
 
     // Collect currently-selected ids
-    const section = document.getElementById('object-category-section');
-    const objectId = parseInt(section?.dataset.objectId, 10);
-    let alreadyIds;
-    if (!objectId) {
-        alreadyIds = new Set(_pendingCategoryNodes.map(n => n.id));
-    } else {
-        try { alreadyIds = new Set(JSON.parse(section.dataset.assignedNodeIds || '[]')); }
-        catch { alreadyIds = new Set(); }
-    }
+    const alreadyIds = new Set(); // category_node field picker has no multi-select
 
     function nodeMatches(node) {
         if (!q) return true;
@@ -1887,106 +1902,12 @@ function _renderCatPickerTree(term) {
     container.innerHTML = `<table class="data-table cat-node-picker-table" style="width:100%;table-layout:fixed;"><tbody>${tableRows}</tbody></table>`;
 }
 
-async function _catPickerSelect(nodeId, nodeName) {
-    const section = document.getElementById('object-category-section');
-    const objectId = parseInt(section?.dataset.objectId, 10);
-
-    if (!objectId) {
-        // Create mode
-        if (_pendingCategoryNodes.some(n => n.id === nodeId)) { closeCategoryNodePicker(); return; }
-        _pendingCategoryNodes.push({ id: nodeId, name: nodeName });
-        _renderPendingCategoryList();
+function _catPickerSelect(nodeId, nodeName) {
+    // Category picker is only used for form fields now
+    if (typeof _catFieldPickerCallback === 'function') {
+        const cb = _catFieldPickerCallback;
         closeCategoryNodePicker();
-        return;
-    }
-
-    // Edit mode: save directly
-    const typeName = section?.dataset.typeName || null;
-    try {
-        const resp = await fetch('/api/object-category-assignments', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ object_id: objectId, category_node_id: nodeId, is_primary: true }),
-        });
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error || `HTTP ${resp.status}`);
-        }
-        closeCategoryNodePicker();
-        await loadModalCategorySection(objectId, typeName);
-    } catch (e) {
-        showToast('Kunde inte koppla kategori: ' + e.message, 'error');
-    }
-}
-
-const _TYPE_CATEGORY_SYSTEM_MAP = {
-    'Assembly': 'Byggdelar',
-    'Space':    'Utrymmen',
-    'System':   'System',
-};
-
-async function initCreateCategorySection(typeName) {
-    const section = document.getElementById('object-category-section');
-    const list = document.getElementById('object-category-assignments-list');
-    if (!section || !list) return;
-
-    section.dataset.objectId = '';
-    _pendingCategoryNodes = [];
-    _catPickerSystems = [];
-    _renderPendingCategoryList();
-
-    try {
-        const systems = await fetch('/api/classification-systems').then(r => r.json());
-
-        const targetSystemName = _TYPE_CATEGORY_SYSTEM_MAP[typeName] || null;
-        const filteredSystems = targetSystemName
-            ? systems.filter(s => s.name === targetSystemName)
-            : systems;
-
-        if (filteredSystems.length === 0) return;
-
-        const allRoots = await Promise.all(
-            filteredSystems.map(sys =>
-                fetch(`/api/category-nodes?system_id=${sys.id}&parent_id=null&include_children=true`).then(r => r.json())
-            )
-        );
-        _catPickerSystems = filteredSystems.map((sys, i) => ({ name: sys.name, roots: allRoots[i] }));
-    } catch (e) {
-        list.innerHTML = `<p style="color:#c0392b;font-size:13px;">Kunde inte ladda kategorier: ${e.message}</p>`;
-    }
-}
-
-function _renderPendingCategoryList() {
-    const list = document.getElementById('object-category-assignments-list');
-    if (!list) return;
-    if (_pendingCategoryNodes.length === 0) {
-        list.innerHTML = '<p style="color:#aaa;font-size:13px;margin:0 0 6px;">Ingen kategori vald ännu.</p>';
-        return;
-    }
-    list.innerHTML = _pendingCategoryNodes.map((node, idx) => `
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
-            <span>${escapeHtml(node.name)}</span>
-            <button type="button" class="btn btn-danger btn-sm" style="padding:2px 7px;font-size:12px;"
-                    onclick="_removePendingCategoryNode(${idx})">✕</button>
-        </div>
-    `).join('');
-}
-
-function _removePendingCategoryNode(idx) {
-    _pendingCategoryNodes.splice(idx, 1);
-    _renderPendingCategoryList();
-}
-
-async function modalRemoveCategoryAssignment(assignmentId) {
-    const section = document.getElementById('object-category-section');
-    const objectId = parseInt(section?.dataset.objectId, 10);
-    const typeName = section?.dataset.typeName || null;
-    try {
-        const resp = await fetch(`/api/object-category-assignments/${assignmentId}`, { method: 'DELETE' });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        await loadModalCategorySection(objectId, typeName);
-    } catch (e) {
-        showToast('Kunde inte ta bort: ' + e.message, 'error');
+        cb(nodeId, nodeName);
     }
 }
 
@@ -2065,16 +1986,6 @@ async function saveObject(event) {
                 }
             }
             resetCreateObjectRelationSelection();
-            if (_pendingCategoryNodes.length > 0 && Number.isFinite(createdObjectId)) {
-                await Promise.allSettled(_pendingCategoryNodes.map(node =>
-                    fetch('/api/object-category-assignments', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ object_id: createdObjectId, category_node_id: node.id, is_primary: true })
-                    })
-                ));
-                _pendingCategoryNodes = [];
-            }
         } else if (mode === 'create-file-object') {
             const batchState = window.currentFileObjectBatchUpload;
             const rows = Array.isArray(batchState?.rows) ? batchState.rows : [];

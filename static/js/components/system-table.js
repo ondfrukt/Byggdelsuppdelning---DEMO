@@ -603,6 +603,8 @@ class SystemTable {
         const scrollEl = this.container?.querySelector('.table-container');
         const scrollTop = scrollEl?.scrollTop ?? 0;
         const scrollLeft = scrollEl?.scrollLeft ?? 0;
+        const pageScrollY = window.scrollY;
+        const pageScrollX = window.scrollX;
 
         this.render();
 
@@ -615,6 +617,8 @@ class SystemTable {
             const details = this.container?.querySelector('.system-table-col-vis-details');
             if (details) details.open = true;
         }
+        // Restore page scroll — opening a <details> element can trigger scrollIntoView
+        window.scrollTo({ top: pageScrollY, left: pageScrollX, behavior: 'instant' });
     }
 
     // --- Rendering helpers ---

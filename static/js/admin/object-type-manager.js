@@ -456,8 +456,6 @@ class ObjectTypeManager {
     }
 
     canDeleteField(field) {
-        const fieldName = String(field?.field_name || '').trim().toLowerCase();
-        if (fieldName === 'namn') return false;
         if (field?.force_presence_on_all_objects) return false;
         return true;
     }
@@ -639,6 +637,42 @@ class ObjectTypeManager {
         return (this.managedLists || []).find(list => Number(list.id) === managedListId) || null;
     }
 
+    async loadManagedListsForTagPicker() {
+        const sel = document.getElementById('template-tag-list-select');
+        if (!sel) return;
+        try {
+            const lists = await fetch('/api/managed-lists').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj lista...</option>' +
+                lists.map(l => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
+    async loadObjectTypesForRelationPicker() {
+        const sel = document.getElementById('template-relation-object-type');
+        if (!sel) return;
+        try {
+            const types = await fetch('/api/object-types').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj objekttyp...</option>' +
+                types.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
+    async loadClassificationSystemsForPicker() {
+        const sel = document.getElementById('template-category-system-select');
+        if (!sel) return;
+        try {
+            const systems = await fetch('/api/classification-systems').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj kategorisystem...</option>' +
+                systems.map(s => `<option value="${s.id}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
     updateFieldTemplateOptionInputs() {
         const fieldTypeSelect = document.getElementById('template-field-type');
         const sourceSelect = document.getElementById('template-option-source');
@@ -648,14 +682,40 @@ class ObjectTypeManager {
         const selectionModeGroup = document.getElementById('template-selection-mode-group');
         const selectionModeSelect = document.getElementById('template-selection-mode');
         const selectionModeHelp = document.getElementById('template-selection-mode-help');
+        const categorySystemGroup = document.getElementById('template-category-system-group');
+        const relationTypeGroup = document.getElementById('template-relation-type-group');
 
         if (!fieldTypeSelect || !sourceSelect) return;
 
-        const isSelectType = String(fieldTypeSelect.value || '').toLowerCase() === 'select';
+        const fieldType = String(fieldTypeSelect.value || '').toLowerCase();
+        const isCategoryNode = fieldType === 'category_node';
+        const isRelationList = fieldType === 'relation_list';
+        const isSelectType = fieldType === 'select';
         const source = String(sourceSelect.value || 'custom').toLowerCase();
         const isManagedListSource = isSelectType && source === 'managed_list';
         const selectedList = this.getSelectedManagedListDefinition();
         const allowMultiselect = selectedList?.allow_multiselect === true;
+
+        if (categorySystemGroup) {
+            categorySystemGroup.style.display = isCategoryNode ? '' : 'none';
+            if (isCategoryNode) this.loadClassificationSystemsForPicker();
+        }
+
+        if (relationTypeGroup) {
+            relationTypeGroup.style.display = isRelationList ? '' : 'none';
+            if (isRelationList) this.loadObjectTypesForRelationPicker();
+        }
+
+        const tagListGroup = document.getElementById('template-tag-list-group');
+        if (tagListGroup) {
+            tagListGroup.style.display = fieldType === 'tag' ? '' : 'none';
+            if (fieldType === 'tag') this.loadManagedListsForTagPicker();
+        }
+
+        const computedFieldsGroup = document.getElementById('template-computed-fields-group');
+        if (computedFieldsGroup) {
+            computedFieldsGroup.style.display = fieldType === 'computed' ? '' : 'none';
+        }
 
         if (sourceGroup) sourceGroup.style.display = isSelectType ? '' : 'none';
         if (customGroup) customGroup.style.display = (isSelectType && source === 'custom') ? '' : 'none';
@@ -700,6 +760,44 @@ class ObjectTypeManager {
         if (managedListSelect) managedListSelect.value = '';
         if (selectionModeSelect) selectionModeSelect.value = 'single';
 
+        if (fieldType === 'category_node') {
+            const systemId = normalizedOptions?.system_id ? String(normalizedOptions.system_id) : '';
+            this.loadClassificationSystemsForPicker().then(() => {
+                const sel = document.getElementById('template-category-system-select');
+                if (sel && systemId) sel.value = systemId;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'relation_list') {
+            const objectType = normalizedOptions?.object_type || '';
+            this.loadObjectTypesForRelationPicker().then(() => {
+                const sel = document.getElementById('template-relation-object-type');
+                if (sel && objectType) sel.value = objectType;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'tag') {
+            const listId = normalizedOptions?.list_id ? String(normalizedOptions.list_id) : '';
+            this.loadManagedListsForTagPicker().then(() => {
+                const sel = document.getElementById('template-tag-list-select');
+                if (sel && listId) sel.value = listId;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'computed') {
+            const separator = normalizedOptions?.separator !== undefined ? normalizedOptions.separator : ' ↔ ';
+            const separatorInput = document.getElementById('template-computed-separator');
+            if (separatorInput) separatorInput.value = separator;
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
         if (fieldType !== 'select') {
             customOptionsInput.value = typeof rawOptions === 'string'
                 ? rawOptions
@@ -731,6 +829,40 @@ class ObjectTypeManager {
         const sourceValue = String(document.getElementById('template-option-source')?.value || 'custom').trim().toLowerCase();
         const rawOptions = document.getElementById('template-options')?.value || '';
         const managedListIdRaw = document.getElementById('template-managed-list-select')?.value || '';
+
+        if (normalizedType === 'category_node') {
+            const sel = document.getElementById('template-category-system-select');
+            const systemId = Number(sel?.value || 0);
+            if (!Number.isFinite(systemId) || systemId <= 0) {
+                return { error: 'Välj ett kategorisystem för fältet' };
+            }
+            const selectedOption = sel.options[sel.selectedIndex];
+            const systemName = selectedOption?.dataset?.name || selectedOption?.textContent || '';
+            return { value: { system_id: systemId, system_name: systemName } };
+        }
+
+        if (normalizedType === 'relation_list') {
+            const sel = document.getElementById('template-relation-object-type');
+            const objectType = sel?.value || '';
+            if (!objectType) {
+                return { error: 'Välj en objekttyp för relationslistan' };
+            }
+            return { value: { object_type: objectType } };
+        }
+
+        if (normalizedType === 'tag') {
+            const sel = document.getElementById('template-tag-list-select');
+            const listId = Number(sel?.value || 0);
+            if (!Number.isFinite(listId) || listId <= 0) {
+                return { error: 'Välj en tagglista för fältet' };
+            }
+            return { value: { list_id: listId } };
+        }
+
+        if (normalizedType === 'computed') {
+            const separator = document.getElementById('template-computed-separator')?.value ?? ' ↔ ';
+            return { value: { separator } };
+        }
 
         if (normalizedType === 'select') {
             if (sourceValue === 'managed_list') {
@@ -1635,6 +1767,7 @@ class ObjectTypeManager {
         if (!Number.isFinite(id) || id <= 0) {
             if (requiredCheckbox) requiredCheckbox.checked = false;
             this.updateFieldHierarchySettingsVisibility();
+            this.updateFieldComputedGroupVisibility();
             return;
         }
 
@@ -1642,6 +1775,49 @@ class ObjectTypeManager {
         if (!template) return;
         if (requiredCheckbox) requiredCheckbox.checked = Boolean(template.is_required);
         this.updateFieldHierarchySettingsVisibility();
+        const defaultSep = this.normalizeFieldOptions(template.field_options)?.separator ?? ' ↔ ';
+        this.updateFieldComputedGroupVisibility([], defaultSep);
+    }
+
+    updateFieldComputedGroupVisibility(savedFields = [], savedSeparator = null, forceFieldType = null) {
+        const group = document.getElementById('field-computed-fields-group');
+        const checkboxContainer = document.getElementById('field-computed-source-checkboxes');
+        const separatorInput = document.getElementById('field-computed-separator');
+        if (!group || !checkboxContainer) return;
+
+        const templateId = Number(document.getElementById('field-template-select')?.value || 0);
+        const template = this.fieldTemplates.find(t => Number(t.id) === templateId);
+        const isComputed = (forceFieldType && String(forceFieldType).toLowerCase() === 'computed') ||
+            (template && String(template.field_type || '').toLowerCase() === 'computed');
+
+        group.style.display = isComputed ? '' : 'none';
+        if (!isComputed) return;
+
+        // Populate checkboxes from current object type's fields (exclude the field being edited)
+        const editingFieldId = Number(document.getElementById('field-modal')?.dataset?.fieldId || 0);
+        const fields = (this.selectedType?.fields || []).filter(f => {
+            if (editingFieldId && f.id === editingFieldId) return false;
+            const ft = String(f.field_type || '').toLowerCase();
+            return ft !== 'computed' && ft !== 'relation_list';
+        });
+
+        checkboxContainer.innerHTML = fields.length
+            ? fields.map(f => {
+                const name = escapeHtml(f.field_name || '');
+                const label = escapeHtml(f.display_name || f.field_name || '');
+                const checked = savedFields.includes(f.field_name) ? 'checked' : '';
+                return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" class="computed-field-checkbox" value="${name}" ${checked}> ${label}
+                </label>`;
+            }).join('')
+            : '<em style="color:var(--text-secondary);font-size:0.9em;">Inga fält tillgängliga.</em>';
+
+        if (separatorInput) {
+            const sep = savedSeparator !== null
+                ? savedSeparator
+                : (this.normalizeFieldOptions(template.field_options)?.separator ?? ' ↔ ');
+            separatorInput.value = sep;
+        }
     }
 
     normalizeHierarchyLevelCount(value, fallback = 2) {
@@ -3612,6 +3788,7 @@ class ObjectTypeManager {
         if (selectionModeSelect) selectionModeSelect.value = 'single';
         this.setFieldHierarchySettingsFromFieldOptions(null);
         this.updateFieldHierarchySettingsVisibility();
+        this.updateFieldComputedGroupVisibility();
         modal.dataset.mode = 'create';
         modal.dataset.typeId = this.selectedType.id;
         delete modal.dataset.fieldId;
@@ -3646,10 +3823,15 @@ class ObjectTypeManager {
         document.getElementById('field-required').checked = field.is_required;
         this.updateFieldSelectionModeVisibility(field.field_options);
         this.setFieldHierarchySettingsFromFieldOptions(field.field_options);
-        
+
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = this.selectedType.id;
         modal.dataset.fieldId = fieldId;
+
+        const opts = this.normalizeFieldOptions(field.field_options);
+        const savedFields = Array.isArray(opts?.fields) ? opts.fields : [];
+        const savedSep = opts?.separator !== undefined ? opts.separator : null;
+        this.updateFieldComputedGroupVisibility(savedFields, savedSep, field.field_type);
         
         modal.style.display = 'block';
         overlay.style.display = 'block';
@@ -4279,16 +4461,41 @@ async function saveObjectType(event) {
 // Save field (create or update)
 async function saveField(event) {
     event.preventDefault();
-    
+
     const modal = document.getElementById('field-modal');
     const mode = modal.dataset.mode;
     const typeId = modal.dataset.typeId;
     const fieldId = modal.dataset.fieldId;
-    
+
     const selectedTemplateId = Number(document.getElementById('field-template-select')?.value || 0);
     let data = null;
 
-    if (mode === 'create') {
+    // Check if this is a computed field — via template (create) or existing field_type (edit)
+    const selectedTemplate = adminManager?.fieldTemplates?.find(t => Number(t.id) === selectedTemplateId);
+    const editingField = mode === 'edit' && fieldId
+        ? adminManager?.selectedType?.fields?.find(f => f.id === Number(fieldId))
+        : null;
+    const isComputed = String(selectedTemplate?.field_type || '').toLowerCase() === 'computed' ||
+        String(editingField?.field_type || '').toLowerCase() === 'computed';
+
+    if (isComputed) {
+        const checkedBoxes = document.querySelectorAll('#field-computed-source-checkboxes .computed-field-checkbox:checked');
+        const fields = Array.from(checkedBoxes).map(cb => cb.value);
+        if (fields.length < 2) {
+            showToast('Välj minst två källfält för det beräknade fältet', 'error');
+            return;
+        }
+        const separator = document.getElementById('field-computed-separator')?.value ?? ' ↔ ';
+        const computedOptions = { fields, separator };
+        data = {
+            field_template_id: selectedTemplateId,
+            is_required: false,
+            field_options: computedOptions
+        };
+        if (mode === 'edit') {
+            delete data.field_template_id;
+        }
+    } else if (mode === 'create') {
         if (!Number.isFinite(selectedTemplateId) || selectedTemplateId <= 0) {
             showToast('Du måste välja en fältmall', 'error');
             return;
