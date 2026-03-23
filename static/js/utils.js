@@ -12,13 +12,13 @@ function showLoading() {
         clearTimeout(loadingTimeout);
     }
     
-    // Only show spinner if loading takes more than 300ms
+    // Only show spinner if loading takes more than 3 seconds
     loadingTimeout = setTimeout(() => {
         const spinner = document.getElementById('loading-spinner');
         if (spinner) {
             spinner.style.display = 'flex';
         }
-    }, 300);
+    }, 3000);
 }
 
 // Hide loading spinner

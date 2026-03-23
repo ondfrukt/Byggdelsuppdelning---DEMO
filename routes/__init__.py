@@ -13,6 +13,9 @@ from routes.field_templates import bp as field_templates_bp
 from routes.relation_type_rules_api import bp as relation_type_rules_api_bp
 from routes.change_management import bp as change_management_bp
 from routes.lists_admin import bp as lists_admin_bp
+from routes.classification_systems import bp as classification_systems_bp
+from routes.category_nodes import bp as category_nodes_bp
+from routes.object_category_assignments import bp as object_category_assignments_bp
 
 def register_blueprints(app):
     """Register all blueprints with the Flask app"""
@@ -30,3 +33,6 @@ def register_blueprints(app):
     app.register_blueprint(relation_type_rules_api_bp)
     app.register_blueprint(change_management_bp)
     app.register_blueprint(lists_admin_bp)
+    app.register_blueprint(classification_systems_bp)
+    app.register_blueprint(category_nodes_bp)
+    app.register_blueprint(object_category_assignments_bp)

@@ -52,6 +52,42 @@ RELATION_TYPE_SPECS = [
         'is_directed': True,
         'is_composition': False,
     },
+    {
+        'key': 'has_parent',
+        'display_name': 'Has Parent',
+        'description': 'Category node points to its parent node in the classification tree.',
+        'category': 'hierarkisk',
+        'cardinality': 'many_to_one',
+        'is_directed': True,
+        'is_composition': False,
+    },
+    {
+        'key': 'classified_as',
+        'display_name': 'Classified As',
+        'description': 'Object is classified under a category node (primary classification).',
+        'category': 'klassificering',
+        'cardinality': 'many_to_one',
+        'is_directed': True,
+        'is_composition': False,
+    },
+    {
+        'key': 'applies_to_category',
+        'display_name': 'Applies To Category',
+        'description': 'Requirement or guidance applies to all objects under a category node (inherited).',
+        'category': 'klassificering',
+        'cardinality': 'many_to_many',
+        'is_directed': True,
+        'is_composition': False,
+    },
+    {
+        'key': 'contains_node',
+        'display_name': 'Contains Node',
+        'description': 'Classification system contains a root node at level 1.',
+        'category': 'hierarkisk',
+        'cardinality': 'one_to_many',
+        'is_directed': True,
+        'is_composition': True,
+    },
 ]
 
 

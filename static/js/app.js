@@ -122,7 +122,7 @@ function updateObjectsWorkspaceHeader(options = {}) {
         title = 'Objekt',
         showCreateButton = true,
         createButtonLabel = 'Skapa Objekt',
-        createButtonAction = 'showCreateObjectModal()'
+        createButtonAction = 'openCreateObjectTypeDropdown(this)'
     } = options;
 
     const objectsView = document.getElementById('objects-view');
@@ -168,7 +168,7 @@ async function loadObjectsView(options = {}) {
         title = 'Objekt',
         showCreateButton = true,
         createButtonLabel = 'Skapa Objekt',
-        createButtonAction = 'showCreateObjectModal()'
+        createButtonAction = 'openCreateObjectTypeDropdown(this)'
     } = options;
 
     const objectListWrapper = document.getElementById('objects-container-wrapper');
@@ -799,9 +799,10 @@ async function showDuplicateObjectModal(objectId) {
     formContainer.innerHTML = '';
 
     const sourceObject = await ObjectsAPI.getById(objectId);
-    const typeData = await ObjectTypesAPI.getById(sourceObject.object_type.id);
-
-    const relations = await ObjectsAPI.getRelations(objectId);
+    const [typeData, relations] = await Promise.all([
+        ObjectTypesAPI.getById(sourceObject.object_type.id),
+        ObjectsAPI.getRelations(objectId),
+    ]);
 
     typeSelect.innerHTML = `<option value="${typeData.id}" selected>${typeData.name}</option>`;
     typeSelect.disabled = true;
@@ -1038,10 +1039,10 @@ async function openDetailPanel(objectId, options = {}) {
         if (!panel.classList.contains('active')) {
             panel.classList.add('active');
         }
-        
+
         // Uppdatera panel-header (namn + kategori)
         updateDetailPanelHeader(object);
-        
+
         // Skapa eller återanvänd enhetlig detaljpanel-instans
         if (!currentDetailPanelInstance) {
             currentDetailPanelInstance = createObjectDetailPanel('detail-panel-body', {
@@ -1049,9 +1050,9 @@ async function openDetailPanel(objectId, options = {}) {
                 showHeader: false
             });
         }
-        
-        // Rendera komponenten för det valda objektet
-        await currentDetailPanelInstance.render(objectId);
+
+        // Skicka in redan-hämtat objekt så att render() inte behöver hämta det igen
+        await currentDetailPanelInstance.render(objectId, object);
         if (requestId !== activeDetailPanelRequestId) return;
         
     } catch (error) {
@@ -1107,6 +1108,20 @@ function formatFieldValue(value, fieldType) {
         }
         case 'textarea':
             return escapeHtml(String(value)).replace(/\r?\n/g, '<br>');
+        case 'tag': {
+            let tags = [];
+            if (Array.isArray(value)) { tags = value.map(String).filter(Boolean); }
+            else if (typeof value === 'string' && value.trim()) {
+                try { tags = JSON.parse(value); } catch (_) { tags = value.split(',').map(s => s.trim()).filter(Boolean); }
+            }
+            if (!tags.length) return '-';
+            return '<span class="tag-display">' + tags.map(t => `<span class="tag-pill">${escapeHtml(t)}</span>`).join('') + '</span>';
+        }
+        case 'relation_list': {
+            const items = String(value).split('\n').map(s => s.trim()).filter(Boolean);
+            if (!items.length) return '-';
+            return items.map(i => `- ${escapeHtml(i)}`).join('<br>');
+        }
         default:
             return escapeHtml(String(value));
     }
@@ -1192,12 +1207,77 @@ async function openCreateObjectRelationPicker() {
 }
 
 // Create new object
-async function showCreateObjectModal() {
+let _cachedObjectTypes = null;
+
+async function _loadObjectTypes() {
+    if (!_cachedObjectTypes) {
+        _cachedObjectTypes = await ObjectTypesAPI.getAll();
+    }
+    return _cachedObjectTypes;
+}
+
+async function openCreateObjectTypeDropdown(buttonEl) {
+    // Toggle: close if already open
+    const existing = document.getElementById('create-object-type-dropdown');
+    if (existing) {
+        existing.remove();
+        return;
+    }
+
+    let types;
+    try {
+        types = await _loadObjectTypes();
+    } catch (e) {
+        showToast('Kunde inte ladda objekttyper', 'error');
+        return;
+    }
+
+    const HIDDEN_TYPES = ['Classifications_system', 'Classification_node', 'FileObjekt'];
+    const visibleTypes = types.filter(t => !HIDDEN_TYPES.includes(t.name));
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'create-object-type-dropdown';
+    dropdown.className = 'create-object-type-dropdown';
+    dropdown.innerHTML = visibleTypes.map(type => {
+        const color = getObjectTypeColor(type.name);
+        return `<button type="button" class="create-object-type-item"
+                        data-type-id="${type.id}"
+                        data-type-name="${escapeHtml(type.name)}">
+                    <span class="object-type-badge" style="background-color:${color};">${escapeHtml(type.name)}</span>
+                </button>`;
+    }).join('');
+
+    dropdown.addEventListener('click', e => {
+        const item = e.target.closest('.create-object-type-item');
+        if (!item) return;
+        selectCreateObjectType(Number(item.dataset.typeId), item.dataset.typeName);
+    });
+
+    buttonEl.parentElement.style.position = 'relative';
+    buttonEl.parentElement.appendChild(dropdown);
+
+    // Close on outside click
+    setTimeout(() => {
+        document.addEventListener('click', function closeDropdown(e) {
+            if (!dropdown.contains(e.target) && e.target !== buttonEl) {
+                dropdown.remove();
+                document.removeEventListener('click', closeDropdown);
+            }
+        });
+    }, 0);
+}
+
+async function selectCreateObjectType(typeId, typeName) {
+    document.getElementById('create-object-type-dropdown')?.remove();
+    await showCreateObjectModal(typeId, typeName);
+}
+
+async function showCreateObjectModal(preselectedTypeId = null, preselectedTypeName = null) {
     const modal = document.getElementById('object-modal');
     const overlay = document.getElementById('modal-overlay');
-    
+
     if (!modal || !overlay) return;
-    
+
     // Clear previous form data
     window.currentObjectForm = null;
     window.currentDuplicateContext = null;
@@ -1208,18 +1288,25 @@ async function showCreateObjectModal() {
     if (formContainer) {
         formContainer.innerHTML = '';
     }
-    
+
+    // Update modal title
+    const titleEl = document.getElementById('object-modal-title');
+    if (titleEl) titleEl.textContent = preselectedTypeName ? `Skapa ${preselectedTypeName}` : 'Skapa Objekt';
+
+    // Show/hide the type selector row
+    const typeSelectGroup = document.getElementById('object-type-select-group');
+    if (typeSelectGroup) typeSelectGroup.style.display = preselectedTypeId ? 'none' : '';
+
     // Load object types
     try {
-        const types = await ObjectTypesAPI.getAll();
+        const types = await _loadObjectTypes();
         const typeSelect = document.getElementById('object-type-select');
-        
+
         if (typeSelect) {
             typeSelect.disabled = false;
             typeSelect.innerHTML = '<option value="">Välj objekttyp...</option>' +
                 types.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
-            
-            // Listen for type selection
+
             typeSelect.onchange = async (e) => {
                 const typeId = e.target.value;
                 if (typeId) {
@@ -1231,8 +1318,19 @@ async function showCreateObjectModal() {
                     }
                 }
             };
+
+            // Pre-select type from dropdown
+            if (preselectedTypeId) {
+                typeSelect.value = String(preselectedTypeId);
+                const type = types.find(t => t.id == preselectedTypeId);
+                if (type) {
+                    const formComponent = new ObjectFormComponent(type);
+                    await formComponent.render('object-form-container');
+                    window.currentObjectForm = formComponent;
+                }
+            }
         }
-        
+
         modal.dataset.mode = 'create';
         modal.style.display = 'block';
         overlay.style.display = 'block';
@@ -1616,9 +1714,200 @@ async function editObject(objectId) {
         modal.dataset.objectId = objectId;
         modal.style.display = 'block';
         overlay.style.display = 'block';
+
     } catch (error) {
         console.error('Failed to load object for editing:', error);
         showToast('Kunde inte ladda objekt', 'error');
+    }
+}
+
+// REMOVED: loadModalCategorySection — category is now a proper field type (category_node)
+function loadModalCategorySection() {
+}
+
+let _catPickerSystems = [];           // [{name, roots:[]}]
+let _catPickerExpandedIds = new Set();
+let _catFieldPickerCallback = null;   // set when picker is opened for a form field
+
+function openCategoryNodePicker() {
+    const picker = document.getElementById('cat-node-picker');
+    if (!picker) return;
+
+    // Set up event delegation once on the persistent container
+    const tree = document.getElementById('cat-node-picker-tree');
+    if (tree && !tree._delegationReady) {
+        tree._delegationReady = true;
+        tree.addEventListener('click', e => {
+            if (e.target.closest('.tree-toggle')) return; // toggle handles itself
+            const tr = e.target.closest('tr.tree-node:not(.already-selected)');
+            if (!tr) return;
+            _catPickerSelect(parseInt(tr.dataset.nodeId, 10), tr.dataset.nodeName);
+        });
+    }
+
+    // Set up drag-to-move on header (once)
+    const panel = picker.querySelector('.cat-node-picker-panel');
+    const header = picker.querySelector('.cat-node-picker-header');
+    if (panel && header && !header._dragReady) {
+        header._dragReady = true;
+        let startX, startY, startLeft, startTop;
+        header.addEventListener('mousedown', e => {
+            if (e.target.closest('button')) return;
+            // Resolve current position (may be centered via transform or already dragged)
+            const rect = panel.getBoundingClientRect();
+            panel.style.left = rect.left + 'px';
+            panel.style.top = rect.top + 'px';
+            panel.style.transform = 'none';
+            panel.classList.add('dragging');
+            startX = e.clientX;
+            startY = e.clientY;
+            startLeft = rect.left;
+            startTop = rect.top;
+            const onMove = mv => {
+                panel.style.left = Math.max(0, startLeft + mv.clientX - startX) + 'px';
+                panel.style.top = Math.max(0, startTop + mv.clientY - startY) + 'px';
+            };
+            const onUp = () => {
+                panel.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            };
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // Reset to centered position each time it opens
+    if (panel) {
+        panel.style.left = '';
+        panel.style.top = '';
+        panel.style.transform = '';
+    }
+
+    _catPickerExpandedIds = new Set();
+    const searchInput = document.getElementById('cat-node-picker-search');
+    if (searchInput) searchInput.value = '';
+    _renderCatPickerTree('');
+    picker.style.display = 'block';
+}
+
+function closeCategoryNodePicker() {
+    const picker = document.getElementById('cat-node-picker');
+    if (picker) picker.style.display = 'none';
+    _catFieldPickerCallback = null;
+}
+
+/**
+ * Open the category node picker scoped to a single classification system.
+ * @param {number} systemId
+ * @param {string} systemName
+ * @param {function} callback  Called with (nodeId, nodeName) when user picks a node.
+ */
+async function openCatFieldPicker(systemId, systemName, callback) {
+    _catFieldPickerCallback = callback;
+
+    // Load nodes for this specific system
+    _catPickerSystems = [];
+    _catPickerExpandedIds = new Set();
+    try {
+        const roots = await fetch(`/api/category-nodes?system_id=${systemId}&parent_id=null&include_children=true`)
+            .then(r => r.ok ? r.json() : []);
+        _catPickerSystems = [{ name: systemName, roots: Array.isArray(roots) ? roots : [] }];
+    } catch (_) {
+        _catPickerSystems = [{ name: systemName, roots: [] }];
+    }
+
+    openCategoryNodePicker();
+}
+
+function _catPickerSearch(term) {
+    _renderCatPickerTree(term);
+}
+
+function _catPickerToggle(nodeId) {
+    if (_catPickerExpandedIds.has(nodeId)) {
+        _catPickerExpandedIds.delete(nodeId);
+    } else {
+        _catPickerExpandedIds.add(nodeId);
+    }
+    const searchInput = document.getElementById('cat-node-picker-search');
+    _renderCatPickerTree(searchInput?.value || '');
+}
+
+function _renderCatPickerTree(term) {
+    const container = document.getElementById('cat-node-picker-tree');
+    if (!container) return;
+    const q = (term || '').trim().toLowerCase();
+
+    // Collect currently-selected ids
+    const alreadyIds = new Set(); // category_node field picker has no multi-select
+
+    function nodeMatches(node) {
+        if (!q) return true;
+        if ((node.name || '').toLowerCase().includes(q)) return true;
+        if ((node.code || '').toLowerCase().includes(q)) return true;
+        return (node.children || []).some(c => nodeMatches(c));
+    }
+
+    const rows = [];
+
+    function flattenNode(node, depth) {
+        if (!nodeMatches(node)) return;
+        const hasChildren = (node.children || []).length > 0;
+        const isExpanded = _catPickerExpandedIds.has(node.id) || (!!q && hasChildren);
+        rows.push({ node, depth, hasChildren, isExpanded });
+        if (hasChildren && isExpanded) {
+            node.children.forEach(c => flattenNode(c, depth + 1));
+        }
+    }
+
+    if (_catPickerSystems.length === 0) {
+        container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga kategorier tillgängliga.</p>';
+        return;
+    }
+
+    const showHeader = _catPickerSystems.length > 1;
+    let tableRows = '';
+
+    _catPickerSystems.forEach(sys => {
+        rows.length = 0;
+        sys.roots.forEach(n => flattenNode(n, 0));
+
+        if (showHeader) {
+            tableRows += `<tr class="tree-node-group"><td colspan="1" style="padding:6px 10px;font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;background:var(--bg-secondary);">${escapeHtml(sys.name)}</td></tr>`;
+        }
+
+        rows.forEach(({ node, depth, hasChildren, isExpanded }) => {
+            const isAlready = alreadyIds.has(node.id);
+            const indent = depth * 18;
+
+            const toggle = hasChildren
+                ? `<span class="tree-toggle${isExpanded ? ' expanded' : ''}" onclick="event.stopPropagation();_catPickerToggle(${node.id})">❯</span>`
+                : '<span class="tree-spacer"></span>';
+
+            const label = `<span class="tree-label">${escapeHtml(node.name || '')}</span>`;
+            const alreadyTag = isAlready ? ' <span style="font-size:10px;color:var(--text-secondary);margin-left:4px;">(redan vald)</span>' : '';
+
+            tableRows += `<tr class="tree-node${hasChildren ? ' has-children' : ''}${isAlready ? ' already-selected' : ''}" data-node-id="${node.id}" data-node-name="${escapeHtml(node.name || '')}">
+                <td><div class="tree-cell-content" style="padding-left:${indent}px">${toggle}${label}${alreadyTag}</div></td>
+            </tr>`;
+        });
+    });
+
+    if (!tableRows) {
+        container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga träffar.</p>';
+        return;
+    }
+
+    container.innerHTML = `<table class="data-table cat-node-picker-table" style="width:100%;table-layout:fixed;"><tbody>${tableRows}</tbody></table>`;
+}
+
+function _catPickerSelect(nodeId, nodeName) {
+    // Category picker is only used for form fields now
+    if (typeof _catFieldPickerCallback === 'function') {
+        const cb = _catFieldPickerCallback;
+        closeCategoryNodePicker();
+        cb(nodeId, nodeName);
     }
 }
 
@@ -1873,7 +2162,7 @@ async function openFileObjectDetailPanel(objectId) {
             });
         }
 
-        await currentFileObjectsDetailPanelInstance.render(objectId);
+        await currentFileObjectsDetailPanelInstance.render(objectId, object);
     } catch (error) {
         console.error('Failed to load file object detail:', error);
         showToast('Kunde inte ladda filobjektsdetaljer', 'error');

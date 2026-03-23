@@ -1,6 +1,7 @@
 /**
  * SystemTable
- * Reusable table with global search, column search, and sortable columns.
+ * Reusable table with global search, column search, sortable columns,
+ * resizable/reorderable columns, column visibility, row selection, and batch operations.
  */
 class SystemTable {
     constructor(options = {}) {
@@ -28,6 +29,18 @@ class SystemTable {
         this.minColumnWidth = Number.isFinite(options.minColumnWidth) ? options.minColumnWidth : 48;
         this.draggedColumnField = null;
         this.isStabilizingLayout = false;
+
+        // Row selection
+        this.selectable = options.selectable === true;
+        this.rowId = options.rowId || 'id';
+        this.batchActions = Array.isArray(options.batchActions) ? options.batchActions : [];
+        this.onSelectionChange = typeof options.onSelectionChange === 'function' ? options.onSelectionChange : null;
+        this.selectedRowIds = new Set();
+        this._selectionAnchorId = null;
+
+        // Column visibility
+        this.columnVisibility = options.columnVisibility !== false;
+
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -45,7 +58,11 @@ class SystemTable {
                     .filter(([, width]) => width !== null)
             ),
             sortField: firstSortable ? firstSortable.field : null,
-            sortDirection: 'asc'
+            sortDirection: 'asc',
+            hiddenColumns: this.columns
+                .filter(col => col.hidden === true)
+                .map(col => String(col.field || ''))
+                .filter(Boolean)
         };
         this.state = this.applyStateOverride(
             this.restorePersistedState(defaultState),
@@ -79,7 +96,8 @@ class SystemTable {
                 ...(overrideState.columnWidths || {})
             }),
             sortField: hasValidSortField ? overrideState.sortField : baseState.sortField,
-            sortDirection: overrideState.sortDirection === 'desc' ? 'desc' : baseState.sortDirection
+            sortDirection: overrideState.sortDirection === 'desc' ? 'desc' : baseState.sortDirection,
+            hiddenColumns: Array.isArray(overrideState.hiddenColumns) ? overrideState.hiddenColumns : baseState.hiddenColumns
         };
     }
 
@@ -187,6 +205,9 @@ class SystemTable {
             ...(saved.columnSearches || {})
         };
         const hasValidSortField = this.columns.some(col => col.field === saved.sortField && col.sortable !== false);
+        const savedHiddenColumns = Array.isArray(saved.hiddenColumns)
+            ? saved.hiddenColumns.filter(f => this.columns.some(c => c.field === f))
+            : defaultState.hiddenColumns;
 
         return {
             search: String(saved.search || ''),
@@ -197,7 +218,8 @@ class SystemTable {
                 ...(saved.columnWidths || {})
             }),
             sortField: hasValidSortField ? saved.sortField : defaultState.sortField,
-            sortDirection: saved.sortDirection === 'desc' ? 'desc' : 'asc'
+            sortDirection: saved.sortDirection === 'desc' ? 'desc' : 'asc',
+            hiddenColumns: savedHiddenColumns
         };
     }
 
@@ -211,7 +233,8 @@ class SystemTable {
             columnOrder: Array.isArray(this.state.columnOrder) ? [...this.state.columnOrder] : [],
             columnWidths: { ...(this.state.columnWidths || {}) },
             sortField: this.state.sortField,
-            sortDirection: this.state.sortDirection
+            sortDirection: this.state.sortDirection,
+            hiddenColumns: Array.isArray(this.state.hiddenColumns) ? [...this.state.hiddenColumns] : []
         };
         this.getStateStore()[key] = nextState;
         this.writePersistedStorageState(nextState);
@@ -225,7 +248,8 @@ class SystemTable {
                 columnOrder: Array.isArray(this.state.columnOrder) ? [...this.state.columnOrder] : [],
                 columnWidths: { ...(this.state.columnWidths || {}) },
                 sortField: this.state.sortField,
-                sortDirection: this.state.sortDirection
+                sortDirection: this.state.sortDirection,
+                hiddenColumns: Array.isArray(this.state.hiddenColumns) ? [...this.state.hiddenColumns] : []
             }, this);
         }
     }
@@ -248,6 +272,7 @@ class SystemTable {
             ),
             ...(this.state.columnWidths || {})
         });
+        this.state.hiddenColumns = (this.state.hiddenColumns || []).filter(f => this.columns.some(c => c.field === f));
         if (!this.columns.some(col => col.field === this.state.sortField && col.sortable !== false)) {
             const firstSortable = this.columns.find(col => col.sortable !== false);
             this.state.sortField = firstSortable ? firstSortable.field : null;
@@ -258,8 +283,12 @@ class SystemTable {
     }
 
     getOrderedColumns() {
+        const hidden = new Set(this.state?.hiddenColumns || []);
         const columnMap = new Map(this.columns.map(column => [String(column.field || ''), column]));
-        return this.normalizeColumnOrder(this.state?.columnOrder || []).map(field => columnMap.get(field)).filter(Boolean);
+        return this.normalizeColumnOrder(this.state?.columnOrder || [])
+            .map(field => columnMap.get(field))
+            .filter(Boolean)
+            .filter(col => !hidden.has(col.field));
     }
 
     isColumnDraggable(column) {
@@ -378,13 +407,29 @@ class SystemTable {
     }
 
     stabilizeInitialLayoutIfNeeded(widthsCaptured) {
-        if (!widthsCaptured || this.isStabilizingLayout) return;
+        if (this.isStabilizingLayout) return;
 
-        this.isStabilizingLayout = true;
-        window.requestAnimationFrame(() => {
-            this.isStabilizingLayout = false;
+        if (widthsCaptured) {
+            this.isStabilizingLayout = true;
+            window.requestAnimationFrame(() => {
+                this.isStabilizingLayout = false;
+                this.render();
+            });
+            return;
+        }
+
+        // No widths captured — container may be hidden. Watch for when it becomes visible.
+        if (typeof ResizeObserver === 'undefined' || !this.container) return;
+        if (this.container.getBoundingClientRect().width > 0) return;
+
+        if (this._visibilityObserver) return;
+        this._visibilityObserver = new ResizeObserver(() => {
+            if (!this.container || this.container.getBoundingClientRect().width <= 0) return;
+            this._visibilityObserver.disconnect();
+            this._visibilityObserver = null;
             this.render();
         });
+        this._visibilityObserver.observe(this.container);
     }
 
     enableColumnReordering() {
@@ -460,6 +505,123 @@ class SystemTable {
         this.notifyStateChange();
         this.render();
     }
+
+    // --- Row selection ---
+
+    getRowId(row) {
+        if (typeof this.rowId === 'function') return this.rowId(row);
+        const val = row?.[this.rowId];
+        return val != null ? String(val) : null;
+    }
+
+    handleRowClick(event, rowId, rowIndex) {
+        if (rowId == null) return;
+
+        if (event.shiftKey) {
+            // Range selection from anchor
+            this._selectRangeTo(rowId, event.ctrlKey || event.metaKey);
+        } else if (event.ctrlKey || event.metaKey) {
+            // Toggle individual row, update anchor
+            if (this.selectedRowIds.has(rowId)) {
+                this.selectedRowIds.delete(rowId);
+            } else {
+                this.selectedRowIds.add(rowId);
+            }
+            this._selectionAnchorId = rowId;
+        } else {
+            // Plain click — select only this row
+            this.selectedRowIds = new Set([rowId]);
+            this._selectionAnchorId = rowId;
+        }
+
+        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedRows(), this);
+        this.render();
+    }
+
+    _selectRangeTo(rowId, preserveExisting = false) {
+        const ids = this.lastRenderedRows.map(r => this.getRowId(r)).filter(Boolean);
+        if (!ids.length) return;
+
+        const anchorId = this._selectionAnchorId || rowId;
+        const anchorIndex = ids.indexOf(anchorId);
+        const targetIndex = ids.indexOf(rowId);
+        if (anchorIndex < 0 || targetIndex < 0) {
+            this._selectionAnchorId = rowId;
+            return;
+        }
+
+        const [start, end] = anchorIndex <= targetIndex
+            ? [anchorIndex, targetIndex]
+            : [targetIndex, anchorIndex];
+
+        if (!preserveExisting) this.selectedRowIds.clear();
+        ids.slice(start, end + 1).forEach(id => this.selectedRowIds.add(id));
+        this._selectionAnchorId = anchorId;
+    }
+
+    selectAllRows() {
+        this.lastRenderedRows.forEach(row => {
+            const id = this.getRowId(row);
+            if (id != null) this.selectedRowIds.add(id);
+        });
+        if (this.onSelectionChange) this.onSelectionChange(this.getSelectedRows(), this);
+        this.render();
+    }
+
+    clearSelection() {
+        this.selectedRowIds.clear();
+        this._selectionAnchorId = null;
+        if (this.onSelectionChange) this.onSelectionChange([], this);
+        this.render();
+    }
+
+    getSelectedRows() {
+        return this.lastRenderedRows.filter(row => {
+            const id = this.getRowId(row);
+            return id != null && this.selectedRowIds.has(id);
+        });
+    }
+
+    // --- Column visibility ---
+
+    toggleColumnVisibility(field) {
+        const hidden = new Set(this.state.hiddenColumns || []);
+        if (hidden.has(field)) {
+            hidden.delete(field);
+        } else {
+            // Never hide the last visible column
+            const visibleCount = this.columns.filter(c => !hidden.has(c.field)).length;
+            if (visibleCount <= 1) return;
+            hidden.add(field);
+        }
+        this.state.hiddenColumns = Array.from(hidden);
+        this.persistCurrentState();
+        this.notifyStateChange();
+
+        // Re-render while preserving scroll position and keeping the column panel open
+        const wasOpen = !!this.container?.querySelector('.system-table-col-vis-details')?.open;
+        const scrollEl = this.container?.querySelector('.table-container');
+        const scrollTop = scrollEl?.scrollTop ?? 0;
+        const scrollLeft = scrollEl?.scrollLeft ?? 0;
+        const pageScrollY = window.scrollY;
+        const pageScrollX = window.scrollX;
+
+        this.render();
+
+        const newScrollEl = this.container?.querySelector('.table-container');
+        if (newScrollEl) {
+            newScrollEl.scrollTop = scrollTop;
+            newScrollEl.scrollLeft = scrollLeft;
+        }
+        if (wasOpen) {
+            const details = this.container?.querySelector('.system-table-col-vis-details');
+            if (details) details.open = true;
+        }
+        // Restore page scroll — opening a <details> element can trigger scrollIntoView
+        window.scrollTo({ top: pageScrollY, left: pageScrollX, behavior: 'instant' });
+    }
+
+    // --- Rendering helpers ---
 
     getCellValue(row, column) {
         if (typeof column.value === 'function') {
@@ -640,6 +802,47 @@ class SystemTable {
         return this.filteredRows();
     }
 
+    renderHeader(selectedCount) {
+        const showSearch = this.globalSearch;
+        const hasBatch = this.selectable && selectedCount > 0;
+        const hasColVis = this.columnVisibility && this.columns.length > 1;
+        if (!showSearch && !hasBatch && !hasColVis) return '';
+
+        const searchHtml = showSearch ? `
+            <input type="text" class="system-table-global-search system-table-search-input" placeholder="Sök..." value="${this.escape(this.state.search)}">
+        ` : '';
+
+        const batchHtml = hasBatch ? `
+            <span class="system-table-batch-count">${selectedCount} rad${selectedCount !== 1 ? 'er' : ''} markerad${selectedCount !== 1 ? 'e' : ''}</span>
+            ${this.batchActions.map((action, i) => `
+                <button class="system-table-batch-action" data-batch-index="${i}">${this.escape(action.label || '')}</button>
+            `).join('')}
+            <button class="system-table-batch-clear">Avmarkera</button>
+        ` : '';
+
+        const hidden = new Set(this.state.hiddenColumns || []);
+        const colVisHtml = hasColVis ? `
+            <details class="system-table-col-vis-details">
+                <summary class="system-table-col-vis-btn">Kolumner</summary>
+                <div class="system-table-col-vis-panel">
+                    ${this.columns.map(col => `
+                        <label class="system-table-col-vis-item">
+                            <input type="checkbox" class="system-table-col-vis-toggle" data-field="${this.escape(col.field)}" ${hidden.has(col.field) ? '' : 'checked'}>
+                            ${this.escape(col.label || col.field)}
+                        </label>
+                    `).join('')}
+                </div>
+            </details>
+        ` : '';
+
+        return `
+            <div class="system-table-header">
+                ${searchHtml}${batchHtml}
+                <div class="system-table-header-end">${colVisHtml}</div>
+            </div>
+        `;
+    }
+
     bindEvents() {
         const container = this.container;
         if (!container) return;
@@ -727,10 +930,71 @@ class SystemTable {
                 });
             });
         }
+
+        // Row selection via click modifiers (Ctrl/Meta = toggle, Shift = range, plain = single)
+        if (this.selectable) {
+            container.querySelectorAll('tbody tr[data-row-id]').forEach(rowEl => {
+                rowEl.addEventListener('mousedown', (event) => {
+                    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                        event.preventDefault();
+                    }
+                });
+                rowEl.addEventListener('click', (event) => {
+                    const rowId = rowEl.dataset.rowId;
+                    const rowIndex = Number(rowEl.dataset.rowIndex);
+                    this.handleRowClick(event, rowId, rowIndex);
+                });
+            });
+
+            // Batch actions
+            container.querySelectorAll('.system-table-batch-action').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.dataset.batchIndex);
+                    const action = this.batchActions[index];
+                    if (action && typeof action.action === 'function') {
+                        action.action(this.getSelectedRows(), this);
+                    }
+                });
+            });
+
+            const batchClearBtn = container.querySelector('.system-table-batch-clear');
+            if (batchClearBtn) {
+                batchClearBtn.addEventListener('click', () => this.clearSelection());
+            }
+        }
+
+        // Column visibility toggles
+        if (this.columnVisibility) {
+            container.querySelectorAll('.system-table-col-vis-toggle').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    this.toggleColumnVisibility(cb.dataset.field);
+                });
+            });
+
+            // Close col-vis panel when clicking outside it
+            const details = container.querySelector('.system-table-col-vis-details');
+            if (details && !details._outsideClickBound) {
+                details._outsideClickBound = true;
+                document.addEventListener('click', function closeOnOutside(e) {
+                    if (!details.isConnected) {
+                        document.removeEventListener('click', closeOnOutside);
+                        return;
+                    }
+                    if (details.open && !details.contains(e.target)) {
+                        details.open = false;
+                    }
+                });
+            }
+        }
     }
 
     render() {
         if (!this.container) return;
+
+        if (this._visibilityObserver) {
+            this._visibilityObserver.disconnect();
+            this._visibilityObserver = null;
+        }
 
         if (!this.pendingFocusDescriptor) {
             const activeElement = document.activeElement;
@@ -742,12 +1006,9 @@ class SystemTable {
         const rows = this.resolveRows();
         this.lastRenderedRows = rows;
         const orderedColumns = this.getOrderedColumns();
+        const selectedCount = this.selectedRowIds.size;
 
-        const filtersHtml = this.globalSearch ? `
-            <div class="filters">
-                <input type="text" class="search-input system-table-global-search" placeholder="Sök..." value="${this.escape(this.state.search)}">
-            </div>
-        ` : '';
+        const headerHtml = this.renderHeader(selectedCount);
 
         const headHtml = orderedColumns.map(column => {
             const className = column.className || 'col-default';
@@ -784,11 +1045,19 @@ class SystemTable {
 
         const rowsHtml = rows.length
             ? rows.map((row, index) => {
+                const rowId = this.getRowId(row);
+                const isSelected = this.selectable && rowId != null && this.selectedRowIds.has(rowId);
+                const selectedClass = isSelected ? ' system-table-row-selected' : '';
+                const selectableAttr = this.selectable
+                    ? ` data-row-id="${this.escape(rowId || '')}" data-row-index="${index}" style="cursor:pointer;user-select:none;"`
+                    : '';
+
                 if (this.renderRow) {
                     return this.renderRow(row, index, this);
                 }
+
                 return `
-                    <tr data-row-index="${index}" class="${this.escape(this.rowClassName)}">
+                    <tr data-row-index="${index}"${selectableAttr} class="${this.escape(this.rowClassName)}${selectedClass}">
                         ${orderedColumns.map(column => `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}">${this.renderCell(row, column)}</td>`).join('')}
                     </tr>
                 `;
@@ -799,7 +1068,7 @@ class SystemTable {
         const tableClasses = ['data-table', this.tableClassName].filter(Boolean).join(' ');
 
         this.container.innerHTML = `
-            ${filtersHtml}
+            ${headerHtml}
             <div class="${this.escape(containerClasses)}">
                 <table id="${this.escape(this.tableId)}" class="${this.escape(tableClasses)}">
                     ${this.renderTableColgroup()}

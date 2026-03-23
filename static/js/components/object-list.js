@@ -71,7 +71,7 @@ class ObjectListComponent {
                     <button class="btn-icon bulk-selection-action bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" type="button" disabled style="display: none;" title="Koppla markerade objekt" aria-label="Koppla markerade objekt">
                         🔗
                     </button>
-                    <button class="btn-icon bulk-selection-action bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" type="button" disabled style="display: none;" title="Redigera markerade objekt" aria-label="Redigera markerade objekt">
+                    <button class="btn-icon bulk-edit-btn bulk-selection-action" id="bulk-edit-btn-${this.containerId}" type="button" title="Redigera markerade objekt" aria-label="Redigera markerade objekt" style="display: none;">
                         ✏️
                     </button>
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
@@ -99,8 +99,28 @@ class ObjectListComponent {
         `;
         
         this.attachEventListeners();
-        await this.loadViewConfig();
-        await this.loadObjects();
+        await Promise.all([this.loadViewConfig(), this._fetchObjectsOnly()]);
+        await this.preloadCategoryNodePaths(this.objects);
+        this.renderObjects();
+    }
+
+    async _fetchObjectsOnly() {
+        try {
+            const filters = {};
+            if (this.selectedType) filters.type = this.selectedType;
+            if (this.searchTerm) filters.search = this.searchTerm;
+            this.objects = await ObjectsAPI.getAll(filters);
+            if (!this.selectedType) {
+                this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
+            }
+            const validIds = new Set(this.objects.map(obj => Number(obj.id)));
+            this.selectedObjectIds = new Set(
+                Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
+            );
+        } catch (error) {
+            console.error('Failed to fetch objects:', error);
+            showToast('Kunde inte ladda objekt', 'error');
+        }
     }
     
     attachEventListeners() {
@@ -129,9 +149,7 @@ class ObjectListComponent {
 
         const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
         if (bulkEditBtn) {
-            bulkEditBtn.addEventListener('click', () => {
-                this.openBulkEditModal();
-            });
+            bulkEditBtn.addEventListener('click', () => this.openBulkEditModal());
         }
 
         this.attachGlobalSelectionListeners();
@@ -139,21 +157,24 @@ class ObjectListComponent {
     
     async loadViewConfig() {
         try {
-            // Ensure object type colors are loaded before first table render.
-            // Otherwise custom types can briefly fall back to gray badges.
-            const objectTypes = await ObjectTypesAPI.getAll();
-            await this.loadTypeDisplayFieldMap();
-
-            // Load view configuration for the selected type
             if (this.selectedType) {
-                // Get object type by name
+                // Need object types to look up the type id; tree-display loads independently.
+                const [objectTypes] = await Promise.all([
+                    ObjectTypesAPI.getAll(),
+                    this.loadTypeDisplayFieldMap(),
+                ]);
                 const objType = objectTypes.find(t => t.name === this.selectedType);
                 if (objType) {
                     const response = await fetchAPI(`/view-config/list-view/${objType.id}`);
                     this.viewConfig = response;
                 }
             } else {
-                await this.loadGlobalViewConfig();
+                // All three fetches are independent when no type filter is active.
+                await Promise.all([
+                    ObjectTypesAPI.getAll(),
+                    this.loadTypeDisplayFieldMap(),
+                    this.loadGlobalViewConfig(),
+                ]);
             }
             await this.preloadManagedListDisplayMaps();
         } catch (error) {
@@ -162,6 +183,36 @@ class ObjectListComponent {
             this.typeDisplayFieldMap = {};
             this.managedListDisplayByListId = new Map();
         }
+    }
+
+    async preloadCategoryNodePaths(objects) {
+        this.categoryNodePathById = new Map();
+        const availableFields = Array.isArray(this.viewConfig?.available_fields) ? this.viewConfig.available_fields : [];
+        const catNodeFields = new Set(
+            availableFields
+                .filter(f => String(f?.field_type || '').toLowerCase() === 'category_node')
+                .map(f => f.field_name)
+        );
+        if (!catNodeFields.size) return;
+
+        const nodeIds = new Set();
+        (objects || []).forEach(obj => {
+            catNodeFields.forEach(fn => {
+                const val = parseInt(obj?.data?.[fn], 10);
+                if (Number.isFinite(val) && val > 0) nodeIds.add(val);
+            });
+        });
+        if (!nodeIds.size) return;
+
+        await Promise.all([...nodeIds].map(async (nodeId) => {
+            try {
+                const r = await fetch(`/api/category-nodes/${nodeId}?include_path=true`);
+                if (!r.ok) return;
+                const node = await r.json();
+                const display = node?.path_string || node?.name;
+                if (display) this.categoryNodePathById.set(nodeId, display);
+            } catch (_) { /* silent */ }
+        }));
     }
 
     async loadGlobalViewConfig() {
@@ -222,9 +273,28 @@ class ObjectListComponent {
             });
             baseVisibleColumns.push({ field_name: 'created_at', visible: true, width: 150 });
 
+            // Merge saved visibility onto base defaults so user preferences survive
+            const savedVisibility = this.loadGlobalColumnVisibility();
+            let visible_columns;
+            if (savedVisibility) {
+                // Start from saved, add any new fields not yet in saved list as hidden
+                const savedMap = new Map(savedVisibility.map(c => [c.field_name, c]));
+                visible_columns = savedVisibility.filter(c =>
+                    available_fields.some(f => f.field_name === c.field_name) ||
+                    ['id_full', 'object_type', 'files', 'created_at'].includes(c.field_name)
+                );
+                available_fields.forEach(f => {
+                    if (!savedMap.has(f.field_name)) {
+                        visible_columns.push({ field_name: f.field_name, visible: false, width: 150 });
+                    }
+                });
+            } else {
+                visible_columns = baseVisibleColumns;
+            }
+
             this.viewConfig = {
                 available_fields,
-                visible_columns: baseVisibleColumns,
+                visible_columns,
                 column_order: this.loadGlobalColumnOrder() || [
                     'id_full',
                     'object_type',
@@ -277,6 +347,7 @@ class ObjectListComponent {
             this.selectedObjectIds = new Set(
                 Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
             );
+            await this.preloadCategoryNodePaths(this.objects);
             this.renderObjects();
         } catch (error) {
             console.error('Failed to load objects:', error);
@@ -709,6 +780,10 @@ class ObjectListComponent {
         return `object-list-column-order:${this.containerId}`;
     }
 
+    getGlobalColumnVisibilityStorageKey() {
+        return `object-list-column-visibility:${this.containerId}`;
+    }
+
     loadGlobalColumnWidths() {
         try {
             const raw = localStorage.getItem(this.getGlobalColumnWidthStorageKey());
@@ -755,6 +830,29 @@ class ObjectListComponent {
         }
     }
 
+    saveGlobalColumnVisibility() {
+        if (!Array.isArray(this.viewConfig?.visible_columns)) return;
+        try {
+            localStorage.setItem(
+                this.getGlobalColumnVisibilityStorageKey(),
+                JSON.stringify(this.viewConfig.visible_columns)
+            );
+        } catch (_error) {
+            // Ignore storage errors
+        }
+    }
+
+    loadGlobalColumnVisibility() {
+        try {
+            const raw = localStorage.getItem(this.getGlobalColumnVisibilityStorageKey());
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : null;
+        } catch (_error) {
+            return null;
+        }
+    }
+
     getPersistedColumnWidth(fieldName) {
         if (fieldName === '__select__') return 42;
         const width = Number(this.viewConfig?.column_widths?.[fieldName]);
@@ -788,6 +886,7 @@ class ObjectListComponent {
         }
         this.saveGlobalColumnWidths();
         this.saveGlobalColumnOrder();
+        this.saveGlobalColumnVisibility();
     }
 
     scheduleListViewConfigSave() {
@@ -804,7 +903,8 @@ class ObjectListComponent {
                         [this.selectedType]: {
                             object_type_id: this.viewConfig.object_type_id,
                             column_order: this.viewConfig.column_order,
-                            column_widths: this.viewConfig.column_widths
+                            column_widths: this.viewConfig.column_widths,
+                            visible_columns: this.viewConfig.visible_columns
                         }
                     })
                 });
@@ -1030,6 +1130,28 @@ class ObjectListComponent {
     resolveFieldDisplayValue(value, fieldName, column = null) {
         const field = this.getFieldDefinition(fieldName) || column || {};
         const fieldType = String(field?.field_type || '').toLowerCase();
+
+        if (fieldType === 'tag') {
+            let tags = [];
+            if (Array.isArray(value)) { tags = value.map(String).filter(Boolean); }
+            else if (typeof value === 'string' && value.trim()) {
+                try { tags = JSON.parse(value); } catch (_) { tags = value.split(',').map(s => s.trim()).filter(Boolean); }
+            }
+            return tags.join(', ');
+        }
+
+        if (fieldType === 'relation_list') {
+            return String(value || '').split('\n').map(s => s.trim()).filter(Boolean).join(', ');
+        }
+
+        if (fieldType === 'category_node') {
+            const nodeId = parseInt(value, 10);
+            if (Number.isFinite(nodeId) && this.categoryNodePathById?.has(nodeId)) {
+                return this.categoryNodePathById.get(nodeId);
+            }
+            return value;
+        }
+
         if (fieldType !== 'select') return value;
 
         const parsedJsonValue = this.tryParseJsonString(value);
@@ -1335,13 +1457,14 @@ class ObjectListComponent {
         const visible_columns = this.viewConfig.visible_columns || [];
         const available_fields = this.viewConfig.available_fields || [];
         
-        // Build list of all possible columns
+        // Build list of all possible columns (including files which is added programmatically)
         const allColumns = [
             { field_name: 'id_full', display_name: 'ID' },
             { field_name: 'object_type', display_name: 'Typ' },
             ...available_fields.map(f => ({ field_name: f.field_name, display_name: f.display_name })),
-            { field_name: 'created_at', display_name: 'Skapad' }
-        ];
+            { field_name: 'files', display_name: 'Filer' },
+            { field_name: 'created_at', display_name: 'Skapad' },
+        ].filter((col, idx, arr) => arr.findIndex(c => c.field_name === col.field_name) === idx);
         const lockedFieldNames = new Set(['id_full', 'object_type']);
         
         container.innerHTML = allColumns.map(col => {
@@ -1871,6 +1994,37 @@ class ObjectListComponent {
         const variesLabel = field.varies ? '<small class="form-help">Varierar</small>' : '';
         const value = field.value;
 
+        if (field.fieldType === 'category_node') {
+            const opts = this.normalizeFieldOptions(field.field_options) || {};
+            const systemId = Number(opts.system_id || 0);
+            const systemName = escapeHtml(opts.system_name || '');
+            const currentId = field.varies ? '' : (field.value ? String(field.value) : '');
+            const resolvedLabel = currentId && this.categoryNodePathById?.has(parseInt(currentId, 10))
+                ? this.categoryNodePathById.get(parseInt(currentId, 10))
+                : (field.varies ? 'Varierar' : (currentId ? currentId : 'Ingen'));
+            return `
+                <div class="form-group">
+                    <label>${escapeHtml(field.displayName)}</label>
+                    <div class="category-field-widget"
+                         data-field-name="${escapeHtml(field.fieldName)}"
+                         data-system-id="${systemId}"
+                         data-system-name="${systemName}">
+                        <input type="hidden"
+                               class="bulk-edit-input"
+                               data-field-key="${escapeHtml(field.key)}"
+                               data-field-type="category_node"
+                               value="${escapeHtml(currentId)}">
+                        <div class="category-field-display form-control"
+                             style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;min-height:38px;">
+                            <span class="category-field-label">${escapeHtml(resolvedLabel)}</span>
+                            <span style="font-size:11px;color:var(--text-secondary);">▼</span>
+                        </div>
+                    </div>
+                    ${field.varies ? '<small class="form-help">Varierar. Välj ny nod för att uppdatera alla markerade objekt.</small>' : ''}
+                </div>
+            `;
+        }
+
         if (field.fieldType === 'textarea') {
             return `
                 <div class="form-group">
@@ -2018,6 +2172,26 @@ class ObjectListComponent {
                 setTimeout(() => firstInput.focus(), 0);
             }
 
+            // Bind category_node picker widgets in the bulk form
+            fieldsContainer.querySelectorAll('.category-field-widget').forEach(widget => {
+                const display = widget.querySelector('.category-field-display');
+                const hidden = widget.querySelector('input[type="hidden"]');
+                const labelEl = widget.querySelector('.category-field-label');
+                const systemId = Number(widget.dataset.systemId || 0);
+                const systemName = widget.dataset.systemName || '';
+                if (display && typeof window.openCatFieldPicker === 'function') {
+                    display.addEventListener('click', () => {
+                        window.openCatFieldPicker(systemId, systemName, (nodeId, nodeName) => {
+                            if (hidden) hidden.value = String(nodeId);
+                            fetch(`/api/category-nodes/${nodeId}?include_path=true`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(node => { if (labelEl) labelEl.textContent = node?.path_string || nodeName; })
+                                .catch(() => { if (labelEl) labelEl.textContent = nodeName; });
+                        });
+                    });
+                }
+            });
+
             form.onsubmit = async (event) => {
                 event.preventDefault();
                 await this.saveBulkEditChanges(selectedObjects, editableFields);
@@ -2049,7 +2223,14 @@ class ObjectListComponent {
             let parsedValue = null;
             const rawValue = input.value;
 
-            if (fieldType === 'boolean') {
+            if (fieldType === 'category_node') {
+                if (!rawValue || !rawValue.trim()) return;
+                const nodeId = parseInt(rawValue, 10);
+                if (!Number.isFinite(nodeId) || nodeId <= 0) return;
+                if (!field.varies && String(field.value) === rawValue) return;
+                changes.push({ key, value: String(nodeId) });
+                return;
+            } else if (fieldType === 'boolean') {
                 if (rawValue === '') return;
                 parsedValue = rawValue === 'true';
             } else if (fieldType === 'select' && this.isMultiSelectField(field)) {
@@ -2116,6 +2297,7 @@ class ObjectListComponent {
                         status: statusChange ? statusChange.value : obj.status,
                         data: currentData
                     });
+
                     updatedCount += 1;
                 } catch (error) {
                     console.error(`Failed to update object ${obj.id}:`, error);
@@ -2317,13 +2499,12 @@ class ObjectListComponent {
             bulkRelateBtn.disabled = selectedCount === 0;
             bulkRelateBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
             bulkRelateBtn.title = selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt';
-            bulkRelateBtn.setAttribute('aria-label', selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt');
+            bulkRelateBtn.setAttribute('aria-label', bulkRelateBtn.title);
         }
         if (bulkEditBtn) {
-            bulkEditBtn.disabled = selectedCount === 0;
             bulkEditBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
             bulkEditBtn.title = selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt';
-            bulkEditBtn.setAttribute('aria-label', selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt');
+            bulkEditBtn.setAttribute('aria-label', bulkEditBtn.title);
         }
     }
 

@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem, Instance
+from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem, Instance, ObjectCategoryAssignment
 from utils.auto_id_generator import (
     generate_base_id,
     compose_full_id,
@@ -503,7 +503,7 @@ def build_tree_root_nodes(root_objects, view_config, managed_list_cache=None, tr
             'data': root_data,
             'kravtext': get_tree_requirement_text(root_object),
             'beskrivning': get_tree_short_description(root_object),
-            'files': collect_tree_files_for_object(root_object, relations_lookup),
+            'files': collect_tree_files_for_object(root_object),
             'children': children
         })
 
@@ -803,12 +803,117 @@ def set_object_data_value(record, field_type, value, field_options=None):
             'selected_ids': [entry['selected_id'] for entry in selected],
             'selected': selected
         }
+    elif field_type == 'category_node':
+        # Store node id as text; ObjectCategoryAssignment sync done separately
+        record.value_text = str(value) if value is not None and str(value).strip() else ''
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = None
+    elif field_type == 'tag':
+        if isinstance(value, list):
+            tags = [str(t).strip() for t in value if str(t).strip()]
+        elif isinstance(value, str) and value.strip():
+            import json as _json
+            try:
+                parsed = _json.loads(value)
+                tags = [str(t).strip() for t in parsed if str(t).strip()] if isinstance(parsed, list) else [value.strip()]
+            except Exception:
+                tags = [t.strip() for t in value.split(',') if t.strip()]
+        else:
+            tags = []
+        record.value_json = tags
+        record.value_text = ','.join(tags)
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
     else:
         record.value_text = str(value)
         record.value_number = None
         record.value_date = None
         record.value_boolean = None
         record.value_json = None
+
+
+def apply_computed_fields(obj_id, fields, object_data):
+    """Compute and store values for computed-type fields from other field values."""
+    computed_fields = [f for f in fields if f.field_type == 'computed']
+    if not computed_fields:
+        return
+    for field in computed_fields:
+        opts = normalize_field_options(field.field_options) or {}
+        source_fields = opts.get('fields') or []
+        separator = opts.get('separator', ' ↔ ')
+        parts = sorted(
+            (str(object_data.get(fn, '') or '').strip() for fn in source_fields),
+            key=str.casefold
+        )
+        computed_value = separator.join(p for p in parts if p)
+        if not computed_value:
+            continue
+        record = ObjectData.query.filter_by(object_id=obj_id, field_id=field.id).first()
+        if not record:
+            record = ObjectData(object_id=obj_id, field_id=field.id)
+            db.session.add(record)
+        record.value_text = computed_value
+        record.value_number = None
+        record.value_date = None
+        record.value_boolean = None
+        record.value_json = None
+
+
+def sync_category_node_assignments(obj_id, fields, object_data):
+    """Keep ObjectCategoryAssignment in sync with category_node fields."""
+    cat_fields = [f for f in fields if f.field_type == 'category_node']
+    if not cat_fields:
+        return
+    # Collect field IDs managed by category_node fields so we only touch those assignments
+    for field in cat_fields:
+        raw_options = field.field_options or {}
+        if isinstance(raw_options, str):
+            try:
+                raw_options = __import__('json').loads(raw_options)
+            except Exception:
+                raw_options = {}
+        system_id = Number_or_none(raw_options.get('system_id'))
+        new_node_id_str = str(object_data.get(field.field_name) or '').strip()
+        new_node_id = int(new_node_id_str) if new_node_id_str.isdigit() else None
+
+        # Find existing assignment for this object+field (identified by matching the stored node
+        # within the same classification system to avoid clobbering other systems)
+        if system_id:
+            from models import CategoryNode
+            existing = (
+                db.session.query(ObjectCategoryAssignment)
+                .join(CategoryNode, ObjectCategoryAssignment.category_node_id == CategoryNode.id)
+                .filter(
+                    ObjectCategoryAssignment.object_id == obj_id,
+                    CategoryNode.system_id == system_id,
+                )
+                .first()
+            )
+        else:
+            existing = None
+
+        if new_node_id:
+            if existing:
+                existing.category_node_id = new_node_id
+            else:
+                db.session.add(ObjectCategoryAssignment(
+                    object_id=obj_id,
+                    category_node_id=new_node_id,
+                    is_primary=True,
+                ))
+        else:
+            if existing:
+                db.session.delete(existing)
+
+
+def Number_or_none(val):
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return None
 
 
 def has_meaningful_value(value):
@@ -937,12 +1042,52 @@ def collect_tree_files_for_object(obj, relations_lookup=None):
     return files
 
 
+def compute_relation_list_values(obj, relations_lookup=None):
+    """Return a dict of {field_name: "Name A, Name B"} for all relation_list fields on obj."""
+    fields = getattr(obj.object_type, 'fields', []) or []
+    rel_list_fields = [f for f in fields if f.field_type == 'relation_list']
+    if not rel_list_fields:
+        return {}
+
+    if relations_lookup is not None:
+        relations = relations_lookup.get(obj.id, [])
+    else:
+        relations = ObjectRelation.query.filter(
+            (ObjectRelation.source_object_id == obj.id) |
+            (ObjectRelation.target_object_id == obj.id)
+        ).all()
+
+    result = {}
+    for field in rel_list_fields:
+        opts = normalize_field_options(field.field_options) or {}
+        target_type = (opts.get('object_type') or '').strip().lower()
+        names = []
+        for rel in relations:
+            linked = rel.target_object if rel.source_object_id == obj.id else rel.source_object
+            if not linked or not linked.object_type:
+                continue
+            if target_type and linked.object_type.name.lower() != target_type:
+                continue
+            name = (
+                (linked.data or {}).get('namn')
+                or (linked.data or {}).get('name')
+                or linked.id_full
+                or str(linked.id)
+            )
+            names.append(str(name))
+        result[field.field_name] = '\n'.join(names)
+    return result
+
+
 def enrich_object_with_file_metadata(payload, obj, relations_lookup=None):
-    """Attach file metadata used by list and table views."""
+    """Attach file metadata and relation_list field values."""
     files = collect_tree_files_for_object(obj, relations_lookup)
     payload['files'] = files
     payload['file_count'] = len(files)
     payload['has_files'] = len(files) > 0
+    rel_list_values = compute_relation_list_values(obj, relations_lookup)
+    if rel_list_values:
+        payload.setdefault('data', {}).update(rel_list_values)
     return payload
 
 
@@ -1061,6 +1206,9 @@ def get_object(id):
                 }
                 for field_id, override_value in required_overrides.items()
             ]
+            rel_list_values = compute_relation_list_values(obj)
+            if rel_list_values:
+                result.setdefault('data', {}).update(rel_list_values)
             return jsonify(result), 200
         except Exception as serialize_error:
             logger.error(f"Error serializing object {id}: {str(serialize_error)}", exc_info=True)
@@ -1164,8 +1312,10 @@ def create_object():
             set_object_data_value(obj_data, field.field_type, value, field.field_options)
             db.session.add(obj_data)
         
+        sync_category_node_assignments(obj.id, object_type.fields, object_data)
+        apply_computed_fields(obj.id, object_type.fields, object_data)
         db.session.commit()
-        
+
         logger.info(f"Created object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 201
     except Exception as e:
@@ -1283,8 +1433,10 @@ def update_object(id):
             existing_override.is_required_override = bool(override_value)
 
         obj.updated_at = datetime.utcnow()
+        sync_category_node_assignments(obj.id, obj.object_type.fields, object_data)
+        apply_computed_fields(obj.id, obj.object_type.fields, object_data)
         db.session.commit()
-        
+
         logger.info(f"Updated object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 200
     except Exception as e:
@@ -1522,6 +1674,39 @@ def duplicate_object(id):
         db.session.rollback()
         logger.error(f"Error duplicating object {id}: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to duplicate object', 'details': str(e)}), 500
+
+
+@bp.route('/files-batch', methods=['GET'])
+def files_batch():
+    """Return files for a batch of object IDs.
+    Query param: ids=1,2,3,4
+    Returns: { "1": [{id, filename, url, mime_type}, ...], ... }
+    """
+    try:
+        raw = request.args.get('ids', '')
+        object_ids = [int(x) for x in raw.split(',') if x.strip().isdigit()]
+        if not object_ids:
+            return jsonify({}), 200
+
+        objects = Object.query.filter(Object.id.in_(object_ids)).all()
+        relations_lookup = build_relations_lookup([o.id for o in objects])
+
+        result = {}
+        for obj in objects:
+            raw_files = collect_tree_files_for_object(obj, relations_lookup)
+            result[str(obj.id)] = [
+                {
+                    'id': f['id'],
+                    'filename': f.get('original_filename') or f.get('filename') or '',
+                    'url': f'/api/objects/documents/{f["id"]}/download',
+                    'mime_type': f.get('mime_type') or '',
+                }
+                for f in raw_files
+            ]
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f'Error in files_batch: {e}')
+        return jsonify({'error': 'Failed to load files'}), 500
 
 
 @bp.route('/<int:id>', methods=['DELETE'])

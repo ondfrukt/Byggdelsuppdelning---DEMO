@@ -24,6 +24,9 @@ from models.instance_type_field import InstanceTypeField
 from models.object_field_override import ObjectFieldOverride
 from models.change_management_item import ChangeManagementItem
 from models.change_management_impact import ChangeManagementImpact
+from models.classification_system import ClassificationSystem
+from models.category_node import CategoryNode
+from models.object_category_assignment import ObjectCategoryAssignment
 
 __all__ = [
     'db',
@@ -46,5 +49,8 @@ __all__ = [
     'InstanceTypeField',
     'ObjectFieldOverride',
     'ChangeManagementItem',
-    'ChangeManagementImpact'
+    'ChangeManagementImpact',
+    'ClassificationSystem',
+    'CategoryNode',
+    'ObjectCategoryAssignment',
 ]
