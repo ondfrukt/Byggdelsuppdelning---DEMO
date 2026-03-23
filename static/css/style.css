@@ -3970,6 +3970,34 @@ body {
     position: relative;
 }
 
+/* Make main object list fill available height via flexbox chain */
+#objects-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#objects-container > .object-list {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#objects-container > .object-list > .filters,
+#objects-container > .object-list > .column-config-panel {
+    flex: 0 0 auto;
+}
+
+#objects-container > .object-list > .table-container {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+}
+
 .column-config-panel {
     position: absolute;
     top: 44px;

@@ -207,9 +207,16 @@
     overflow: hidden;
 }
 
+#tv-inner {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 #tree-system-table {
     display: flex;
-    flex: 1 1 auto;
     flex: 1;
     min-height: 0;
     flex-direction: column;
@@ -223,7 +230,7 @@
 #tree-system-table > .tree-table-container.table-container {
     flex: 1 1 auto;
     min-height: 0;
-    height: calc(100vh - 280px);
+    height: auto;
     overflow-x: auto;
     overflow-y: auto;
 }
