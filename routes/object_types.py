@@ -413,6 +413,18 @@ def add_field(id):
             None
         )
         if existing:
+            # For computed fields, allow converting the existing field in-place
+            if str(template.field_type or '').lower() == 'computed':
+                existing.field_type = 'computed'
+                incoming_options = data.get('field_options') or {}
+                if isinstance(incoming_options, str):
+                    try:
+                        incoming_options = json.loads(incoming_options)
+                    except Exception:
+                        incoming_options = {}
+                existing.field_options = incoming_options
+                db.session.commit()
+                return jsonify(existing.to_dict()), 200
             return jsonify({'error': 'Field with this name already exists for this object type'}), 400
 
         is_name_field = is_name_field_name(field_name)
@@ -472,17 +484,20 @@ def _update_field_data(field, field_id, data):
         return {'error': 'field_template_id cannot be changed on existing fields'}, 400
 
     if 'field_options' in data:
-        if str(field.field_type or '').lower() != 'select':
-            return {'error': 'field_options can only be changed for select fields'}, 400
-        current_options, current_error = normalize_managed_list_field_options(field.field_options or {})
-        if current_error:
-            return {'error': 'Only managed-list select options are editable here'}, 400
-        incoming_options, incoming_error = normalize_managed_list_field_options(data.get('field_options'))
-        if incoming_error:
-            return {'error': incoming_error}, 400
-        if int(incoming_options['list_id']) != int(current_options['list_id']):
-            return {'error': 'list_id is template-managed and cannot be changed here'}, 400
-        field.field_options = incoming_options
+        if str(field.field_type or '').lower() not in ('select', 'computed'):
+            return {'error': 'field_options can only be changed for select and computed fields'}, 400
+        if str(field.field_type or '').lower() == 'computed':
+            field.field_options = data.get('field_options') or {}
+        else:
+            current_options, current_error = normalize_managed_list_field_options(field.field_options or {})
+            if current_error:
+                return {'error': 'Only managed-list select options are editable here'}, 400
+            incoming_options, incoming_error = normalize_managed_list_field_options(data.get('field_options'))
+            if incoming_error:
+                return {'error': incoming_error}, 400
+            if int(incoming_options['list_id']) != int(current_options['list_id']):
+                return {'error': 'list_id is template-managed and cannot be changed here'}, 400
+            field.field_options = incoming_options
 
     if 'is_required' in data:
         if current_is_name_field and data['is_required'] is not True:
@@ -551,7 +566,11 @@ def delete_field_with_type(type_id, field_id):
             return jsonify({'error': 'Field does not belong to this object type'}), 400
 
         if is_name_field_name(field.field_name):
-            return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
+            duplicate_count = ObjectField.query.filter_by(
+                object_type_id=type_id, field_name=field.field_name
+            ).count()
+            if duplicate_count <= 1:
+                return jsonify({'error': "Field 'namn' is required and cannot be deleted"}), 400
         if field.force_presence_on_all_objects:
             return jsonify({'error': 'Disable force_presence_on_all_objects before deleting this field'}), 400
         

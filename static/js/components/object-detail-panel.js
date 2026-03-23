@@ -20,17 +20,25 @@ class ObjectDetailPanel {
             showHeader: options.showHeader !== false, // Show header by default
             ...options
         };
+
+        // Store reference once so inline onclick handlers in category tab can reach this instance
+        window._detailPanel = this;
     }
     
-    async loadObject(objectId) {
+    async loadObject(objectId, prefetchedData = null) {
         try {
             this.objectId = objectId;
-            const response = await fetch(`/api/objects/${objectId}`);
-            if (!response.ok) {
-                throw new Error('Failed to load object');
+            if (prefetchedData) {
+                this.objectData = prefetchedData;
+            } else {
+                const response = await fetch(`/api/objects/${objectId}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load object');
+                }
+                this.objectData = await response.json();
             }
-            this.objectData = await response.json();
             await this.preloadManagedListDisplayMaps();
+            await this.preloadCategoryNodeNames();
         } catch (error) {
             console.error('Error loading object:', error);
             throw error;
@@ -88,6 +96,27 @@ class ObjectDetailPanel {
             } catch (_error) {
                 // Ignore lookup failures and keep raw value fallback.
             }
+        }));
+    }
+
+    async preloadCategoryNodeNames() {
+        this.categoryNodeNameById = new Map();
+        const fields = Array.isArray(this.objectData?.object_type?.fields)
+            ? this.objectData.object_type.fields : [];
+        const data = this.objectData?.data || {};
+        const nodeIds = fields
+            .filter(f => String(f?.field_type || '').toLowerCase() === 'category_node')
+            .map(f => parseInt(data[f.field_name], 10))
+            .filter(id => Number.isFinite(id) && id > 0);
+
+        await Promise.all([...new Set(nodeIds)].map(async (nodeId) => {
+            try {
+                const r = await fetch(`/api/category-nodes/${nodeId}?include_path=true`);
+                if (!r.ok) return;
+                const node = await r.json();
+                const display = node?.path_string || node?.name;
+                if (display) this.categoryNodeNameById.set(nodeId, display);
+            } catch (_) { /* keep raw id as fallback */ }
         }));
     }
 
@@ -167,14 +196,14 @@ class ObjectDetailPanel {
         return `<div class="detail-value">${formatFieldValue(value, fieldType)}</div>`;
     }
     
-    async render(objectId) {
+    async render(objectId, prefetchedData = null) {
         if (!this.container) return;
-        
+
         const previousObjectId = this.objectId;
         const isObjectChange = Boolean(objectId && String(objectId) !== String(previousObjectId));
 
         if (objectId) {
-            await this.loadObject(objectId);
+            await this.loadObject(objectId, prefetchedData);
         }
         
         if (!this.objectData) {
@@ -204,6 +233,7 @@ class ObjectDetailPanel {
             window.currentFileUpload = null;
         }
 
+
         if (this.activeTab === 'relations') {
             await this.loadRelationsIfNeeded();
         } else if (this.activeTab === 'instances') {
@@ -212,7 +242,7 @@ class ObjectDetailPanel {
             await this.loadFilesIfNeeded();
         }
     }
-    
+
     attachEventListeners() {
         if (!this.container) return;
         
@@ -285,7 +315,7 @@ class ObjectDetailPanel {
                         data-tab="relations">
                     Relationer
                 </button>
-                <button class="tab-btn ${this.activeTab === 'files' ? 'active' : ''}" 
+                <button class="tab-btn ${this.activeTab === 'files' ? 'active' : ''}"
                         data-tab="files">
                     Filer
                 </button>
@@ -313,10 +343,10 @@ class ObjectDetailPanel {
         } else if (this.activeTab === 'files') {
             return this.renderFilesTab();
         }
-        
+
         return '';
     }
-    
+
     renderDetails() {
         const obj = this.objectData;
         const data = obj.data || {};
@@ -391,7 +421,13 @@ class ObjectDetailPanel {
 
             const key = entry?.key || fieldName;
             const rawValue = entry?.value;
-            const value = this.resolveManagedListDisplayValue(rawValue, field);
+            let value = this.resolveManagedListDisplayValue(rawValue, field);
+            if (String(field?.field_type || '').toLowerCase() === 'category_node') {
+                const nodeId = parseInt(rawValue, 10);
+                if (Number.isFinite(nodeId) && this.categoryNodeNameById?.has(nodeId)) {
+                    value = this.categoryNodeNameById.get(nodeId);
+                }
+            }
             const label = field?.display_name || key;
             const looksLikeHtml = typeof value === 'string' && /<\s*[a-z][^>]*>/i.test(value);
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);

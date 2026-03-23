@@ -137,6 +137,18 @@ class ObjectTypeManager {
                     <button class="admin-tab" data-tab="relation-type-rules" onclick="adminManager.switchTab('relation-type-rules')">
                         Relationsregler
                     </button>
+                    <button class="admin-tab" data-tab="categories" onclick="adminManager.switchTab('categories')">
+                        Kategorier
+                    </button>
+                    <button class="admin-tab" data-tab="table-demo" onclick="adminManager.switchTab('table-demo')">
+                        Tabell-demo
+                    </button>
+                    <button class="admin-tab" data-tab="tree-demo" onclick="adminManager.switchTab('tree-demo')">
+                        Träd-demo
+                    </button>
+                    <button class="admin-tab" data-tab="form-demo" onclick="adminManager.switchTab('form-demo')">
+                        Formulär-demo
+                    </button>
                 </div>
                 
                 <div class="admin-tab-content">
@@ -197,6 +209,40 @@ class ObjectTypeManager {
                         <div id="relation-type-rules-container">
                             <p>Laddar...</p>
                         </div>
+                    </div>
+
+                    <div id="categories-tab" class="admin-tab-panel">
+                        <div id="category-admin-container"></div>
+                    </div>
+
+                    <div id="table-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Tabell-demo</h3>
+                            <span style="font-size:12px;color:var(--text-secondary);">
+                                Ctrl+klick för att markera flera rader &nbsp;·&nbsp; Shift+klick för intervall
+                            </span>
+                        </div>
+                        <div id="table-demo-container"></div>
+                    </div>
+
+                    <div id="tree-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Träd-demo</h3>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <button class="btn btn-sm btn-secondary" onclick="treeDemoExpandAll()">Expandera alla</button>
+                                <button class="btn btn-sm btn-secondary" onclick="treeDemoCollapseAll()">Fäll ihop alla</button>
+                                <span style="font-size:12px;color:var(--text-secondary);">Ctrl+klick för markering &nbsp;·&nbsp; Shift+klick för intervall</span>
+                            </div>
+                        </div>
+                        <div id="tree-demo-container"></div>
+                    </div>
+
+                    <div id="form-demo-tab" class="admin-tab-panel">
+                        <div class="admin-panel-header">
+                            <h3>Formulär-demo</h3>
+                            <span style="font-size:12px;color:var(--text-secondary);">Visuell referens för formulär och paneler</span>
+                        </div>
+                        <div id="form-demo-container"></div>
                     </div>
                 </div>
             </div>
@@ -315,6 +361,7 @@ class ObjectTypeManager {
                                         <th class="col-field-name">Fältnamn</th>
                                         <th class="col-status">Obligatorisk</th>
                                         <th class="col-detail-visible">Detaljvy</th>
+                                        <th class="col-detail-visible">Trädvy</th>
                                         <th class="col-width">Bredd</th>
                                         <th class="col-actions"></th>
                                     </tr>
@@ -370,6 +417,16 @@ class ObjectTypeManager {
                         title="Visa/dölj fält i detaljvy"
                     >
                 </td>
+                <td class="col-detail-visible">
+                    <input
+                        type="checkbox"
+                        class="required-toggle"
+                        ${field.is_tree_visible ? 'checked' : ''}
+                        onchange="adminManager.toggleFieldTreeVisible(${field.id}, this.checked)"
+                        aria-label="Visa i trädvy för ${escapeHtml(nameLabel)}"
+                        title="Visa fält som kolumn i trädvyn som standard"
+                    >
+                </td>
                 <td class="col-width">
                     <select class="form-control detail-width-select" onchange="adminManager.updateFieldDetailWidth(${field.id}, this.value)">
                         <option value="full" ${(this.resolveFieldDetailWidth(field) === 'full') ? 'selected' : ''}>1/1</option>
@@ -399,8 +456,6 @@ class ObjectTypeManager {
     }
 
     canDeleteField(field) {
-        const fieldName = String(field?.field_name || '').trim().toLowerCase();
-        if (fieldName === 'namn') return false;
         if (field?.force_presence_on_all_objects) return false;
         return true;
     }
@@ -582,6 +637,42 @@ class ObjectTypeManager {
         return (this.managedLists || []).find(list => Number(list.id) === managedListId) || null;
     }
 
+    async loadManagedListsForTagPicker() {
+        const sel = document.getElementById('template-tag-list-select');
+        if (!sel) return;
+        try {
+            const lists = await fetch('/api/managed-lists').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj lista...</option>' +
+                lists.map(l => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
+    async loadObjectTypesForRelationPicker() {
+        const sel = document.getElementById('template-relation-object-type');
+        if (!sel) return;
+        try {
+            const types = await fetch('/api/object-types').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj objekttyp...</option>' +
+                types.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
+    async loadClassificationSystemsForPicker() {
+        const sel = document.getElementById('template-category-system-select');
+        if (!sel) return;
+        try {
+            const systems = await fetch('/api/classification-systems').then(r => r.json());
+            const current = sel.value;
+            sel.innerHTML = '<option value="">Välj kategorisystem...</option>' +
+                systems.map(s => `<option value="${s.id}" data-name="${escapeHtml(s.name)}">${escapeHtml(s.name)}</option>`).join('');
+            if (current) sel.value = current;
+        } catch (_) { /* silent */ }
+    }
+
     updateFieldTemplateOptionInputs() {
         const fieldTypeSelect = document.getElementById('template-field-type');
         const sourceSelect = document.getElementById('template-option-source');
@@ -591,14 +682,40 @@ class ObjectTypeManager {
         const selectionModeGroup = document.getElementById('template-selection-mode-group');
         const selectionModeSelect = document.getElementById('template-selection-mode');
         const selectionModeHelp = document.getElementById('template-selection-mode-help');
+        const categorySystemGroup = document.getElementById('template-category-system-group');
+        const relationTypeGroup = document.getElementById('template-relation-type-group');
 
         if (!fieldTypeSelect || !sourceSelect) return;
 
-        const isSelectType = String(fieldTypeSelect.value || '').toLowerCase() === 'select';
+        const fieldType = String(fieldTypeSelect.value || '').toLowerCase();
+        const isCategoryNode = fieldType === 'category_node';
+        const isRelationList = fieldType === 'relation_list';
+        const isSelectType = fieldType === 'select';
         const source = String(sourceSelect.value || 'custom').toLowerCase();
         const isManagedListSource = isSelectType && source === 'managed_list';
         const selectedList = this.getSelectedManagedListDefinition();
         const allowMultiselect = selectedList?.allow_multiselect === true;
+
+        if (categorySystemGroup) {
+            categorySystemGroup.style.display = isCategoryNode ? '' : 'none';
+            if (isCategoryNode) this.loadClassificationSystemsForPicker();
+        }
+
+        if (relationTypeGroup) {
+            relationTypeGroup.style.display = isRelationList ? '' : 'none';
+            if (isRelationList) this.loadObjectTypesForRelationPicker();
+        }
+
+        const tagListGroup = document.getElementById('template-tag-list-group');
+        if (tagListGroup) {
+            tagListGroup.style.display = fieldType === 'tag' ? '' : 'none';
+            if (fieldType === 'tag') this.loadManagedListsForTagPicker();
+        }
+
+        const computedFieldsGroup = document.getElementById('template-computed-fields-group');
+        if (computedFieldsGroup) {
+            computedFieldsGroup.style.display = fieldType === 'computed' ? '' : 'none';
+        }
 
         if (sourceGroup) sourceGroup.style.display = isSelectType ? '' : 'none';
         if (customGroup) customGroup.style.display = (isSelectType && source === 'custom') ? '' : 'none';
@@ -643,6 +760,44 @@ class ObjectTypeManager {
         if (managedListSelect) managedListSelect.value = '';
         if (selectionModeSelect) selectionModeSelect.value = 'single';
 
+        if (fieldType === 'category_node') {
+            const systemId = normalizedOptions?.system_id ? String(normalizedOptions.system_id) : '';
+            this.loadClassificationSystemsForPicker().then(() => {
+                const sel = document.getElementById('template-category-system-select');
+                if (sel && systemId) sel.value = systemId;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'relation_list') {
+            const objectType = normalizedOptions?.object_type || '';
+            this.loadObjectTypesForRelationPicker().then(() => {
+                const sel = document.getElementById('template-relation-object-type');
+                if (sel && objectType) sel.value = objectType;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'tag') {
+            const listId = normalizedOptions?.list_id ? String(normalizedOptions.list_id) : '';
+            this.loadManagedListsForTagPicker().then(() => {
+                const sel = document.getElementById('template-tag-list-select');
+                if (sel && listId) sel.value = listId;
+            });
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
+        if (fieldType === 'computed') {
+            const separator = normalizedOptions?.separator !== undefined ? normalizedOptions.separator : ' ↔ ';
+            const separatorInput = document.getElementById('template-computed-separator');
+            if (separatorInput) separatorInput.value = separator;
+            this.updateFieldTemplateOptionInputs();
+            return;
+        }
+
         if (fieldType !== 'select') {
             customOptionsInput.value = typeof rawOptions === 'string'
                 ? rawOptions
@@ -674,6 +829,40 @@ class ObjectTypeManager {
         const sourceValue = String(document.getElementById('template-option-source')?.value || 'custom').trim().toLowerCase();
         const rawOptions = document.getElementById('template-options')?.value || '';
         const managedListIdRaw = document.getElementById('template-managed-list-select')?.value || '';
+
+        if (normalizedType === 'category_node') {
+            const sel = document.getElementById('template-category-system-select');
+            const systemId = Number(sel?.value || 0);
+            if (!Number.isFinite(systemId) || systemId <= 0) {
+                return { error: 'Välj ett kategorisystem för fältet' };
+            }
+            const selectedOption = sel.options[sel.selectedIndex];
+            const systemName = selectedOption?.dataset?.name || selectedOption?.textContent || '';
+            return { value: { system_id: systemId, system_name: systemName } };
+        }
+
+        if (normalizedType === 'relation_list') {
+            const sel = document.getElementById('template-relation-object-type');
+            const objectType = sel?.value || '';
+            if (!objectType) {
+                return { error: 'Välj en objekttyp för relationslistan' };
+            }
+            return { value: { object_type: objectType } };
+        }
+
+        if (normalizedType === 'tag') {
+            const sel = document.getElementById('template-tag-list-select');
+            const listId = Number(sel?.value || 0);
+            if (!Number.isFinite(listId) || listId <= 0) {
+                return { error: 'Välj en tagglista för fältet' };
+            }
+            return { value: { list_id: listId } };
+        }
+
+        if (normalizedType === 'computed') {
+            const separator = document.getElementById('template-computed-separator')?.value ?? ' ↔ ';
+            return { value: { separator } };
+        }
 
         if (normalizedType === 'select') {
             if (sourceValue === 'managed_list') {
@@ -1578,6 +1767,7 @@ class ObjectTypeManager {
         if (!Number.isFinite(id) || id <= 0) {
             if (requiredCheckbox) requiredCheckbox.checked = false;
             this.updateFieldHierarchySettingsVisibility();
+            this.updateFieldComputedGroupVisibility();
             return;
         }
 
@@ -1585,6 +1775,49 @@ class ObjectTypeManager {
         if (!template) return;
         if (requiredCheckbox) requiredCheckbox.checked = Boolean(template.is_required);
         this.updateFieldHierarchySettingsVisibility();
+        const defaultSep = this.normalizeFieldOptions(template.field_options)?.separator ?? ' ↔ ';
+        this.updateFieldComputedGroupVisibility([], defaultSep);
+    }
+
+    updateFieldComputedGroupVisibility(savedFields = [], savedSeparator = null, forceFieldType = null) {
+        const group = document.getElementById('field-computed-fields-group');
+        const checkboxContainer = document.getElementById('field-computed-source-checkboxes');
+        const separatorInput = document.getElementById('field-computed-separator');
+        if (!group || !checkboxContainer) return;
+
+        const templateId = Number(document.getElementById('field-template-select')?.value || 0);
+        const template = this.fieldTemplates.find(t => Number(t.id) === templateId);
+        const isComputed = (forceFieldType && String(forceFieldType).toLowerCase() === 'computed') ||
+            (template && String(template.field_type || '').toLowerCase() === 'computed');
+
+        group.style.display = isComputed ? '' : 'none';
+        if (!isComputed) return;
+
+        // Populate checkboxes from current object type's fields (exclude the field being edited)
+        const editingFieldId = Number(document.getElementById('field-modal')?.dataset?.fieldId || 0);
+        const fields = (this.selectedType?.fields || []).filter(f => {
+            if (editingFieldId && f.id === editingFieldId) return false;
+            const ft = String(f.field_type || '').toLowerCase();
+            return ft !== 'computed' && ft !== 'relation_list';
+        });
+
+        checkboxContainer.innerHTML = fields.length
+            ? fields.map(f => {
+                const name = escapeHtml(f.field_name || '');
+                const label = escapeHtml(f.display_name || f.field_name || '');
+                const checked = savedFields.includes(f.field_name) ? 'checked' : '';
+                return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" class="computed-field-checkbox" value="${name}" ${checked}> ${label}
+                </label>`;
+            }).join('')
+            : '<em style="color:var(--text-secondary);font-size:0.9em;">Inga fält tillgängliga.</em>';
+
+        if (separatorInput) {
+            const sep = savedSeparator !== null
+                ? savedSeparator
+                : (this.normalizeFieldOptions(template.field_options)?.separator ?? ' ↔ ');
+            separatorInput.value = sep;
+        }
     }
 
     normalizeHierarchyLevelCount(value, fallback = 2) {
@@ -3555,6 +3788,7 @@ class ObjectTypeManager {
         if (selectionModeSelect) selectionModeSelect.value = 'single';
         this.setFieldHierarchySettingsFromFieldOptions(null);
         this.updateFieldHierarchySettingsVisibility();
+        this.updateFieldComputedGroupVisibility();
         modal.dataset.mode = 'create';
         modal.dataset.typeId = this.selectedType.id;
         delete modal.dataset.fieldId;
@@ -3589,10 +3823,15 @@ class ObjectTypeManager {
         document.getElementById('field-required').checked = field.is_required;
         this.updateFieldSelectionModeVisibility(field.field_options);
         this.setFieldHierarchySettingsFromFieldOptions(field.field_options);
-        
+
         modal.dataset.mode = 'edit';
         modal.dataset.typeId = this.selectedType.id;
         modal.dataset.fieldId = fieldId;
+
+        const opts = this.normalizeFieldOptions(field.field_options);
+        const savedFields = Array.isArray(opts?.fields) ? opts.fields : [];
+        const savedSep = opts?.separator !== undefined ? opts.separator : null;
+        this.updateFieldComputedGroupVisibility(savedFields, savedSep, field.field_type);
         
         modal.style.display = 'block';
         overlay.style.display = 'block';
@@ -3666,6 +3905,23 @@ class ObjectTypeManager {
         } catch (error) {
             console.error('Failed to update field detail visibility:', error);
             showToast(error.message || 'Kunde inte uppdatera synlighet i detaljvy', 'error');
+            this.renderTypeDetails();
+        }
+    }
+
+    async toggleFieldTreeVisible(fieldId, isTreeVisible) {
+        if (!this.selectedType) return;
+        const field = (this.selectedType.fields || []).find(item => Number(item.id) === Number(fieldId));
+        if (!field) return;
+        const nextValue = Boolean(isTreeVisible);
+        if (field.is_tree_visible === nextValue) return;
+
+        try {
+            await ObjectTypesAPI.updateField(this.selectedType.id, fieldId, { is_tree_visible: nextValue });
+            field.is_tree_visible = nextValue;
+        } catch (error) {
+            console.error('Failed to update field tree visibility:', error);
+            showToast(error.message || 'Kunde inte uppdatera synlighet i trädvy', 'error');
             this.renderTypeDetails();
         }
     }
@@ -3764,6 +4020,18 @@ class ObjectTypeManager {
             document.getElementById('field-templates-tab').classList.add('active');
         } else if (tabName === 'relation-type-rules') {
             document.getElementById('relation-type-rules-tab').classList.add('active');
+        } else if (tabName === 'categories') {
+            document.getElementById('categories-tab').classList.add('active');
+            initCategoryAdmin('category-admin-container');
+        } else if (tabName === 'table-demo') {
+            document.getElementById('table-demo-tab').classList.add('active');
+            initTableDemo('table-demo-container');
+        } else if (tabName === 'tree-demo') {
+            document.getElementById('tree-demo-tab').classList.add('active');
+            initTreeDemo('tree-demo-container');
+        } else if (tabName === 'form-demo') {
+            document.getElementById('form-demo-tab').classList.add('active');
+            initFormDemo('form-demo-container');
         }
     }
 }
@@ -3775,6 +4043,383 @@ let adminManager = null;
 function initializeAdminPanel() {
     adminManager = new ObjectTypeManager('admin-container');
     adminManager.render();
+}
+
+function initTableDemo(containerId) {
+
+    const rows = [
+        { id: 1, name: 'Ytterväggar',       type: 'Byggdel',    status: 'Aktiv',    updated: '2025-11-03', responsible: 'Anna Lindqvist',  note: 'Reviderad ritning inkommen' },
+        { id: 2, name: 'Innerväggar',        type: 'Byggdel',    status: 'Aktiv',    updated: '2025-10-28', responsible: 'Björn Ström',     note: '' },
+        { id: 3, name: 'Bärande pelare',     type: 'Konstruktion', status: 'Granskning', updated: '2025-11-10', responsible: 'Cecilia Nyman', note: 'Väntar på konstruktörens svar' },
+        { id: 4, name: 'Takstolar',          type: 'Konstruktion', status: 'Aktiv',    updated: '2025-09-15', responsible: 'David Ekman',    note: '' },
+        { id: 5, name: 'Fönster typ A',      type: 'Öppning',    status: 'Ej startad', updated: '2025-11-01', responsible: 'Anna Lindqvist', note: 'Leverantör ej vald' },
+        { id: 6, name: 'Fönster typ B',      type: 'Öppning',    status: 'Ej startad', updated: '2025-11-01', responsible: 'Anna Lindqvist', note: '' },
+        { id: 7, name: 'Entrédörr',          type: 'Öppning',    status: 'Aktiv',    updated: '2025-10-20', responsible: 'Björn Ström',     note: 'Brandklass EI60' },
+        { id: 8, name: 'Grundplatta',        type: 'Konstruktion', status: 'Klar',     updated: '2025-08-30', responsible: 'Cecilia Nyman', note: '' },
+        { id: 9, name: 'Trapplopp plan 1–2', type: 'Byggdel',    status: 'Granskning', updated: '2025-11-08', responsible: 'David Ekman',   note: 'Tillgänglighetsanpassning krävs' },
+        { id: 10, name: 'Ventilationsschakt', type: 'Installation', status: 'Aktiv',  updated: '2025-10-05', responsible: 'Erik Bergman',  note: '' },
+        { id: 11, name: 'Rörschakt',         type: 'Installation', status: 'Aktiv',   updated: '2025-10-05', responsible: 'Erik Bergman',   note: '' },
+        { id: 12, name: 'Yttertak',          type: 'Byggdel',    status: 'Klar',     updated: '2025-09-01', responsible: 'Björn Ström',     note: 'Godkänd besiktning' },
+    ];
+
+    const statusColor = {
+        'Aktiv':       '#16a34a',
+        'Klar':        '#2563eb',
+        'Granskning':  '#d97706',
+        'Ej startad':  '#94a3b8',
+    };
+
+    new SystemTable({
+        containerId,
+        tableId: 'admin-demo-table',
+        rowId: 'id',
+        selectable: true,
+        columnVisibility: true,
+        batchActions: [
+            {
+                label: 'Ändra status',
+                action(selectedRows) {
+                    showToast(`${selectedRows.length} rad(er) markerade — batch-åtgärd här`, 'info');
+                }
+            },
+            {
+                label: 'Exportera',
+                action(selectedRows) {
+                    showToast(`Exporterar ${selectedRows.length} rad(er)`, 'success');
+                }
+            }
+        ],
+        columns: [
+            { field: 'id',          label: 'ID',           width: 56,  className: 'col-id' },
+            { field: 'name',        label: 'Namn',         width: 220, className: 'col-name' },
+            { field: 'type',        label: 'Typ',          width: 130, className: 'col-type' },
+            {
+                field: 'status',
+                label: 'Status',
+                width: 120,
+                className: 'col-status',
+                render(row) {
+                    const color = statusColor[row.status] || '#94a3b8';
+                    return `<span style="display:inline-flex;align-items:center;gap:5px;">
+                        <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+                        ${escapeHtml(row.status)}
+                    </span>`;
+                }
+            },
+            { field: 'responsible', label: 'Ansvarig',     width: 170, className: 'col-default' },
+            { field: 'updated',     label: 'Uppdaterad',   width: 120, className: 'col-date' },
+            { field: 'note',        label: 'Anteckning',   className: 'col-description',
+                render(row) { return row.note ? escapeHtml(row.note) : '<span style="color:var(--text-tertiary,#94a3b8)">—</span>'; }
+            },
+        ],
+        rows,
+    }).render();
+}
+
+let _treeDemoInstance = null;
+
+function treeDemoExpandAll()  { _treeDemoInstance?.expandAll(); }
+function treeDemoCollapseAll() { _treeDemoInstance?.collapseAll(); }
+
+function initTreeDemo(containerId) {
+    const statusColor = {
+        'Aktiv':       '#16a34a',
+        'Klar':        '#2563eb',
+        'Granskning':  '#d97706',
+        'Ej startad':  '#94a3b8',
+    };
+
+    function statusBadge(row) {
+        const color = statusColor[row.status] || '#94a3b8';
+        return `<span style="display:inline-flex;align-items:center;gap:5px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+            ${escapeHtml(row.status)}
+        </span>`;
+    }
+
+    const rows = [
+        {
+            id: 1, name: 'Stomme', type: 'Grupp', status: 'Aktiv', responsible: 'Anna Lindqvist', updated: '2025-11-10', note: '',
+            children: [
+                {
+                    id: 2, name: 'Bärande väggar', type: 'Konstruktion', status: 'Aktiv', responsible: 'Anna Lindqvist', updated: '2025-11-03', note: '',
+                    children: [
+                        { id: 3, name: 'Yttervägg norr',   type: 'Byggdel', status: 'Klar',       responsible: 'Björn Ström',   updated: '2025-09-01', note: 'Godkänd besiktning', children: [] },
+                        { id: 4, name: 'Yttervägg söder',  type: 'Byggdel', status: 'Klar',       responsible: 'Björn Ström',   updated: '2025-09-01', note: '', children: [] },
+                        { id: 5, name: 'Yttervägg öster',  type: 'Byggdel', status: 'Granskning', responsible: 'Cecilia Nyman', updated: '2025-11-08', note: 'Brandkrav EI60', children: [] },
+                        { id: 6, name: 'Yttervägg väster', type: 'Byggdel', status: 'Granskning', responsible: 'Cecilia Nyman', updated: '2025-11-08', note: '', children: [] },
+                    ]
+                },
+                {
+                    id: 7, name: 'Pelare och balkar', type: 'Konstruktion', status: 'Aktiv', responsible: 'Cecilia Nyman', updated: '2025-11-10', note: '',
+                    children: [
+                        { id: 8,  name: 'Stålpelare plan 1', type: 'Byggdel', status: 'Aktiv',     responsible: 'David Ekman',   updated: '2025-10-15', note: '', children: [] },
+                        { id: 9,  name: 'Stålpelare plan 2', type: 'Byggdel', status: 'Aktiv',     responsible: 'David Ekman',   updated: '2025-10-15', note: '', children: [] },
+                        { id: 10, name: 'Takbalk typ A',     type: 'Byggdel', status: 'Ej startad', responsible: 'David Ekman',  updated: '2025-11-01', note: 'Leverantör ej vald', children: [] },
+                    ]
+                },
+                { id: 11, name: 'Grundplatta', type: 'Byggdel', status: 'Klar', responsible: 'Cecilia Nyman', updated: '2025-08-30', note: '', children: [] },
+            ]
+        },
+        {
+            id: 12, name: 'Klimatskal', type: 'Grupp', status: 'Aktiv', responsible: 'Björn Ström', updated: '2025-11-05', note: '',
+            children: [
+                {
+                    id: 13, name: 'Tak', type: 'Konstruktion', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: '',
+                    children: [
+                        { id: 14, name: 'Yttertak',   type: 'Byggdel', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: 'Godkänd besiktning', children: [] },
+                        { id: 15, name: 'Takstolar',  type: 'Byggdel', status: 'Klar', responsible: 'Björn Ström', updated: '2025-09-01', note: '', children: [] },
+                    ]
+                },
+                {
+                    id: 16, name: 'Fönster och dörrar', type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: '',
+                    children: [
+                        { id: 17, name: 'Fönster typ A',  type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: 'Leverantör ej vald', children: [] },
+                        { id: 18, name: 'Fönster typ B',  type: 'Öppning', status: 'Ej startad', responsible: 'Anna Lindqvist', updated: '2025-11-01', note: '', children: [] },
+                        { id: 19, name: 'Entrédörr',      type: 'Öppning', status: 'Aktiv',     responsible: 'Björn Ström',    updated: '2025-10-20', note: 'Brandklass EI60', children: [] },
+                    ]
+                },
+            ]
+        },
+        {
+            id: 20, name: 'Installationer', type: 'Grupp', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '',
+            children: [
+                { id: 21, name: 'Ventilationsschakt', type: 'Installation', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '', children: [] },
+                { id: 22, name: 'Rörschakt',          type: 'Installation', status: 'Aktiv', responsible: 'Erik Bergman', updated: '2025-10-05', note: '', children: [] },
+                {
+                    id: 23, name: 'El', type: 'Installation', status: 'Granskning', responsible: 'Erik Bergman', updated: '2025-11-07', note: '',
+                    children: [
+                        { id: 24, name: 'Huvudcentral',  type: 'Installation', status: 'Granskning', responsible: 'Erik Bergman', updated: '2025-11-07', note: '', children: [] },
+                        { id: 25, name: 'Undercentral A', type: 'Installation', status: 'Ej startad', responsible: 'Erik Bergman', updated: '2025-11-01', note: '', children: [] },
+                    ]
+                },
+            ]
+        },
+    ];
+
+    _treeDemoInstance = new TreeTable({
+        containerId,
+        tableId: 'admin-tree-demo',
+        nodeId: 'id',
+        nameField: 'name',
+        rowId: 'id',
+        selectable: true,
+        columnVisibility: true,
+        batchActions: [
+            {
+                label: 'Ändra status',
+                action(selectedRows) {
+                    showToast(`${selectedRows.length} rad(er) markerade — batch-åtgärd här`, 'info');
+                }
+            }
+        ],
+        columns: [
+            { field: 'name',        label: 'Namn',       width: 260, className: 'col-name col-tree-name' },
+            { field: 'type',        label: 'Typ',        width: 130, className: 'col-type' },
+            { field: 'status',      label: 'Status',     width: 120, className: 'col-status', render: statusBadge },
+            { field: 'responsible', label: 'Ansvarig',   width: 170, className: 'col-default' },
+            { field: 'updated',     label: 'Uppdaterad', width: 120, className: 'col-date' },
+            { field: 'note',        label: 'Anteckning', className: 'col-description',
+              render(row) { return row.note ? escapeHtml(row.note) : '<span style="color:var(--text-tertiary,#94a3b8)">—</span>'; }
+            },
+        ],
+        rows,
+    });
+
+    _treeDemoInstance.render();
+}
+
+function openFormDemoModal() {
+    const modal = document.getElementById('form-demo-modal');
+    const overlay = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'block';
+    if (overlay) overlay.style.display = 'block';
+}
+
+function closeFormDemoModal() {
+    const modal = document.getElementById('form-demo-modal');
+    const overlay = document.getElementById('modal-overlay');
+    if (modal) modal.style.display = 'none';
+    if (overlay) overlay.style.display = 'none';
+}
+
+function filterMultiSelectChips(input) {
+    const term = input.value.trim().toLowerCase();
+    const optionsEl = input.closest('.managed-multi-select').querySelector('.managed-multi-select-options');
+    const chips = optionsEl.querySelectorAll('.managed-multi-option-chip');
+    const noResults = optionsEl.querySelector('.managed-multi-select-no-results');
+
+    let visibleCount = 0;
+    chips.forEach(chip => {
+        const match = !term || chip.textContent.trim().toLowerCase().includes(term);
+        chip.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+
+    if (noResults) noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function initFormDemo(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="form-demo-wrapper">
+            <div style="margin-bottom:16px;">
+                <button class="btn btn-secondary" onclick="openFormDemoModal()">Öppna som modal</button>
+            </div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Skapa Objekt</h3>
+                </div>
+                <form class="form-demo-form" onsubmit="return false;">
+                    <div class="form-demo-fields" style="margin-bottom:var(--spacing-sm);">
+                        <div class="form-group form-group-full">
+                            <label for="demo-type-select">Objekttyp *</label>
+                            <select id="demo-type-select" class="form-control" required>
+                                <option value="">Välj objekttyp...</option>
+                                <option value="byggdel">Byggdel</option>
+                                <option value="konstruktion">Konstruktion</option>
+                                <option value="installation">Installation</option>
+                                <option value="oppning" selected>Öppning</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-benamning">Benämning *</label>
+                            <input type="text" id="demo-benamning" class="form-control" value="Fönster typ A" required>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-status">Status</label>
+                            <select id="demo-status" class="form-control">
+                                <option value="">Välj status...</option>
+                                <option value="ej_startad" selected>Ej startad</option>
+                                <option value="aktiv">Aktiv</option>
+                                <option value="granskning">Granskning</option>
+                                <option value="klar">Klar</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-material">Material</label>
+                            <select id="demo-material" class="form-control">
+                                <option value="">Välj material...</option>
+                                <option value="aluminium" selected>Aluminium</option>
+                                <option value="tra">Trä</option>
+                                <option value="stal">Stål</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-vikt">Vikt (kg)</label>
+                            <input type="number" id="demo-vikt" class="form-control" value="42" min="0" step="0.1">
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label for="demo-datum">Planerat datum</label>
+                            <input type="date" id="demo-datum" class="form-control" value="2025-12-01">
+                        </div>
+                        <div class="form-group form-group-half" style="padding-top:22px;">
+                            <label><input type="checkbox" checked style="margin-right:6px;">Kritisk komponent</label>
+                            <small class="form-help" style="display:block;margin-top:3px;">Markera om komponenten är kritisk för projekttidslinjen.</small>
+                        </div>
+                        <div class="form-group form-group-full">
+                            <label for="demo-beskrivning">Beskrivning</label>
+                            <textarea id="demo-beskrivning" class="form-control" rows="2">Aluminiumfönster med 3-glasenhet, U-värde ≤ 0,9. Leverantör ej vald — offertbegäran skickas Q4.</textarea>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label>Certifieringar <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— få alternativ</span></label>
+                            <div class="managed-multi-select">
+                                <div class="managed-multi-select-toolbar">
+                                    <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                    <div class="managed-multi-select-actions">
+                                        <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                        <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                    </div>
+                                </div>
+                                <div class="managed-multi-select-summary">
+                                    <span class="managed-multi-selected-badge">CE-märkning</span>
+                                    <span class="managed-multi-selected-badge">Svanen</span>
+                                </div>
+                                <div class="managed-multi-select-options">
+                                    <button type="button" class="managed-multi-option-chip selected">CE-märkning</button>
+                                    <button type="button" class="managed-multi-option-chip">BREEAM</button>
+                                    <button type="button" class="managed-multi-option-chip selected">Svanen</button>
+                                    <button type="button" class="managed-multi-option-chip">LEED</button>
+                                    <button type="button" class="managed-multi-option-chip">Miljöbyggnad</button>
+                                    <button type="button" class="managed-multi-option-chip">FSC</button>
+                                    <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group form-group-half">
+                            <label>Branschkoder <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— många alternativ</span></label>
+                            <div class="managed-multi-select">
+                                <div class="managed-multi-select-toolbar">
+                                    <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                    <div class="managed-multi-select-actions">
+                                        <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                        <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                    </div>
+                                </div>
+                                <div class="managed-multi-select-summary">
+                                    <span class="managed-multi-selected-badge">B02</span>
+                                    <span class="managed-multi-selected-badge">C14</span>
+                                </div>
+                                <div class="managed-multi-select-options">
+                                    <button type="button" class="managed-multi-option-chip">A01</button>
+                                    <button type="button" class="managed-multi-option-chip">A02</button>
+                                    <button type="button" class="managed-multi-option-chip">A03</button>
+                                    <button type="button" class="managed-multi-option-chip selected">B02</button>
+                                    <button type="button" class="managed-multi-option-chip">B05</button>
+                                    <button type="button" class="managed-multi-option-chip">B08</button>
+                                    <button type="button" class="managed-multi-option-chip">B11</button>
+                                    <button type="button" class="managed-multi-option-chip selected">C14</button>
+                                    <button type="button" class="managed-multi-option-chip">C17</button>
+                                    <button type="button" class="managed-multi-option-chip">C20</button>
+                                    <button type="button" class="managed-multi-option-chip">D01</button>
+                                    <button type="button" class="managed-multi-option-chip">D04</button>
+                                    <button type="button" class="managed-multi-option-chip">D07</button>
+                                    <button type="button" class="managed-multi-option-chip">E02</button>
+                                    <button type="button" class="managed-multi-option-chip">E05</button>
+                                    <button type="button" class="managed-multi-option-chip">E08</button>
+                                    <button type="button" class="managed-multi-option-chip">F01</button>
+                                    <button type="button" class="managed-multi-option-chip">F03</button>
+                                    <button type="button" class="managed-multi-option-chip">G02</button>
+                                    <button type="button" class="managed-multi-option-chip">G06</button>
+                                    <button type="button" class="managed-multi-option-chip">H01</button>
+                                    <button type="button" class="managed-multi-option-chip">H04</button>
+                                    <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section-divider" style="margin-top:4px;"><span>Kategori</span></div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                        <select class="form-control" style="flex:1;min-width:160px;font-size:0.82rem;">
+                            <option value="">Välj kategorinod...</option>
+                            <option value="klimatskal" selected>Klimatskal / Fönster och dörrar</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary btn-sm">Koppla</button>
+                    </div>
+                    <ul style="margin:0 0 8px;padding-left:1.1rem;font-size:0.82rem;color:var(--text-primary);">
+                        <li>Klimatskal / Fönster och dörrar <button type="button" class="btn-icon" style="font-size:0.75rem;padding:0 4px;line-height:1.4;" title="Ta bort">×</button></li>
+                    </ul>
+
+                    <div class="form-section-divider" style="margin-top:4px;"><span>Relationer</span></div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <div style="margin-bottom:4px;">
+                            <button type="button" class="btn btn-secondary btn-sm">Lägg till relationer</button>
+                        </div>
+                        <small class="form-help">Välj objekt att koppla direkt när det nya objektet skapas.</small>
+                        <div style="margin-top:6px;font-size:0.82rem;color:var(--text-secondary);">Inga relationer tillagda.</div>
+                    </div>
+
+                    <div class="modal-footer" style="padding-top:var(--spacing-md);margin-top:var(--spacing-md);">
+                        <button type="button" class="btn btn-secondary">Avbryt</button>
+                        <button type="submit" class="btn btn-primary">Spara</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
 }
 
 // Save object type (create or update)
@@ -3801,6 +4446,7 @@ async function saveObjectType(event) {
             showToast('Objekttyp uppdaterad', 'success');
         }
         
+        if (typeof _cachedObjectTypes !== 'undefined') _cachedObjectTypes = null;
         closeModal();
         await adminManager.loadObjectTypes();
         if (typeof setObjectTypeColorMapFromTypes === 'function') {
@@ -3815,16 +4461,41 @@ async function saveObjectType(event) {
 // Save field (create or update)
 async function saveField(event) {
     event.preventDefault();
-    
+
     const modal = document.getElementById('field-modal');
     const mode = modal.dataset.mode;
     const typeId = modal.dataset.typeId;
     const fieldId = modal.dataset.fieldId;
-    
+
     const selectedTemplateId = Number(document.getElementById('field-template-select')?.value || 0);
     let data = null;
 
-    if (mode === 'create') {
+    // Check if this is a computed field — via template (create) or existing field_type (edit)
+    const selectedTemplate = adminManager?.fieldTemplates?.find(t => Number(t.id) === selectedTemplateId);
+    const editingField = mode === 'edit' && fieldId
+        ? adminManager?.selectedType?.fields?.find(f => f.id === Number(fieldId))
+        : null;
+    const isComputed = String(selectedTemplate?.field_type || '').toLowerCase() === 'computed' ||
+        String(editingField?.field_type || '').toLowerCase() === 'computed';
+
+    if (isComputed) {
+        const checkedBoxes = document.querySelectorAll('#field-computed-source-checkboxes .computed-field-checkbox:checked');
+        const fields = Array.from(checkedBoxes).map(cb => cb.value);
+        if (fields.length < 2) {
+            showToast('Välj minst två källfält för det beräknade fältet', 'error');
+            return;
+        }
+        const separator = document.getElementById('field-computed-separator')?.value ?? ' ↔ ';
+        const computedOptions = { fields, separator };
+        data = {
+            field_template_id: selectedTemplateId,
+            is_required: false,
+            field_options: computedOptions
+        };
+        if (mode === 'edit') {
+            delete data.field_template_id;
+        }
+    } else if (mode === 'create') {
         if (!Number.isFinite(selectedTemplateId) || selectedTemplateId <= 0) {
             showToast('Du måste välja en fältmall', 'error');
             return;

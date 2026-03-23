@@ -41,7 +41,7 @@
             <div class="view-header">
                 <h2 id="objects-view-title">Objekt</h2>
                 <div class="view-header-actions">
-                    <button class="btn btn-primary" id="objects-create-btn" onclick="showCreateObjectModal()">
+                    <button class="btn btn-primary" id="objects-create-btn" onclick="openCreateObjectTypeDropdown(this)">
                         Skapa Objekt
                     </button>
                 </div>
@@ -104,8 +104,8 @@
                 <h3 id="object-modal-title">Skapa Objekt</h3>
                 <button class="close-btn" onclick="closeModal()">&times;</button>
             </div>
-            <form id="object-main-form" onsubmit="saveObject(event)">
-                <div class="form-group">
+            <form id="object-main-form" onsubmit="saveObject(event)" novalidate>
+                <div class="form-group" id="object-type-select-group">
                     <label for="object-type-select">Objekttyp *</label>
                     <select id="object-type-select" class="form-control" required>
                         <option value="">Välj objekttyp...</option>
@@ -129,6 +129,156 @@
                     <button type="submit" class="btn btn-primary">
                         Spara
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Form Demo Modal -->
+    <div id="form-demo-modal" class="modal" style="max-width:860px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Skapa Objekt</h3>
+                <button class="close-btn" type="button" onclick="closeFormDemoModal()">&times;</button>
+            </div>
+            <form class="form-demo-form" onsubmit="return false;">
+                <div class="form-demo-fields" style="margin-bottom:var(--spacing-sm);">
+                    <div class="form-group form-group-full">
+                        <label for="fdm-type-select">Objekttyp *</label>
+                        <select id="fdm-type-select" class="form-control" required>
+                            <option value="">Välj objekttyp...</option>
+                            <option value="byggdel">Byggdel</option>
+                            <option value="konstruktion">Konstruktion</option>
+                            <option value="installation">Installation</option>
+                            <option value="oppning" selected>Öppning</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label for="fdm-benamning">Benämning *</label>
+                        <input type="text" id="fdm-benamning" class="form-control" value="Fönster typ A" required>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label for="fdm-status">Status</label>
+                        <select id="fdm-status" class="form-control">
+                            <option value="">Välj status...</option>
+                            <option value="ej_startad" selected>Ej startad</option>
+                            <option value="aktiv">Aktiv</option>
+                            <option value="granskning">Granskning</option>
+                            <option value="klar">Klar</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label for="fdm-material">Material</label>
+                        <select id="fdm-material" class="form-control">
+                            <option value="">Välj material...</option>
+                            <option value="aluminium" selected>Aluminium</option>
+                            <option value="tra">Trä</option>
+                            <option value="stal">Stål</option>
+                        </select>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label for="fdm-vikt">Vikt (kg)</label>
+                        <input type="number" id="fdm-vikt" class="form-control" value="42" min="0" step="0.1">
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label for="fdm-datum">Planerat datum</label>
+                        <input type="date" id="fdm-datum" class="form-control" value="2025-12-01">
+                    </div>
+                    <div class="form-group form-group-half" style="padding-top:22px;">
+                        <label><input type="checkbox" checked style="margin-right:6px;">Kritisk komponent</label>
+                        <small class="form-help" style="display:block;margin-top:3px;">Markera om komponenten är kritisk för projekttidslinjen.</small>
+                    </div>
+                    <div class="form-group form-group-full">
+                        <label for="fdm-beskrivning">Beskrivning</label>
+                        <textarea id="fdm-beskrivning" class="form-control" rows="2">Aluminiumfönster med 3-glasenhet, U-värde ≤ 0,9. Leverantör ej vald — offertbegäran skickas Q4.</textarea>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label>Certifieringar <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— få alternativ</span></label>
+                        <div class="managed-multi-select">
+                            <div class="managed-multi-select-toolbar">
+                                <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                <div class="managed-multi-select-actions">
+                                    <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                    <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                </div>
+                            </div>
+                            <div class="managed-multi-select-summary">
+                                <span class="managed-multi-selected-badge">CE-märkning</span>
+                                <span class="managed-multi-selected-badge">Svanen</span>
+                            </div>
+                            <div class="managed-multi-select-options">
+                                <button type="button" class="managed-multi-option-chip selected">CE-märkning</button>
+                                <button type="button" class="managed-multi-option-chip">BREEAM</button>
+                                <button type="button" class="managed-multi-option-chip selected">Svanen</button>
+                                <button type="button" class="managed-multi-option-chip">LEED</button>
+                                <button type="button" class="managed-multi-option-chip">Miljöbyggnad</button>
+                                <button type="button" class="managed-multi-option-chip">FSC</button>
+                                <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group form-group-half">
+                        <label>Branschkoder <span style="font-weight:400;color:var(--text-secondary);font-size:0.78rem;">— många alternativ</span></label>
+                        <div class="managed-multi-select">
+                            <div class="managed-multi-select-toolbar">
+                                <input type="text" class="form-control managed-multi-select-search" placeholder="Sök alternativ..." oninput="filterMultiSelectChips(this)">
+                                <div class="managed-multi-select-actions">
+                                    <button type="button" class="btn btn-secondary btn-sm">Alla</button>
+                                    <button type="button" class="btn btn-secondary btn-sm">Rensa</button>
+                                </div>
+                            </div>
+                            <div class="managed-multi-select-summary">
+                                <span class="managed-multi-selected-badge">B02</span>
+                                <span class="managed-multi-selected-badge">C14</span>
+                            </div>
+                            <div class="managed-multi-select-options">
+                                <button type="button" class="managed-multi-option-chip">A01</button>
+                                <button type="button" class="managed-multi-option-chip">A02</button>
+                                <button type="button" class="managed-multi-option-chip">A03</button>
+                                <button type="button" class="managed-multi-option-chip selected">B02</button>
+                                <button type="button" class="managed-multi-option-chip">B05</button>
+                                <button type="button" class="managed-multi-option-chip">B08</button>
+                                <button type="button" class="managed-multi-option-chip">B11</button>
+                                <button type="button" class="managed-multi-option-chip selected">C14</button>
+                                <button type="button" class="managed-multi-option-chip">C17</button>
+                                <button type="button" class="managed-multi-option-chip">C20</button>
+                                <button type="button" class="managed-multi-option-chip">D01</button>
+                                <button type="button" class="managed-multi-option-chip">D04</button>
+                                <button type="button" class="managed-multi-option-chip">D07</button>
+                                <button type="button" class="managed-multi-option-chip">E02</button>
+                                <button type="button" class="managed-multi-option-chip">E05</button>
+                                <button type="button" class="managed-multi-option-chip">E08</button>
+                                <button type="button" class="managed-multi-option-chip">F01</button>
+                                <button type="button" class="managed-multi-option-chip">F03</button>
+                                <button type="button" class="managed-multi-option-chip">G02</button>
+                                <button type="button" class="managed-multi-option-chip">G06</button>
+                                <button type="button" class="managed-multi-option-chip">H01</button>
+                                <button type="button" class="managed-multi-option-chip">H04</button>
+                                <span class="managed-multi-select-no-results">Inga alternativ matchar sökningen.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-section-divider" style="margin-top:4px;"><span>Kategori</span></div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                    <select class="form-control" style="flex:1;min-width:160px;font-size:0.82rem;">
+                        <option value="">Välj kategorinod...</option>
+                        <option value="klimatskal" selected>Klimatskal / Fönster och dörrar</option>
+                    </select>
+                    <button type="button" class="btn btn-secondary btn-sm">Koppla</button>
+                </div>
+                <ul style="margin:0 0 8px;padding-left:1.1rem;font-size:0.82rem;">
+                    <li>Klimatskal / Fönster och dörrar <button type="button" class="btn-icon" style="font-size:0.75rem;padding:0 4px;line-height:1.4;" title="Ta bort">×</button></li>
+                </ul>
+                <div class="form-section-divider" style="margin-top:4px;"><span>Relationer</span></div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <div style="margin-bottom:4px;"><button type="button" class="btn btn-secondary btn-sm">Lägg till relationer</button></div>
+                    <small class="form-help">Välj objekt att koppla direkt när det nya objektet skapas.</small>
+                    <div style="margin-top:6px;font-size:0.82rem;color:var(--text-secondary);">Inga relationer tillagda.</div>
+                </div>
+                <div class="modal-footer" style="padding-top:var(--spacing-md);margin-top:var(--spacing-md);">
+                    <button type="button" class="btn btn-secondary" onclick="closeFormDemoModal()">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Spara</button>
                 </div>
             </form>
         </div>
@@ -311,6 +461,13 @@
                     </div>
                     <div id="field-hierarchy-labels-container"></div>
                 </div>
+                <div class="form-group" id="field-computed-fields-group" style="display: none;">
+                    <label>Källfält</label>
+                    <div id="field-computed-source-checkboxes" style="display:flex;flex-direction:column;gap:4px;max-height:180px;overflow-y:auto;padding:6px;border:1px solid var(--border-color);border-radius:4px;background:var(--bg-secondary);"></div>
+                    <small class="form-help">Välj vilka fält som ska kombineras i det beräknade värdet.</small>
+                    <label style="margin-top:8px;">Separator</label>
+                    <input type="text" id="field-computed-separator" class="form-control" placeholder="t.ex. ↔" value=" ↔ ">
+                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">
                         Avbryt
@@ -363,7 +520,37 @@
                         <option value="datetime">Datum & Tid</option>
                         <option value="boolean">Ja/Nej</option>
                         <option value="select">Val (dropdown/lista)</option>
+                        <option value="category_node">Kategorinod</option>
+                        <option value="relation_list">Relationslista (read-only)</option>
+                        <option value="tag">Taggar</option>
+                        <option value="computed">Beräknat fält</option>
                     </select>
+                </div>
+                <div class="form-group" id="template-computed-fields-group" style="display: none;">
+                    <label>Separator</label>
+                    <input type="text" id="template-computed-separator" class="form-control" placeholder="t.ex. ↔" value=" ↔ ">
+                    <small class="form-help">Källfälten väljs när du lägger till fältet på ett objekt. Separatorn är ett standardvärde som kan ändras per objekt.</small>
+                </div>
+                <div class="form-group" id="template-tag-list-group" style="display: none;">
+                    <label for="template-tag-list-select">Tagglista</label>
+                    <select id="template-tag-list-select" class="form-control">
+                        <option value="">Välj lista...</option>
+                    </select>
+                    <small class="form-help">Välj vilken lista taggarna ska hämtas från och sparas i.</small>
+                </div>
+                <div class="form-group" id="template-relation-type-group" style="display: none;">
+                    <label for="template-relation-object-type">Objekttyp att visa</label>
+                    <select id="template-relation-object-type" class="form-control">
+                        <option value="">Välj objekttyp...</option>
+                    </select>
+                    <small class="form-help">Visar namnen på alla kopplade objekt av vald typ.</small>
+                </div>
+                <div class="form-group" id="template-category-system-group" style="display: none;">
+                    <label for="template-category-system-select">Kategorisystem</label>
+                    <select id="template-category-system-select" class="form-control">
+                        <option value="">Välj kategorisystem...</option>
+                    </select>
+                    <small class="form-help">Välj vilket kategorisystem som ska gälla för detta fält.</small>
                 </div>
                 <div class="form-group" id="template-option-source-group" style="display: none;">
                     <label for="template-option-source">Alternativkälla</label>
@@ -506,6 +693,7 @@
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/utils.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/system-table.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/tree-table.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/managed-multi-select.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list-display-name.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-list.js') }}"></script>
@@ -518,7 +706,22 @@
     <script src="{{ url_for('static', filename='js/components/tree-view.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/object-detail-panel.js') }}"></script>
     <script src="{{ url_for('static', filename='js/components/table-sort.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/components/category-admin.js') }}"></script>
     <script src="{{ url_for('static', filename='js/admin/object-type-manager.js') }}"></script>
+    <!-- Category Node Picker -->
+    <div id="cat-node-picker" class="cat-node-picker-backdrop" style="display:none;" onclick="if(event.target===this)closeCategoryNodePicker()">
+        <div class="cat-node-picker-panel">
+            <div class="cat-node-picker-header">
+                <span>Välj kategorinod</span>
+                <button type="button" class="btn btn-sm" onclick="closeCategoryNodePicker()" style="padding:2px 8px;font-size:14px;line-height:1;">✕</button>
+            </div>
+            <div class="cat-node-picker-search-row">
+                <input type="text" id="cat-node-picker-search" class="form-control" placeholder="Sök nod..." oninput="_catPickerSearch(this.value)">
+            </div>
+            <div id="cat-node-picker-tree" class="cat-node-picker-tree"></div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/change-management.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
