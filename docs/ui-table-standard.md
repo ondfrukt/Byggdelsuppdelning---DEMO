@@ -102,9 +102,10 @@ Aktivt som standard (`columnVisibility: true`). Användaren kan visa/dölja ensk
 ### Expand/kollaps
 
 - Klick på `❯`-ikonen eller var som helst i **namnkolumnen** togglar noden
+- **Dubbelklick** på namnkolumnen kollapsar alla direkta barn ett nivå nedanför (deras underträd döljs)
 - `Ctrl`/`Shift`-klick reserveras för radmarkering och togglar inte
 - Första nivån expanderas automatiskt vid initiering (`defaultExpanded: true`)
-- `expandAll()` / `collapseAll()` tillgängliga som publika metoder
+- `expandAll()` / `collapseAll()` / `collapseChildren(nodeId)` tillgängliga som publika metoder
 
 ### Hierarkifärgning
 

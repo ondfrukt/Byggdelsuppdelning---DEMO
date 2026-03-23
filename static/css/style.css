@@ -1202,10 +1202,13 @@ body {
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-md);
-    padding-top: var(--spacing-lg);
+    padding: var(--spacing-md) var(--spacing-lg);
     margin-top: var(--spacing-lg);
     border-top: 1px solid #94a3b8;
     background: #f8fafc;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
 }
 
 #instance-type-field-picker-modal {
@@ -1220,6 +1223,40 @@ body {
 
 .instance-type-field-picker-content .modal-footer {
     align-items: center;
+}
+
+.bulk-edit-dropdown-wrap {
+    position: relative;
+    align-items: center;
+}
+
+.bulk-edit-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px rgba(2,6,23,0.14);
+    z-index: 300;
+    min-width: 160px;
+    padding: 4px 0;
+}
+
+.bulk-edit-dropdown-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 7px 14px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+}
+
+.bulk-edit-dropdown-item:hover {
+    background: var(--bg-secondary);
 }
 
 .bulk-edit-modal-content,
@@ -1238,6 +1275,9 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: var(--spacing-sm);
     align-items: start;
+    background: #f1f5f9;
+    border-radius: 6px;
+    padding: var(--spacing-md);
 }
 
 #object-form-fields .form-group {
@@ -1268,9 +1308,6 @@ body {
 
 #object-main-form {
     font-size: 0.9rem;
-    background: #f1f5f9;
-    border-radius: 8px;
-    padding: var(--spacing-md);
 }
 
 #object-main-form .form-control {

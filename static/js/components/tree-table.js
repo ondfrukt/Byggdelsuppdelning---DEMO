@@ -156,7 +156,44 @@ class TreeTable {
         } else {
             this.expandedNodes.add(nodeId);
         }
+        this._renderPreservingScroll();
+    }
+
+    /** Collapse all direct children of a node (one level below). */
+    collapseChildren(nodeId) {
+        const node = this._findNode(this.rows, String(nodeId));
+        if (!node) return;
+        let changed = false;
+        this._getChildren(node).forEach(child => {
+            const childId = this._getNodeId(child);
+            if (childId && this.expandedNodes.has(childId)) {
+                this.expandedNodes.delete(childId);
+                changed = true;
+            }
+        });
+        if (changed) this._renderPreservingScroll();
+    }
+
+    _renderPreservingScroll() {
+        const container = document.getElementById(this.containerId);
+        const scrollEl = container?.querySelector('.table-container');
+        const scrollTop = scrollEl?.scrollTop ?? 0;
+        const scrollLeft = scrollEl?.scrollLeft ?? 0;
         this.systemTable?.render();
+        const newScrollEl = document.getElementById(this.containerId)?.querySelector('.table-container');
+        if (newScrollEl) {
+            newScrollEl.scrollTop = scrollTop;
+            newScrollEl.scrollLeft = scrollLeft;
+        }
+    }
+
+    _findNode(nodes, targetId) {
+        for (const node of nodes) {
+            if (this._getNodeId(node) === targetId) return node;
+            const found = this._findNode(this._getChildren(node), targetId);
+            if (found) return found;
+        }
+        return null;
     }
 
     expandAll() {
@@ -229,7 +266,7 @@ class TreeTable {
         const container = document.getElementById(this.containerId);
         if (!container) return;
 
-        // Clicking the toggle arrow always toggles
+        // Toggle arrow: immediate toggle, no delay
         container.querySelectorAll('.tree-toggle[data-toggle-node]').forEach(toggle => {
             toggle.addEventListener('click', (event) => {
                 event.stopPropagation();
@@ -238,16 +275,30 @@ class TreeTable {
             });
         });
 
-        // Clicking anywhere in the name cell on a has-children row also toggles
-        // (skip if Ctrl/Meta/Shift — those are for selection)
+        // Name cell on has-children rows:
+        //   single click  → toggle expand/collapse (debounced 220 ms to yield to dblclick)
+        //   double click  → collapse all direct children one level below
         container.querySelectorAll('tbody tr.has-children').forEach(row => {
             const nameCell = row.querySelector(`td[data-column-key="${this.nameField}"]`);
             if (!nameCell) return;
             nameCell.style.cursor = 'pointer';
+
+            let clickTimer = null;
+
             nameCell.addEventListener('click', (event) => {
                 if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+                clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => {
+                    const nodeId = row.dataset.nodeId;
+                    if (nodeId) this.toggleNode(nodeId);
+                }, 220);
+            });
+
+            nameCell.addEventListener('dblclick', (event) => {
+                if (event.ctrlKey || event.metaKey || event.shiftKey) return;
+                clearTimeout(clickTimer);
                 const nodeId = row.dataset.nodeId;
-                if (nodeId) this.toggleNode(nodeId);
+                if (nodeId) this.collapseChildren(nodeId);
             });
         });
     }

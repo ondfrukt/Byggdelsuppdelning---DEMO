@@ -311,6 +311,27 @@
         </div>
     </div>
 
+    <!-- Bulk Category Modal -->
+    <div id="bulk-category-modal" class="modal">
+        <div class="modal-content" style="max-width:600px;">
+            <div class="modal-header">
+                <h3>Byt kategori</h3>
+                <button class="close-btn" type="button" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding:var(--spacing-md);">
+                <p id="bulk-category-summary" class="form-help" style="margin-bottom:10px;"></p>
+                <input type="text" id="bulk-cat-search" class="form-control"
+                       placeholder="Sök kategorier..."
+                       style="margin-bottom:8px;"
+                       oninput="currentObjectListComponent?.filterBulkCatTree(this.value)">
+                <div id="bulk-cat-tree" style="max-height:420px;overflow-y:auto;border:1px solid var(--border-color);border-radius:6px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Relation Modal -->
     <div id="relation-modal" class="modal relation-modal" role="dialog" aria-modal="true" aria-labelledby="relation-modal-title" aria-describedby="relation-modal-description">
         <div class="modal-content relation-modal-content">

@@ -71,9 +71,15 @@ class ObjectListComponent {
                     <button class="btn-icon bulk-selection-action bulk-relate-btn" id="bulk-relate-btn-${this.containerId}" type="button" disabled style="display: none;" title="Koppla markerade objekt" aria-label="Koppla markerade objekt">
                         🔗
                     </button>
-                    <button class="btn-icon bulk-selection-action bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" type="button" disabled style="display: none;" title="Redigera markerade objekt" aria-label="Redigera markerade objekt">
-                        ✏️
-                    </button>
+                    <div class="bulk-edit-dropdown-wrap bulk-selection-action" id="bulk-edit-wrap-${this.containerId}" style="display: none; position: relative;">
+                        <button class="btn-icon bulk-edit-btn" id="bulk-edit-btn-${this.containerId}" type="button" title="Redigera markerade objekt" aria-label="Redigera markerade objekt">
+                            ✏️
+                        </button>
+                        <div class="bulk-edit-dropdown" id="bulk-edit-dropdown-${this.containerId}" style="display:none;">
+                            <button type="button" class="bulk-edit-dropdown-item" id="bulk-edit-fields-btn-${this.containerId}">Redigera fält</button>
+                            <button type="button" class="bulk-edit-dropdown-item" id="bulk-category-btn-${this.containerId}">Byt kategori</button>
+                        </div>
+                    </div>
                     <button class="btn btn-secondary btn-sm" id="column-config-btn-${this.containerId}">
                         ⚙️ Kolumner
                     </button>
@@ -147,9 +153,38 @@ class ObjectListComponent {
         }
 
         const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
-        if (bulkEditBtn) {
-            bulkEditBtn.addEventListener('click', () => {
+        const bulkEditDropdown = document.getElementById(`bulk-edit-dropdown-${this.containerId}`);
+        if (bulkEditBtn && bulkEditDropdown) {
+            bulkEditBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isOpen = bulkEditDropdown.style.display !== 'none';
+                bulkEditDropdown.style.display = isOpen ? 'none' : 'block';
+            });
+            if (!this._bulkEditDropdownListenerAdded) {
+                this._bulkEditDropdownListenerAdded = true;
+                document.addEventListener('click', (e) => {
+                    const wrap = document.getElementById(`bulk-edit-wrap-${this.containerId}`);
+                    if (wrap && !wrap.contains(e.target)) {
+                        const dd = document.getElementById(`bulk-edit-dropdown-${this.containerId}`);
+                        if (dd) dd.style.display = 'none';
+                    }
+                });
+            }
+        }
+
+        const bulkEditFieldsBtn = document.getElementById(`bulk-edit-fields-btn-${this.containerId}`);
+        if (bulkEditFieldsBtn) {
+            bulkEditFieldsBtn.addEventListener('click', () => {
+                if (bulkEditDropdown) bulkEditDropdown.style.display = 'none';
                 this.openBulkEditModal();
+            });
+        }
+
+        const bulkCategoryBtn = document.getElementById(`bulk-category-btn-${this.containerId}`);
+        if (bulkCategoryBtn) {
+            bulkCategoryBtn.addEventListener('click', () => {
+                if (bulkEditDropdown) bulkEditDropdown.style.display = 'none';
+                this.openBulkCategoryModal();
             });
         }
 
@@ -1357,13 +1392,14 @@ class ObjectListComponent {
         const visible_columns = this.viewConfig.visible_columns || [];
         const available_fields = this.viewConfig.available_fields || [];
         
-        // Build list of all possible columns
+        // Build list of all possible columns (including files which is added programmatically)
         const allColumns = [
             { field_name: 'id_full', display_name: 'ID' },
             { field_name: 'object_type', display_name: 'Typ' },
             ...available_fields.map(f => ({ field_name: f.field_name, display_name: f.display_name })),
-            { field_name: 'created_at', display_name: 'Skapad' }
-        ];
+            { field_name: 'files', display_name: 'Filer' },
+            { field_name: 'created_at', display_name: 'Skapad' },
+        ].filter((col, idx, arr) => arr.findIndex(c => c.field_name === col.field_name) === idx);
         const lockedFieldNames = new Set(['id_full', 'object_type']);
         
         container.innerHTML = allColumns.map(col => {
@@ -1878,6 +1914,34 @@ class ObjectListComponent {
             });
         }
 
+        // Add category field if all selected objects have types that map to a category system
+        const typeMap = { 'Assembly': 'Byggdelar', 'Space': 'Utrymmen', 'System': 'System' };
+        const objectTypes = selectedObjects.map(o => o.object_type?.name).filter(Boolean);
+        const categorySystems = [...new Set(objectTypes.map(t => typeMap[t]).filter(Boolean))];
+        if (categorySystems.length > 0 && objectTypes.every(t => typeMap[t])) {
+            try {
+                const allAssignments = await Promise.all(
+                    selectedObjects.map(obj =>
+                        fetch(`/api/object-category-assignments?object_id=${obj.id}`).then(r => r.json())
+                    )
+                );
+                const firstNodeIds = allAssignments.map(a => a[0]?.category_node_id || null);
+                const firstNodeNames = allAssignments.map(a => a[0]?.category_node?.name || null);
+                const allEqual = firstNodeIds.every(id => id === firstNodeIds[0]);
+                result.push({
+                    key: '__category__',
+                    fieldName: '__category__',
+                    displayName: 'Kategori',
+                    fieldType: '__category__',
+                    value: allEqual ? (firstNodeIds[0] ? { id: firstNodeIds[0], name: firstNodeNames[0] } : null) : null,
+                    varies: !allEqual,
+                    isMetadataField: true,
+                    displayOrder: -999,
+                    categorySystems
+                });
+            } catch (_) { /* skip category field on error */ }
+        }
+
         return result.sort((a, b) => {
             const orderDiff = Number(a.displayOrder ?? 9999) - Number(b.displayOrder ?? 9999);
             if (orderDiff !== 0) return orderDiff;
@@ -1892,6 +1956,24 @@ class ObjectListComponent {
         const id = `bulk-field-${field.key}`;
         const variesLabel = field.varies ? '<small class="form-help">Varierar</small>' : '';
         const value = field.value;
+
+        if (field.fieldType === '__category__') {
+            const displayName = field.varies ? 'Varierar' : (field.value?.name || 'Ingen');
+            const currentId = field.value?.id || '';
+            const currentName = field.value?.name || '';
+            return `
+                <div class="form-group">
+                    <label>${escapeHtml(field.displayName)}</label>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <span id="bulk-cat-display" style="font-size:0.9rem;color:var(--text-secondary);">${escapeHtml(displayName)}</span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="bulk-cat-pick-btn">Välj...</button>
+                        <input type="hidden" class="bulk-edit-input" data-field-key="__category__" data-field-type="__category__" value="${escapeHtml(String(currentId))}">
+                        <input type="hidden" id="bulk-cat-name-input" value="${escapeHtml(currentName)}">
+                    </div>
+                    ${field.varies ? '<small class="form-help">Varierar. Välj ny nod för att uppdatera alla markerade objekt.</small>' : ''}
+                </div>
+            `;
+        }
 
         if (field.fieldType === 'textarea') {
             return `
@@ -2035,9 +2117,17 @@ class ObjectListComponent {
                     });
                 }
             });
-            const firstInput = fieldsContainer.querySelector('.managed-multi-select-search, .bulk-edit-input:not(.managed-multi-select-native)');
+            const firstInput = fieldsContainer.querySelector('.managed-multi-select-search, .bulk-edit-input:not(.managed-multi-select-native):not([data-field-type="__category__"])');
             if (firstInput) {
                 setTimeout(() => firstInput.focus(), 0);
+            }
+
+            const catPickBtn = document.getElementById('bulk-cat-pick-btn');
+            if (catPickBtn) {
+                catPickBtn.addEventListener('click', async () => {
+                    const catField = editableFields.find(f => f.key === '__category__');
+                    await this._openCatPickerForBulkEdit(catField);
+                });
             }
 
             form.onsubmit = async (event) => {
@@ -2071,7 +2161,16 @@ class ObjectListComponent {
             let parsedValue = null;
             const rawValue = input.value;
 
-            if (fieldType === 'boolean') {
+            if (fieldType === '__category__') {
+                const nodeId = parseInt(rawValue, 10);
+                if (!nodeId || !Number.isFinite(nodeId)) return;
+                const nodeName = document.getElementById('bulk-cat-name-input')?.value || '';
+                // Only include if changed
+                const currentId = field.value?.id || null;
+                if (nodeId === currentId) return;
+                changes.push({ key, value: { nodeId, nodeName } });
+                return;
+            } else if (fieldType === 'boolean') {
                 if (rawValue === '') return;
                 parsedValue = rawValue === 'true';
             } else if (fieldType === 'select' && this.isMultiSelectField(field)) {
@@ -2126,18 +2225,33 @@ class ObjectListComponent {
                     });
 
                     changes.forEach(change => {
-                        if (change.key === '__status__') return;
+                        if (change.key === '__status__' || change.key === '__category__') return;
                         const targetField = fields.find(field => this.normalizeFieldKey(field.field_name) === change.key);
                         if (!targetField) return;
                         currentData[targetField.field_name] = change.value;
                     });
 
                     const statusChange = changes.find(change => change.key === '__status__');
+                    const catChange = changes.find(change => change.key === '__category__');
 
                     await ObjectsAPI.update(obj.id, {
                         status: statusChange ? statusChange.value : obj.status,
                         data: currentData
                     });
+
+                    if (catChange) {
+                        const { nodeId } = catChange.value;
+                        const existing = await fetch(`/api/object-category-assignments?object_id=${obj.id}`).then(r => r.json());
+                        await Promise.allSettled(existing.map(a =>
+                            fetch(`/api/object-category-assignments/${a.id}`, { method: 'DELETE' })
+                        ));
+                        await fetch('/api/object-category-assignments', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ object_id: obj.id, category_node_id: nodeId, is_primary: true })
+                        });
+                    }
+
                     updatedCount += 1;
                 } catch (error) {
                     console.error(`Failed to update object ${obj.id}:`, error);
@@ -2332,6 +2446,7 @@ class ObjectListComponent {
 
     updateBulkRelationButton() {
         const bulkRelateBtn = document.getElementById(`bulk-relate-btn-${this.containerId}`);
+        const bulkEditWrap = document.getElementById(`bulk-edit-wrap-${this.containerId}`);
         const bulkEditBtn = document.getElementById(`bulk-edit-btn-${this.containerId}`);
 
         const selectedCount = this.selectedObjectIds.size;
@@ -2339,14 +2454,213 @@ class ObjectListComponent {
             bulkRelateBtn.disabled = selectedCount === 0;
             bulkRelateBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
             bulkRelateBtn.title = selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt';
-            bulkRelateBtn.setAttribute('aria-label', selectedCount > 0 ? `Koppla ${selectedCount} markerade objekt` : 'Koppla markerade objekt');
+            bulkRelateBtn.setAttribute('aria-label', bulkRelateBtn.title);
+        }
+        if (bulkEditWrap) {
+            bulkEditWrap.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
         }
         if (bulkEditBtn) {
-            bulkEditBtn.disabled = selectedCount === 0;
-            bulkEditBtn.style.display = selectedCount > 0 ? 'inline-flex' : 'none';
             bulkEditBtn.title = selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt';
-            bulkEditBtn.setAttribute('aria-label', selectedCount > 0 ? `Redigera ${selectedCount} markerade objekt` : 'Redigera markerade objekt');
+            bulkEditBtn.setAttribute('aria-label', bulkEditBtn.title);
         }
+    }
+
+    async _openCatPickerForBulkEdit(catField) {
+        // Load the correct systems for the selected objects
+        const selectedIds = Array.from(this.selectedObjectIds);
+        const selectedObjects = this.objects.filter(obj => selectedIds.includes(Number(obj.id)));
+        const typeMap = { 'Assembly': 'Byggdelar', 'Space': 'Utrymmen', 'System': 'System' };
+        const systemNames = catField?.categorySystems || [];
+
+        this._bulkCatExpandedIds = new Set();
+        this._bulkCatSystems = [];
+        try {
+            const systems = await fetch('/api/classification-systems').then(r => r.json());
+            const filtered = systemNames.length > 0
+                ? systems.filter(s => systemNames.includes(s.name))
+                : systems;
+            const allRoots = await Promise.all(
+                filtered.map(s => fetch(`/api/category-nodes?system_id=${s.id}&parent_id=null&include_children=true`).then(r => r.json()))
+            );
+            this._bulkCatSystems = filtered.map((s, i) => ({ name: s.name, roots: allRoots[i] }));
+        } catch (e) {
+            showToast('Kunde inte ladda kategorier', 'error');
+            return;
+        }
+
+        // Set callback: on node pick → update form fields, reopen bulk-edit-modal
+        this._bulkCatFormCallback = (nodeId, nodeName) => {
+            const hiddenInput = document.querySelector('#bulk-edit-form .bulk-edit-input[data-field-type="__category__"]');
+            const nameInput = document.getElementById('bulk-cat-name-input');
+            const display = document.getElementById('bulk-cat-display');
+            if (hiddenInput) hiddenInput.value = String(nodeId);
+            if (nameInput) nameInput.value = nodeName;
+            if (display) display.textContent = nodeName;
+            this._bulkCatFormCallback = null;
+            if (typeof openModal === 'function') openModal('bulk-edit-modal');
+        };
+
+        const summary = document.getElementById('bulk-category-summary');
+        if (summary) summary.textContent = 'Välj kategorinod';
+        const searchInput = document.getElementById('bulk-cat-search');
+        if (searchInput) searchInput.value = '';
+        this._renderBulkCatTree('');
+        if (typeof openModal === 'function') openModal('bulk-category-modal');
+    }
+
+    async openBulkCategoryModal() {
+        const selectedIds = Array.from(this.selectedObjectIds);
+        if (!selectedIds.length) {
+            showToast('Markera minst ett objekt först', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('bulk-category-modal');
+        if (!modal) return;
+
+        document.getElementById('bulk-category-summary').textContent =
+            `Välj ny kategori för ${selectedIds.length} markerade objekt. Befintliga kategorier ersätts.`;
+
+        // Load tree data (all systems)
+        this._bulkCatExpandedIds = new Set();
+        this._bulkCatSystems = [];
+        try {
+            const systems = await fetch('/api/classification-systems').then(r => r.json());
+            const allRoots = await Promise.all(
+                systems.map(s => fetch(`/api/category-nodes?system_id=${s.id}&parent_id=null&include_children=true`).then(r => r.json()))
+            );
+            this._bulkCatSystems = systems.map((s, i) => ({ name: s.name, roots: allRoots[i] }));
+        } catch (e) {
+            showToast('Kunde inte ladda kategorier: ' + e.message, 'error');
+            return;
+        }
+
+        // Set up event delegation once
+        const tree = document.getElementById('bulk-cat-tree');
+        if (tree && !tree._delegationReady) {
+            tree._delegationReady = true;
+            tree.addEventListener('click', e => {
+                if (e.target.closest('.tree-toggle')) return;
+                const tr = e.target.closest('tr.tree-node');
+                if (!tr) return;
+                this.saveBulkCategoryChanges(parseInt(tr.dataset.nodeId, 10), tr.dataset.nodeName);
+            });
+        }
+
+        const searchInput = document.getElementById('bulk-cat-search');
+        if (searchInput) searchInput.value = '';
+        this._renderBulkCatTree('');
+
+        if (typeof openModal === 'function') openModal('bulk-category-modal');
+        else modal.style.display = 'block';
+    }
+
+    _renderBulkCatTree(term) {
+        const container = document.getElementById('bulk-cat-tree');
+        if (!container) return;
+        const q = (term || '').trim().toLowerCase();
+
+        function nodeMatches(node) {
+            if (!q) return true;
+            if ((node.name || '').toLowerCase().includes(q)) return true;
+            return (node.children || []).some(c => nodeMatches(c));
+        }
+
+        const rows = [];
+        const expandedIds = this._bulkCatExpandedIds || new Set();
+
+        function flattenNode(node, depth) {
+            if (!nodeMatches(node)) return;
+            const hasChildren = (node.children || []).length > 0;
+            const isExpanded = expandedIds.has(node.id) || (!!q && hasChildren);
+            rows.push({ node, depth, hasChildren, isExpanded });
+            if (hasChildren && isExpanded) node.children.forEach(c => flattenNode(c, depth + 1));
+        }
+
+        if (!this._bulkCatSystems || !this._bulkCatSystems.length) {
+            container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga kategorier tillgängliga.</p>';
+            return;
+        }
+
+        const showHeader = this._bulkCatSystems.length > 1;
+        let tableRows = '';
+
+        this._bulkCatSystems.forEach(sys => {
+            rows.length = 0;
+            sys.roots.forEach(n => flattenNode(n, 0));
+            if (!rows.length) return;
+
+            if (showHeader) {
+                tableRows += `<tr class="tree-node-group"><td colspan="1" style="padding:6px 10px;font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;background:var(--bg-secondary);">${escapeHtml(sys.name)}</td></tr>`;
+            }
+
+            rows.forEach(({ node, depth, hasChildren, isExpanded }) => {
+                const indent = depth * 18;
+                const toggle = hasChildren
+                    ? `<span class="tree-toggle${isExpanded ? ' expanded' : ''}" onclick="event.stopPropagation();currentObjectListComponent._bulkCatToggle(${node.id})">❯</span>`
+                    : '<span class="tree-spacer"></span>';
+                const label = `<span class="tree-label">${escapeHtml(node.name || '')}</span>`;
+                tableRows += `<tr class="tree-node${hasChildren ? ' has-children' : ''}" data-node-id="${node.id}" data-node-name="${escapeHtml(node.name || '')}">
+                    <td><div class="tree-cell-content" style="padding-left:${indent}px">${toggle}${label}</div></td>
+                </tr>`;
+            });
+        });
+
+        if (!tableRows) {
+            container.innerHTML = '<p style="color:#aaa;padding:12px;font-size:13px;margin:0;">Inga träffar.</p>';
+            return;
+        }
+        container.innerHTML = `<table class="data-table cat-node-picker-table" style="width:100%;table-layout:fixed;"><tbody>${tableRows}</tbody></table>`;
+    }
+
+    _bulkCatToggle(nodeId) {
+        if (!this._bulkCatExpandedIds) this._bulkCatExpandedIds = new Set();
+        if (this._bulkCatExpandedIds.has(nodeId)) this._bulkCatExpandedIds.delete(nodeId);
+        else this._bulkCatExpandedIds.add(nodeId);
+        const searchInput = document.getElementById('bulk-cat-search');
+        this._renderBulkCatTree(searchInput?.value || '');
+    }
+
+    filterBulkCatTree(term) {
+        this._renderBulkCatTree(term);
+    }
+
+    async saveBulkCategoryChanges(nodeId, nodeName) {
+        // If called from bulk-edit form picker, just update the form field
+        if (this._bulkCatFormCallback) {
+            this._bulkCatFormCallback(nodeId, nodeName);
+            return;
+        }
+
+        const selectedIds = Array.from(this.selectedObjectIds);
+        if (!selectedIds.length || !nodeId) return;
+
+        if (typeof closeModal === 'function') closeModal();
+
+        showToast(`Sätter kategori "${nodeName}" på ${selectedIds.length} objekt…`, 'info');
+
+        // Replace: delete existing assignments then add new one for each object
+        const results = await Promise.allSettled(selectedIds.map(async (objectId) => {
+            const existing = await fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json());
+            await Promise.allSettled(existing.map(a =>
+                fetch(`/api/object-category-assignments/${a.id}`, { method: 'DELETE' })
+            ));
+            const resp = await fetch('/api/object-category-assignments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ object_id: objectId, category_node_id: nodeId, is_primary: true })
+            });
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        }));
+
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed) {
+            showToast(`${selectedIds.length - failed} uppdaterade, ${failed} misslyckades`, 'error');
+        } else {
+            showToast(`Kategori satt på ${selectedIds.length} objekt`, 'success');
+        }
+
+        await this.refresh();
     }
 
     openBulkRelationModal() {

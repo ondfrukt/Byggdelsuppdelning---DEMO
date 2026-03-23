@@ -225,6 +225,145 @@ def delete_node(node_id):
 
 
 # ---------------------------------------------------------------------------
+# GET /api/category-nodes/object-tree
+# ---------------------------------------------------------------------------
+@bp.route('/object-tree', methods=['GET'])
+def object_tree():
+    """Return category nodes with assigned objects and their direct relations as children."""
+    from models import Object as ObjModel, ObjectRelation
+
+    system_name = (request.args.get('system_name') or '').strip()
+    if not system_name:
+        return jsonify([]), 200
+
+    system = ClassificationSystem.query.filter(
+        db.func.lower(ClassificationSystem.name) == system_name.lower()
+    ).first()
+    if not system:
+        logger.warning('object_tree: no classification system named %r', system_name)
+        return jsonify([]), 200
+
+    # Load root nodes; children are lazy-loaded via relationship
+    root_nodes = (
+        CategoryNode.query
+        .filter_by(system_id=system.id, parent_id=None)
+        .order_by(CategoryNode.sort_order, CategoryNode.code)
+        .all()
+    )
+
+    # Collect all node IDs in the system tree
+    all_node_ids = []
+
+    def _collect_ids(nodes):
+        for n in nodes:
+            all_node_ids.append(n.id)
+            _collect_ids(n.children)
+
+    _collect_ids(root_nodes)
+    if not all_node_ids:
+        return jsonify([]), 200
+
+    # Batch-load all assignments for this system's nodes
+    assignment_rows = (
+        db.session.query(
+            ObjectCategoryAssignment.category_node_id,
+            ObjectCategoryAssignment.object_id,
+        )
+        .filter(ObjectCategoryAssignment.category_node_id.in_(all_node_ids))
+        .all()
+    )
+
+    # Batch-load primary objects (assigned to nodes)
+    primary_obj_ids = list({row.object_id for row in assignment_rows})
+    objects_map = {}
+    if primary_obj_ids:
+        objs = ObjModel.query.filter(ObjModel.id.in_(primary_obj_ids)).all()
+        objects_map = {obj.id: obj for obj in objs}
+
+    # Batch-load direct relations where a primary object is the source
+    relations_by_source = {}  # source_id -> [target_id, ...]
+    if primary_obj_ids:
+        relation_rows = (
+            db.session.query(
+                ObjectRelation.source_object_id,
+                ObjectRelation.target_object_id,
+                ObjectRelation.relation_type,
+            )
+            .filter(ObjectRelation.source_object_id.in_(primary_obj_ids))
+            .all()
+        )
+        for rel in relation_rows:
+            relations_by_source.setdefault(rel.source_object_id, []).append(
+                (rel.target_object_id, rel.relation_type)
+            )
+
+    # Batch-load all related (target) objects not already in objects_map
+    all_related_ids = {
+        tid
+        for targets in relations_by_source.values()
+        for tid, _ in targets
+        if tid not in objects_map
+    }
+    if all_related_ids:
+        related_objs = ObjModel.query.filter(ObjModel.id.in_(all_related_ids)).all()
+        for obj in related_objs:
+            objects_map[obj.id] = obj
+
+    # Group primary objects by node_id
+    objects_by_node = {}
+    for row in assignment_rows:
+        obj = objects_map.get(row.object_id)
+        if obj:
+            objects_by_node.setdefault(row.category_node_id, []).append(obj)
+
+    def _obj_dict(obj):
+        data = obj.data or {}
+        name = (
+            data.get('Namn') or data.get('naam') or data.get('namn') or
+            data.get('Name') or data.get('name') or
+            obj.id_full or str(obj.id)
+        )
+        return {
+            'id': str(obj.id),
+            'id_full': obj.id_full or '',
+            'name': str(name),
+            'type': obj.object_type.name if obj.object_type else '',
+            'created_at': obj.created_at.isoformat() if obj.created_at else None,
+            'data': dict(data),
+            'files': [],
+        }
+
+    def _build_obj_node(obj):
+        node = _obj_dict(obj)
+        # Attach direct related objects as children (sorted by id_full)
+        related = sorted(
+            (
+                objects_map[tid]
+                for tid, _ in relations_by_source.get(obj.id, [])
+                if tid in objects_map and objects_map[tid].object_type
+            ),
+            key=lambda o: o.id_full or ''
+        )
+        node['children'] = [_obj_dict(r) | {'children': []} for r in related]
+        return node
+
+    def _build_cat_node(cat_node):
+        children = [_build_cat_node(c) for c in cat_node.children]
+        for obj in sorted(objects_by_node.get(cat_node.id, []), key=lambda o: o.id_full or ''):
+            if obj and obj.object_type:
+                children.append(_build_obj_node(obj))
+        return {
+            'id': f'cat-{cat_node.id}',
+            'name': cat_node.name,
+            'type': 'category_node',
+            'children': children,
+        }
+
+    result = [_build_cat_node(n) for n in root_nodes]
+    return jsonify(result), 200
+
+
+# ---------------------------------------------------------------------------
 # GET /api/category-nodes/<id>/tree
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>/tree', methods=['GET'])

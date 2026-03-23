@@ -59,7 +59,10 @@ class SystemTable {
             ),
             sortField: firstSortable ? firstSortable.field : null,
             sortDirection: 'asc',
-            hiddenColumns: []
+            hiddenColumns: this.columns
+                .filter(col => col.hidden === true)
+                .map(col => String(col.field || ''))
+                .filter(Boolean)
         };
         this.state = this.applyStateOverride(
             this.restorePersistedState(defaultState),
@@ -594,7 +597,24 @@ class SystemTable {
         this.state.hiddenColumns = Array.from(hidden);
         this.persistCurrentState();
         this.notifyStateChange();
+
+        // Re-render while preserving scroll position and keeping the column panel open
+        const wasOpen = !!this.container?.querySelector('.system-table-col-vis-details')?.open;
+        const scrollEl = this.container?.querySelector('.table-container');
+        const scrollTop = scrollEl?.scrollTop ?? 0;
+        const scrollLeft = scrollEl?.scrollLeft ?? 0;
+
         this.render();
+
+        const newScrollEl = this.container?.querySelector('.table-container');
+        if (newScrollEl) {
+            newScrollEl.scrollTop = scrollTop;
+            newScrollEl.scrollLeft = scrollLeft;
+        }
+        if (wasOpen) {
+            const details = this.container?.querySelector('.system-table-col-vis-details');
+            if (details) details.open = true;
+        }
     }
 
     // --- Rendering helpers ---
@@ -946,6 +966,21 @@ class SystemTable {
                     this.toggleColumnVisibility(cb.dataset.field);
                 });
             });
+
+            // Close col-vis panel when clicking outside it
+            const details = container.querySelector('.system-table-col-vis-details');
+            if (details && !details._outsideClickBound) {
+                details._outsideClickBound = true;
+                document.addEventListener('click', function closeOnOutside(e) {
+                    if (!details.isConnected) {
+                        document.removeEventListener('click', closeOnOutside);
+                        return;
+                    }
+                    if (details.open && !details.contains(e.target)) {
+                        details.open = false;
+                    }
+                });
+            }
         }
     }
 

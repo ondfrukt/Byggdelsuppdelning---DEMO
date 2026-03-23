@@ -211,12 +211,28 @@ class ObjectDetailPanel {
             window.currentFileUpload = null;
         }
 
+        if (this.options.layout === 'detail') {
+            this._loadCategoryMeta(obj.id);
+        }
+
         if (this.activeTab === 'relations') {
             await this.loadRelationsIfNeeded();
         } else if (this.activeTab === 'instances') {
             await this.loadInstancesIfNeeded();
         } else if (this.activeTab === 'files') {
             await this.loadFilesIfNeeded();
+        }
+    }
+
+    async _loadCategoryMeta(objectId) {
+        const span = document.getElementById(`detail-cat-meta-${objectId}`);
+        if (!span) return;
+        try {
+            const assignments = await fetch(`/api/object-category-assignments?object_id=${objectId}`).then(r => r.json());
+            if (!assignments.length) { span.textContent = '—'; return; }
+            span.textContent = assignments.map(a => a.category_node?.name || '').filter(Boolean).join(', ');
+        } catch (_) {
+            span.textContent = '—';
         }
     }
     
@@ -377,6 +393,10 @@ class ObjectDetailPanel {
                     <div class="detail-header-item">
                         <span class="detail-label">BaseID</span>
                         <span class="detail-value">${obj.main_id || obj.id_full || 'N/A'}</span>
+                    </div>
+                    <div class="detail-header-item">
+                        <span class="detail-label">Kategori</span>
+                        <span class="detail-value" id="detail-cat-meta-${obj.id}">—</span>
                     </div>
                 </div>
             `;
