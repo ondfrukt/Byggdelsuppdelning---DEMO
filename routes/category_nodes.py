@@ -92,10 +92,8 @@ def create_node():
     if not data:
         return jsonify({'error': 'Request body is required'}), 400
 
-    code = (data.get('code') or '').strip()
+    code = (data.get('code') or '').strip() or None
     name = (data.get('name') or '').strip()
-    if not code:
-        return jsonify({'error': 'code is required'}), 400
     if not name:
         return jsonify({'error': 'name is required'}), 400
 
@@ -130,10 +128,11 @@ def create_node():
         if parent.level != level - 1:
             return jsonify({'error': f'parent node must be at level {level - 1}'}), 400
 
-    # Unique code check within system
-    existing = CategoryNode.query.filter_by(system_id=system_id, code=code).first()
-    if existing:
-        return jsonify({'error': f"code '{code}' already exists in this classification system"}), 409
+    # Unique code check within system (only if code is provided)
+    if code:
+        existing = CategoryNode.query.filter_by(system_id=system_id, code=code).first()
+        if existing:
+            return jsonify({'error': f"code '{code}' already exists in this classification system"}), 409
 
     node = CategoryNode(
         system_id=system_id,
@@ -178,16 +177,15 @@ def update_node(node_id):
         return jsonify({'error': 'Request body is required'}), 400
 
     if 'code' in data:
-        code = (data['code'] or '').strip()
-        if not code:
-            return jsonify({'error': 'code cannot be empty'}), 400
-        existing = CategoryNode.query.filter(
-            CategoryNode.system_id == node.system_id,
-            CategoryNode.code == code,
-            CategoryNode.id != node_id,
-        ).first()
-        if existing:
-            return jsonify({'error': f"code '{code}' already exists in this classification system"}), 409
+        code = (data['code'] or '').strip() or None
+        if code:
+            existing = CategoryNode.query.filter(
+                CategoryNode.system_id == node.system_id,
+                CategoryNode.code == code,
+                CategoryNode.id != node_id,
+            ).first()
+            if existing:
+                return jsonify({'error': f"code '{code}' already exists in this classification system"}), 409
         node.code = code
 
     if 'name' in data:

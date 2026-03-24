@@ -237,8 +237,8 @@ class CategoryAdmin {
                 <form id="node-editor-form" onsubmit="categoryAdmin.submitNodeForm(event)" autocomplete="off">
                     <div class="managed-list-node-language-grid managed-list-node-language-grid-compact">
                         <label>
-                            <span>Kod *</span>
-                            <input type="text" class="form-control" name="code" required value="${escapeHtml(node?.code || '')}" placeholder="T.ex. F2">
+                            <span>Kod</span>
+                            <input type="text" class="form-control" name="code" value="${escapeHtml(node?.code || '')}" placeholder="T.ex. F2">
                         </label>
                         <label>
                             <span>Namn *</span>

@@ -12,7 +12,7 @@ class CategoryNode(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
     system_id      = db.Column(db.Integer, db.ForeignKey('classification_systems.id', ondelete='CASCADE'), nullable=False)
     parent_id      = db.Column(db.Integer, db.ForeignKey('category_nodes.id', ondelete='CASCADE'), nullable=True)
-    code           = db.Column(db.String(50), nullable=False)
+    code           = db.Column(db.String(50), nullable=True)
     name           = db.Column(db.String(200), nullable=False)
     level          = db.Column(db.Integer, nullable=False)  # 1, 2 or 3
     description    = db.Column(db.Text)
