@@ -56,23 +56,6 @@
           "detail_width": null
         },
         {
-          "field_name": "kategori",
-          "display_name": "Kategori",
-          "field_type": "category_node",
-          "field_options": {
-            "system_id": 1,
-            "system_name": "Byggdelar"
-          },
-          "is_required": true,
-          "lock_required_setting": false,
-          "force_presence_on_all_objects": false,
-          "is_table_visible": true,
-          "is_detail_visible": true,
-          "help_text": "",
-          "display_order": null,
-          "detail_width": null
-        },
-        {
           "field_name": "properties",
           "display_name": "Properties",
           "field_type": "relation_list",
@@ -1192,7 +1175,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI30",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1251,7 +1233,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI30\nLjudreduktion R´w: 29 db",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1310,7 +1291,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI30\nLjudreduktion R´w: 29 db\nLjudreduktion R´w: 30 db",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1369,7 +1349,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI30\nLjudreduktion R´w: 30 db",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1428,7 +1407,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60",
         "products": "Plåtskena 45 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1487,7 +1465,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60",
         "products": "Plåtskena 45 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1546,7 +1523,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60",
         "products": "Plåtskena 45 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1605,7 +1581,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI30\nLjudreduktion R´w: 25 db",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1664,7 +1639,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1723,7 +1697,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -1782,7 +1755,6 @@
             }
           ]
         },
-        "kategori": "46",
         "properties": "Brandklass EI60\nLjudreduktion R´w: 30 db",
         "products": "Plåtskena 70 mm\nGipsskiva Lätt 12,5 mm"
       }
@@ -2059,8 +2031,7 @@
               ]
             }
           ]
-        },
-        "kategori": "7"
+        }
       }
     },
     {
@@ -2116,8 +2087,7 @@
               ]
             }
           ]
-        },
-        "kategori": "9"
+        }
       }
     },
     {
@@ -2173,8 +2143,7 @@
               ]
             }
           ]
-        },
-        "kategori": "8"
+        }
       }
     },
     {
@@ -2230,8 +2199,7 @@
               ]
             }
           ]
-        },
-        "kategori": "7"
+        }
       }
     },
     {
@@ -2287,8 +2255,7 @@
               ]
             }
           ]
-        },
-        "kategori": "8"
+        }
       }
     },
     {
@@ -2344,8 +2311,7 @@
               ]
             }
           ]
-        },
-        "kategori": "8"
+        }
       }
     },
     {
@@ -2401,8 +2367,7 @@
               ]
             }
           ]
-        },
-        "kategori": "42"
+        }
       }
     },
     {
@@ -2458,8 +2423,7 @@
               ]
             }
           ]
-        },
-        "kategori": "42"
+        }
       }
     },
     {
@@ -2515,8 +2479,7 @@
               ]
             }
           ]
-        },
-        "kategori": "42"
+        }
       }
     },
     {
@@ -2826,8 +2789,7 @@
               ]
             }
           ]
-        },
-        "kategori": "10"
+        }
       }
     },
     {
@@ -2883,8 +2845,7 @@
               ]
             }
           ]
-        },
-        "kategori": "10"
+        }
       }
     },
     {
@@ -3020,8 +2981,7 @@
               ]
             }
           ]
-        },
-        "kategori": "41"
+        }
       }
     },
     {
@@ -3077,8 +3037,7 @@
               ]
             }
           ]
-        },
-        "kategori": "41"
+        }
       }
     },
     {
@@ -3134,8 +3093,7 @@
               ]
             }
           ]
-        },
-        "kategori": "41"
+        }
       }
     },
     {
@@ -3207,8 +3165,7 @@
               ]
             }
           ]
-        },
-        "kategori": "40"
+        }
       }
     },
     {
@@ -3280,8 +3237,7 @@
               ]
             }
           ]
-        },
-        "kategori": "40"
+        }
       }
     },
     {
@@ -3337,8 +3293,7 @@
               ]
             }
           ]
-        },
-        "kategori": "40"
+        }
       }
     },
     {
@@ -3394,8 +3349,7 @@
               ]
             }
           ]
-        },
-        "kategori": "11"
+        }
       }
     },
     {
@@ -3451,8 +3405,7 @@
               ]
             }
           ]
-        },
-        "kategori": "11"
+        }
       }
     },
     {
@@ -3508,8 +3461,7 @@
               ]
             }
           ]
-        },
-        "kategori": "11"
+        }
       }
     },
     {
@@ -3565,8 +3517,7 @@
               ]
             }
           ]
-        },
-        "kategori": "11"
+        }
       }
     },
     {
@@ -3622,8 +3573,7 @@
               ]
             }
           ]
-        },
-        "kategori": "43"
+        }
       }
     },
     {
@@ -3679,8 +3629,7 @@
               ]
             }
           ]
-        },
-        "kategori": "43"
+        }
       }
     },
     {
@@ -3798,8 +3747,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -3855,8 +3803,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -3912,8 +3859,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -3969,8 +3915,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4026,8 +3971,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4083,8 +4027,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4140,8 +4083,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4197,8 +4139,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4254,8 +4195,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4311,8 +4251,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4368,8 +4307,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4425,8 +4363,7 @@
               ]
             }
           ]
-        },
-        "kategori": "4"
+        }
       }
     },
     {
@@ -4482,8 +4419,7 @@
               ]
             }
           ]
-        },
-        "kategori": "44"
+        }
       }
     },
     {
@@ -4539,8 +4475,7 @@
               ]
             }
           ]
-        },
-        "kategori": "44"
+        }
       }
     },
     {
@@ -4596,8 +4531,7 @@
               ]
             }
           ]
-        },
-        "kategori": "44"
+        }
       }
     },
     {
@@ -4653,8 +4587,7 @@
               ]
             }
           ]
-        },
-        "kategori": "45"
+        }
       }
     },
     {
@@ -4710,8 +4643,7 @@
               ]
             }
           ]
-        },
-        "kategori": "13"
+        }
       }
     },
     {
@@ -4767,8 +4699,7 @@
               ]
             }
           ]
-        },
-        "kategori": "13"
+        }
       }
     },
     {
@@ -4824,8 +4755,7 @@
               ]
             }
           ]
-        },
-        "kategori": "13"
+        }
       }
     },
     {
@@ -4881,8 +4811,7 @@
               ]
             }
           ]
-        },
-        "kategori": "13"
+        }
       }
     },
     {
@@ -4938,8 +4867,7 @@
               ]
             }
           ]
-        },
-        "kategori": "13"
+        }
       }
     },
     {
@@ -5715,8 +5643,7 @@
               ]
             }
           ]
-        },
-        "kategori": "39"
+        }
       }
     },
     {
