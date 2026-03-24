@@ -246,6 +246,48 @@ def export_defaults(db_path, output_path):
             'created_at': relation_row['created_at'],
         })
 
+    system_rows = cur.execute(
+        """
+        SELECT id, name, description, version, is_active
+        FROM classification_systems
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    classification_systems = [
+        {
+            'id': row['id'],
+            'name': row['name'],
+            'description': row['description'],
+            'version': row['version'],
+            'is_active': bool(row['is_active']),
+        }
+        for row in system_rows
+    ]
+
+    node_rows = cur.execute(
+        """
+        SELECT id, system_id, parent_id, code, name, level, description, sort_order, is_active
+        FROM category_nodes
+        ORDER BY level ASC, id ASC
+        """
+    ).fetchall()
+
+    category_nodes = [
+        {
+            'id': row['id'],
+            'system_id': row['system_id'],
+            'parent_id': row['parent_id'],
+            'code': row['code'],
+            'name': row['name'],
+            'level': row['level'],
+            'description': row['description'],
+            'sort_order': row['sort_order'],
+            'is_active': bool(row['is_active']),
+        }
+        for row in node_rows
+    ]
+
     payload = {
         'version': 1,
         'object_types': object_types,
@@ -253,6 +295,8 @@ def export_defaults(db_path, output_path):
         'object_relations': object_relations,
         'relation_types': relation_types,
         'relation_type_rules': relation_type_rules,
+        'classification_systems': classification_systems,
+        'category_nodes': category_nodes,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

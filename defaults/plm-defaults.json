@@ -8626,5 +8626,356 @@
       "relation_type": "has_parent",
       "is_allowed": true
     }
+  ],
+  "classification_systems": [
+    {
+      "id": 1,
+      "name": "Byggdelar",
+      "description": "Internt klassifikationssystem",
+      "version": "1",
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "name": "System",
+      "description": null,
+      "version": "1",
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "name": "Spaces",
+      "description": null,
+      "version": "1",
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "name": "Internt",
+      "description": "Internt klassifikationssystem",
+      "version": null,
+      "is_active": true
+    }
+  ],
+  "category_nodes": [
+    {
+      "id": 1,
+      "system_id": 1,
+      "parent_id": null,
+      "code": "S",
+      "name": "Stomme",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 14,
+      "system_id": 1,
+      "parent_id": null,
+      "code": "ISK",
+      "name": "Invändig stomkomplettering",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 15,
+      "system_id": 1,
+      "parent_id": null,
+      "code": "ESC",
+      "name": "Utvändig stomkomplettering",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 16,
+      "system_id": 1,
+      "parent_id": null,
+      "code": "INR",
+      "name": "Inredning",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 17,
+      "system_id": 3,
+      "parent_id": null,
+      "code": "ALL",
+      "name": "Allmänna utrymmen",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 18,
+      "system_id": 3,
+      "parent_id": null,
+      "code": "BOS",
+      "name": "Bostad",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 19,
+      "system_id": 3,
+      "parent_id": null,
+      "code": "TEK",
+      "name": "Teknikutrymmen",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 20,
+      "system_id": 3,
+      "parent_id": null,
+      "code": "GAR",
+      "name": "Kvartersmark",
+      "level": 1,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "system_id": 1,
+      "parent_id": 1,
+      "code": "C",
+      "name": "Pelare",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 5,
+      "system_id": 1,
+      "parent_id": 1,
+      "code": "SEW",
+      "name": "Bärande yttervägg",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 6,
+      "system_id": 1,
+      "parent_id": 1,
+      "code": "SIW",
+      "name": "Bärande Innervägg",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 12,
+      "system_id": 1,
+      "parent_id": 1,
+      "code": "MBJ",
+      "name": "Mellanbjälklag",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 39,
+      "system_id": 1,
+      "parent_id": 14,
+      "code": "INV",
+      "name": "Innerväggar",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 46,
+      "system_id": 1,
+      "parent_id": 14,
+      "code": "EBY",
+      "name": "Schaktväggar",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 47,
+      "system_id": 1,
+      "parent_id": 14,
+      "code": "EDT",
+      "name": "Mellanväggar",
+      "level": 2,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "system_id": 1,
+      "parent_id": 2,
+      "code": "CON",
+      "name": "Betongpelare",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 4,
+      "system_id": 1,
+      "parent_id": 2,
+      "code": "STE",
+      "name": "Stålpelare",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 7,
+      "system_id": 1,
+      "parent_id": 6,
+      "code": "SCC",
+      "name": "Platsgjuten betong",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 8,
+      "system_id": 1,
+      "parent_id": 6,
+      "code": "SKL",
+      "name": "Skalvägg",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 9,
+      "system_id": 1,
+      "parent_id": 6,
+      "code": "MCW",
+      "name": "Massiv betongvägg",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 10,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "VSK",
+      "name": "Bärande yttervägg Puts",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 11,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "EDV",
+      "name": "Bärande yttervägg Träpanel",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 13,
+      "system_id": 1,
+      "parent_id": 12,
+      "code": "HDE",
+      "name": "Håldäck",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 40,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "TES",
+      "name": "Bärande yttervägg Tegel",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 41,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "GRE",
+      "name": "Bärande yttervägg Klinker",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 42,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "KTD",
+      "name": "Bärande yttervägg Källarvägg",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 43,
+      "system_id": 1,
+      "parent_id": 5,
+      "code": "GTI",
+      "name": "Bärande yttervägg Skivmaterial",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 44,
+      "system_id": 1,
+      "parent_id": 12,
+      "code": "ETD",
+      "name": "Plattbärlag & Pågjutning",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    },
+    {
+      "id": 45,
+      "system_id": 1,
+      "parent_id": 12,
+      "code": "EBR",
+      "name": "Massivt bjälklag",
+      "level": 3,
+      "description": null,
+      "sort_order": 0,
+      "is_active": true
+    }
   ]
 }
