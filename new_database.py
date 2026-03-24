@@ -79,6 +79,8 @@ def seed_data(app):
         relation_specs = payload.get('object_relations') if isinstance(payload, dict) else None
         classification_system_specs = payload.get('classification_systems') if isinstance(payload, dict) else None
         category_node_specs = payload.get('category_nodes') if isinstance(payload, dict) else None
+        managed_list_specs = payload.get('managed_lists') if isinstance(payload, dict) else None
+        instance_type_field_specs = payload.get('instance_type_fields') if isinstance(payload, dict) else None
         if not isinstance(object_type_specs, list) or not object_type_specs:
             logger.warning("No object type defaults found in defaults/plm-defaults.json; skipping seed")
             return
@@ -258,6 +260,102 @@ def seed_data(app):
                         relation_metadata=relation_payload.get('relation_metadata'),
                     ))
                     created_relations += 1
+
+            # Seed managed lists with preserved IDs (parent_item_id references require stable IDs)
+            if isinstance(managed_list_specs, list):
+                engine = db.session.get_bind()
+                for lst_spec in managed_list_specs:
+                    lst_id = lst_spec.get('id')
+                    if not lst_id:
+                        continue
+                    db.session.execute(text("""
+                        INSERT INTO managed_lists
+                            (id, code, name, description, is_active, created_at, updated_at)
+                        VALUES
+                            (:id, :code, :name, :description, :is_active,
+                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """), {
+                        'id': lst_id,
+                        'code': lst_spec.get('code'),
+                        'name': lst_spec.get('name'),
+                        'description': lst_spec.get('description'),
+                        'is_active': bool(lst_spec.get('is_active', True)),
+                    })
+                    import json as _json
+                    for item in lst_spec.get('items') or []:
+                        item_id = item.get('id')
+                        if not item_id:
+                            continue
+                        vt = item.get('value_translations')
+                        nm = item.get('node_metadata')
+                        db.session.execute(text("""
+                            INSERT INTO managed_list_items
+                                (id, list_id, code, label, value, sort_order, level,
+                                 parent_item_id, is_active, is_selectable,
+                                 value_translations, node_metadata, description,
+                                 created_at, updated_at)
+                            VALUES
+                                (:id, :list_id, :code, :label, :value, :sort_order, :level,
+                                 :parent_item_id, :is_active, :is_selectable,
+                                 :value_translations, :node_metadata, :description,
+                                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        """), {
+                            'id': item_id,
+                            'list_id': lst_id,
+                            'code': item.get('code'),
+                            'label': item.get('label'),
+                            'value': item.get('value'),
+                            'sort_order': item.get('sort_order', 0),
+                            'level': item.get('level', 0),
+                            'parent_item_id': item.get('parent_item_id'),
+                            'is_active': bool(item.get('is_active', True)),
+                            'is_selectable': bool(item.get('is_selectable', True)),
+                            'value_translations': _json.dumps(vt) if vt else None,
+                            'node_metadata': _json.dumps(nm) if nm else None,
+                            'description': item.get('description'),
+                        })
+                db.session.flush()
+                if engine.dialect.name == 'postgresql':
+                    db.session.execute(text(
+                        "SELECT setval('managed_lists_id_seq',"
+                        " (SELECT MAX(id) FROM managed_lists))"
+                    ))
+                    db.session.execute(text(
+                        "SELECT setval('managed_list_items_id_seq',"
+                        " (SELECT MAX(id) FROM managed_list_items))"
+                    ))
+                logger.info("Seeded %d managed lists", len(managed_list_specs))
+
+            # Seed instance type fields (look up field templates by field_name)
+            if isinstance(instance_type_field_specs, list):
+                from models.field_template import FieldTemplate
+                template_by_field_name = {
+                    ft.field_name: ft
+                    for ft in FieldTemplate.query.all()
+                }
+                for spec in instance_type_field_specs:
+                    tmpl = template_by_field_name.get(spec.get('template_field_name'))
+                    if tmpl is None:
+                        logger.warning(
+                            "instance_type_fields seed: field template %r not found, skipping",
+                            spec.get('template_field_name'),
+                        )
+                        continue
+                    db.session.execute(text("""
+                        INSERT INTO instance_type_fields
+                            (instance_type_key, field_template_id, display_order,
+                             is_required, created_at, updated_at)
+                        VALUES
+                            (:key, :tmpl_id, :order, :required,
+                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """), {
+                        'key': spec.get('instance_type_key'),
+                        'tmpl_id': tmpl.id,
+                        'order': spec.get('display_order', 0),
+                        'required': bool(spec.get('is_required', False)),
+                    })
+                db.session.flush()
+                logger.info("Seeded %d instance type fields", len(instance_type_field_specs))
 
             db.session.commit()
             logger.info(

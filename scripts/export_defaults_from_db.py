@@ -288,6 +288,67 @@ def export_defaults(db_path, output_path):
         for row in node_rows
     ]
 
+    # Managed lists
+    list_rows = cur.execute(
+        "SELECT id, code, name, description, is_active FROM managed_lists ORDER BY id ASC"
+    ).fetchall()
+    managed_lists = []
+    for lst in list_rows:
+        item_rows = cur.execute(
+            """
+            SELECT id, code, label, value, sort_order, level, parent_item_id,
+                   is_active, is_selectable, value_translations, node_metadata, description
+            FROM managed_list_items
+            WHERE list_id = ?
+            ORDER BY sort_order ASC, id ASC
+            """,
+            (lst['id'],),
+        ).fetchall()
+        items = []
+        for item in item_rows:
+            items.append({
+                'id': item['id'],
+                'code': item['code'],
+                'label': item['label'],
+                'value': item['value'],
+                'sort_order': item['sort_order'],
+                'level': item['level'],
+                'parent_item_id': item['parent_item_id'],
+                'is_active': bool(item['is_active']),
+                'is_selectable': bool(item['is_selectable']),
+                'value_translations': _normalize_json(item['value_translations']),
+                'node_metadata': _normalize_json(item['node_metadata']),
+                'description': item['description'],
+            })
+        managed_lists.append({
+            'id': lst['id'],
+            'code': lst['code'],
+            'name': lst['name'],
+            'description': lst['description'],
+            'is_active': bool(lst['is_active']),
+            'items': items,
+        })
+
+    # Instance type fields (reference field templates by field_name for portability)
+    itf_rows = cur.execute(
+        """
+        SELECT itf.id, itf.instance_type_key, itf.display_order, itf.is_required,
+               ft.field_name AS template_field_name
+        FROM instance_type_fields itf
+        JOIN field_templates ft ON itf.field_template_id = ft.id
+        ORDER BY itf.instance_type_key, itf.display_order ASC
+        """
+    ).fetchall()
+    instance_type_fields = [
+        {
+            'instance_type_key': row['instance_type_key'],
+            'template_field_name': row['template_field_name'],
+            'display_order': row['display_order'],
+            'is_required': bool(row['is_required']),
+        }
+        for row in itf_rows
+    ]
+
     payload = {
         'version': 1,
         'object_types': object_types,
@@ -297,6 +358,8 @@ def export_defaults(db_path, output_path):
         'relation_type_rules': relation_type_rules,
         'classification_systems': classification_systems,
         'category_nodes': category_nodes,
+        'managed_lists': managed_lists,
+        'instance_type_fields': instance_type_fields,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

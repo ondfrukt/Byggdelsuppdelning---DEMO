@@ -8977,5 +8977,1645 @@
       "sort_order": 0,
       "is_active": true
     }
+  ],
+  "managed_lists": [
+    {
+      "id": 1,
+      "code": "produkter",
+      "name": "Produkter",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 1,
+          "code": "betong",
+          "label": "Betong",
+          "value": "Betong",
+          "sort_order": 1,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Betong"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 2,
+          "code": "vanlig_betong",
+          "label": "Vanlig betong",
+          "value": "Vanlig betong",
+          "sort_order": 2,
+          "level": 1,
+          "parent_item_id": 1,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Vanlig betong"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 3,
+          "code": "skb",
+          "label": "SKB",
+          "value": "SKB",
+          "sort_order": 3,
+          "level": 1,
+          "parent_item_id": 1,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "SKB"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 4,
+          "code": "c30_35",
+          "label": "C30/35",
+          "value": "C30/35",
+          "sort_order": 4,
+          "level": 2,
+          "parent_item_id": 2,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "C30/35"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 5,
+          "code": "skb_c30_35",
+          "label": "SKB - C30/35",
+          "value": "SKB - C30/35",
+          "sort_order": 5,
+          "level": 2,
+          "parent_item_id": 3,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "SKB - C30/35"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 7,
+          "code": "skb_c20_30",
+          "label": "SKB - C20/30",
+          "value": "SKB - C20/30",
+          "sort_order": 7,
+          "level": 2,
+          "parent_item_id": 3,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "SKB - C20/30"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 17,
+          "code": "tr",
+          "label": "Trä",
+          "value": "Trä",
+          "sort_order": 8,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Trä"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 18,
+          "code": "sten",
+          "label": "Sten",
+          "value": "Sten",
+          "sort_order": 9,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Sten"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 28,
+          "code": "trareglar",
+          "label": "Träreglar",
+          "value": "Träreglar",
+          "sort_order": 10,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 29,
+          "code": "45_mm_serie",
+          "label": "45 mm serie",
+          "value": "45 mm serie",
+          "sort_order": 11,
+          "level": 1,
+          "parent_item_id": 28,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 30,
+          "code": "skivor",
+          "label": "Skivor",
+          "value": "Skivor",
+          "sort_order": 12,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 31,
+          "code": "plywood",
+          "label": "Plywood",
+          "value": "Plywood",
+          "sort_order": 13,
+          "level": 1,
+          "parent_item_id": 30,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 32,
+          "code": "osb",
+          "label": "OSB",
+          "value": "OSB",
+          "sort_order": 14,
+          "level": 1,
+          "parent_item_id": 30,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 33,
+          "code": "gips",
+          "label": "Gips",
+          "value": "Gips",
+          "sort_order": 15,
+          "level": 1,
+          "parent_item_id": 30,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 34,
+          "code": "brandgips",
+          "label": "Brandgips",
+          "value": "Brandgips",
+          "sort_order": 16,
+          "level": 1,
+          "parent_item_id": 30,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 35,
+          "code": "platreglar",
+          "label": "Plåtreglar",
+          "value": "Plåtreglar",
+          "sort_order": 17,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 36,
+          "code": "c_reglar",
+          "label": "C-reglar",
+          "value": "C-reglar",
+          "sort_order": 18,
+          "level": 1,
+          "parent_item_id": 35,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 37,
+          "code": "u_reglar",
+          "label": "U-reglar",
+          "value": "U-reglar",
+          "sort_order": 19,
+          "level": 1,
+          "parent_item_id": 35,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 38,
+          "code": "isolering",
+          "label": "Isolering",
+          "value": "Isolering",
+          "sort_order": 20,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 39,
+          "code": "mineralull",
+          "label": "Mineralull",
+          "value": "Mineralull",
+          "sort_order": 21,
+          "level": 1,
+          "parent_item_id": 38,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 40,
+          "code": "stenull",
+          "label": "Stenull",
+          "value": "Stenull",
+          "sort_order": 22,
+          "level": 1,
+          "parent_item_id": 38,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": null,
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 70,
+          "code": "armering",
+          "label": "Armering",
+          "value": "Armering",
+          "sort_order": 23,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Armering"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 71,
+          "code": "cellplast",
+          "label": "Cellplast",
+          "value": "Cellplast",
+          "sort_order": 24,
+          "level": 1,
+          "parent_item_id": 38,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Cellplast"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 72,
+          "code": "puts",
+          "label": "Puts",
+          "value": "Puts",
+          "sort_order": 25,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Puts"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 73,
+          "code": "tegel",
+          "label": "Tegel",
+          "value": "Tegel",
+          "sort_order": 26,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Tegel"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 74,
+          "code": "inf_stning",
+          "label": "Infästning",
+          "value": "Infästning",
+          "sort_order": 27,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Infästning"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 75,
+          "code": "fasadskiva",
+          "label": "Fasadskiva",
+          "value": "Fasadskiva",
+          "sort_order": 28,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Fasadskiva"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 82,
+          "code": "konstruktionsst_l",
+          "label": "Konstruktionsstål",
+          "value": "Konstruktionsstål",
+          "sort_order": 29,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Konstruktionsstål"
+          },
+          "node_metadata": null,
+          "description": null
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "code": "byggdelar",
+      "name": "Byggdelar",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 42,
+          "code": "b_rande_ytterv_ggar_av_betong",
+          "label": "Bärande ytterväggar av betong",
+          "value": "Bärande ytterväggar av betong",
+          "sort_order": 2,
+          "level": 1,
+          "parent_item_id": 76,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Bärande ytterväggar av betong"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 43,
+          "code": "b_rande_innerv_ggar_av_betong",
+          "label": "Bärande innerväggar av betong",
+          "value": "Bärande innerväggar av betong",
+          "sort_order": 3,
+          "level": 1,
+          "parent_item_id": 76,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Bärande innerväggar av betong"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 45,
+          "code": "hisstopp",
+          "label": "Hisstopp",
+          "value": "Hisstopp",
+          "sort_order": 5,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Hisstopp"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 47,
+          "code": "bj_lklag_av_betong",
+          "label": "Bjälklag av betong",
+          "value": "Bjälklag av betong",
+          "sort_order": 7,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Bjälklag av betong"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 48,
+          "code": "ytterv_ggar",
+          "label": "Ytterväggar",
+          "value": "Ytterväggar",
+          "sort_order": 8,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Ytterväggar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 49,
+          "code": "stomkomplettering",
+          "label": "Stomkomplettering",
+          "value": "Stomkomplettering",
+          "sort_order": 9,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Stomkomplettering"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 50,
+          "code": "innerv_ggar",
+          "label": "Innerväggar",
+          "value": "Innerväggar",
+          "sort_order": 10,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Innerväggar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 51,
+          "code": "ytskikt_p_golv_och_trappor",
+          "label": "Ytskikt på golv och trappor",
+          "value": "Ytskikt på golv och trappor",
+          "sort_order": 11,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Ytskikt på golv och trappor"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 52,
+          "code": "utv_ndiga_huskompletteringar",
+          "label": "Utvändiga huskompletteringar",
+          "value": "Utvändiga huskompletteringar",
+          "sort_order": 12,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Utvändiga huskompletteringar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 53,
+          "code": "utrustningar",
+          "label": "Utrustningar",
+          "value": "Utrustningar",
+          "sort_order": 13,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Utrustningar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 54,
+          "code": "ytter_ggar_ppningskompletteringar",
+          "label": "Ytteräggar - Öppningskompletteringar",
+          "value": "Ytteräggar - Öppningskompletteringar",
+          "sort_order": 14,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Ytteräggar - Öppningskompletteringar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 55,
+          "code": "innerv_ggar_ppningskompletteringar",
+          "label": "Innerväggar - Öppningskompletteringar",
+          "value": "Innerväggar - Öppningskompletteringar",
+          "sort_order": 15,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Innerväggar - Öppningskompletteringar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 56,
+          "code": "ppningskompletteringar_i_bj_lklag",
+          "label": "Öppningskompletteringar i bjälklag",
+          "value": "Öppningskompletteringar i bjälklag",
+          "sort_order": 16,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Öppningskompletteringar i bjälklag"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 57,
+          "code": "innertak",
+          "label": "Innertak",
+          "value": "Innertak",
+          "sort_order": 17,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Innertak"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 58,
+          "code": "inv_ndiga_huskompletteringar",
+          "label": "Invändiga huskompletteringar",
+          "value": "Invändiga huskompletteringar",
+          "sort_order": 18,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Invändiga huskompletteringar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 59,
+          "code": "inredningar",
+          "label": "Inredningar",
+          "value": "Inredningar",
+          "sort_order": 19,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Inredningar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 60,
+          "code": "yttertak_kompletteringar",
+          "label": "Yttertak - Kompletteringar",
+          "value": "Yttertak - Kompletteringar",
+          "sort_order": 20,
+          "level": 1,
+          "parent_item_id": 49,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Yttertak - Kompletteringar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 76,
+          "code": "b_rande_v_ggar",
+          "label": "Bärande väggar",
+          "value": "Bärande väggar",
+          "sort_order": 21,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Bärande väggar"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 77,
+          "code": "grundkonstruktioner",
+          "label": "Grundkonstruktioner",
+          "value": "Grundkonstruktioner",
+          "sort_order": 22,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Grundkonstruktioner"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 78,
+          "code": "bj_lklag",
+          "label": "Bjälklag",
+          "value": "Bjälklag",
+          "sort_order": 23,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Bjälklag"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 79,
+          "code": "pelare",
+          "label": "Pelare",
+          "value": "Pelare",
+          "sort_order": 24,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Pelare"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 80,
+          "code": "st_lpelare",
+          "label": "Stålpelare",
+          "value": "Stålpelare",
+          "sort_order": 25,
+          "level": 1,
+          "parent_item_id": 79,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Stålpelare"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 81,
+          "code": "betongpelare",
+          "label": "Betongpelare",
+          "value": "Betongpelare",
+          "sort_order": 26,
+          "level": 1,
+          "parent_item_id": 79,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Betongpelare"
+          },
+          "node_metadata": null,
+          "description": null
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "code": "bim_information",
+      "name": "BIMInformation",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 83,
+          "code": "typeid",
+          "label": "TypeID",
+          "value": "TypeID",
+          "sort_order": 1,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "TypeID"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 84,
+          "code": "typename",
+          "label": "TypeName",
+          "value": "TypeName",
+          "sort_order": 2,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "TypeName"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 85,
+          "code": "ifcclass",
+          "label": "IfcClass",
+          "value": "IfcClass",
+          "sort_order": 3,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "IfcClass"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 86,
+          "code": "classcodebuildingelement",
+          "label": "ClassCodeBuildingElement",
+          "value": "ClassCodeBuildingElement",
+          "sort_order": 4,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "ClassCodeBuildingElement"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 87,
+          "code": "areatype",
+          "label": "AreaType",
+          "value": "AreaType",
+          "sort_order": 5,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "AreaType"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 88,
+          "code": "name",
+          "label": "Name",
+          "value": "Name",
+          "sort_order": 6,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Name"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 89,
+          "code": "number",
+          "label": "Number",
+          "value": "Number",
+          "sort_order": 7,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Number"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 90,
+          "code": "optional",
+          "label": "Optional",
+          "value": "Optional",
+          "sort_order": 8,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Optional"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 91,
+          "code": "horisontalcoordinatesystem",
+          "label": "HorisontalCoordinateSystem",
+          "value": "HorisontalCoordinateSystem",
+          "sort_order": 9,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "HorisontalCoordinateSystem"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 92,
+          "code": "projectbasepoint",
+          "label": "ProjectBasePoint",
+          "value": "ProjectBasePoint",
+          "sort_order": 10,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "ProjectBasePoint"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 93,
+          "code": "verticalcoordinatesystem",
+          "label": "VerticalCoordinateSystem",
+          "value": "VerticalCoordinateSystem",
+          "sort_order": 11,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "VerticalCoordinateSystem"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 94,
+          "code": "id",
+          "label": "ID",
+          "value": "ID",
+          "sort_order": 12,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "ID"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 95,
+          "code": "classcodeworkresult",
+          "label": "ClassCodeWorkResult",
+          "value": "ClassCodeWorkResult",
+          "sort_order": 13,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "ClassCodeWorkResult"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 96,
+          "code": "status",
+          "label": "Status",
+          "value": "Status",
+          "sort_order": 14,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Status"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 97,
+          "code": "swingdirection",
+          "label": "SwingDirection",
+          "value": "SwingDirection",
+          "sort_order": 15,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "SwingDirection"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 98,
+          "code": "fittingtypeid",
+          "label": "FittingTypeID",
+          "value": "FittingTypeID",
+          "sort_order": 16,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "FittingTypeID"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 99,
+          "code": "acousticratingclassification",
+          "label": "AcousticRatingClassification",
+          "value": "AcousticRatingClassification",
+          "sort_order": 17,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "AcousticRatingClassification"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 100,
+          "code": "acousticratingreq",
+          "label": "AcousticRatingReq",
+          "value": "AcousticRatingReq",
+          "sort_order": 18,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "AcousticRatingReq"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 101,
+          "code": "fireratingreq",
+          "label": "FireRatingReq",
+          "value": "FireRatingReq",
+          "sort_order": 19,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "FireRatingReq"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 102,
+          "code": "fireratingclassification",
+          "label": "FireRatingClassification",
+          "value": "FireRatingClassification",
+          "sort_order": 20,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "FireRatingClassification"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 103,
+          "code": "layer",
+          "label": "Layer",
+          "value": "Layer",
+          "sort_order": 21,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Layer"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 104,
+          "code": "material",
+          "label": "Material",
+          "value": "Material",
+          "sort_order": 22,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Material"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 105,
+          "code": "contaminent_class",
+          "label": "Contaminent class",
+          "value": "Contaminent class",
+          "sort_order": 23,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Contaminent class"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 106,
+          "code": "site_specific_limit_values",
+          "label": "Site-specific limit values",
+          "value": "Site-specific limit values",
+          "sort_order": 24,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Site-specific limit values"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 107,
+          "code": "area",
+          "label": "Area",
+          "value": "Area",
+          "sort_order": 25,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Area"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 108,
+          "code": "volume",
+          "label": "Volume",
+          "value": "Volume",
+          "sort_order": 26,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Volume"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 109,
+          "code": "solitype",
+          "label": "Solitype",
+          "value": "Solitype",
+          "sort_order": 27,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Solitype"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 110,
+          "code": "frost_susceptibility_class",
+          "label": "Frost susceptibility class",
+          "value": "Frost susceptibility class",
+          "sort_order": 28,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Frost susceptibility class"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 111,
+          "code": "drilling_method",
+          "label": "Drilling method",
+          "value": "Drilling method",
+          "sort_order": 29,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Drilling method"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 112,
+          "code": "density",
+          "label": "Density",
+          "value": "Density",
+          "sort_order": 30,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Density"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 113,
+          "code": "observed_groundwater_level",
+          "label": "Observed groundwater level",
+          "value": "Observed groundwater level",
+          "sort_order": 31,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Observed groundwater level"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 114,
+          "code": "dimensioned_groundwater_level",
+          "label": "Dimensioned groundwater level",
+          "value": "Dimensioned groundwater level",
+          "sort_order": 32,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Dimensioned groundwater level"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 115,
+          "code": "pile_type",
+          "label": "Pile type",
+          "value": "Pile type",
+          "sort_order": 33,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Pile type"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 116,
+          "code": "pile_lenght",
+          "label": "Pile lenght",
+          "value": "Pile lenght",
+          "sort_order": 34,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Pile lenght"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 117,
+          "code": "gradient",
+          "label": "Gradient",
+          "value": "Gradient",
+          "sort_order": 35,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Gradient"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 118,
+          "code": "pile_cut_off_height",
+          "label": "Pile cut-off height",
+          "value": "Pile cut-off height",
+          "sort_order": 36,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Pile cut-off height"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 119,
+          "code": "lenght",
+          "label": "Lenght",
+          "value": "Lenght",
+          "sort_order": 37,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Lenght"
+          },
+          "node_metadata": null,
+          "description": null
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "code": "material",
+      "name": "Material",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 124,
+          "code": "tr",
+          "label": "Trä",
+          "value": "Trä",
+          "sort_order": 1,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Trä"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 125,
+          "code": "plast",
+          "label": "Plast",
+          "value": "Plast",
+          "sort_order": 2,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Plast"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 126,
+          "code": "st_l",
+          "label": "Stål",
+          "value": "Stål",
+          "sort_order": 3,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Stål"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 127,
+          "code": "komposit",
+          "label": "Komposit",
+          "value": "Komposit",
+          "sort_order": 4,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Komposit"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 133,
+          "code": "tegel",
+          "label": "Tegel",
+          "value": "Tegel",
+          "sort_order": 5,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Tegel"
+          },
+          "node_metadata": null,
+          "description": null
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "code": "operator",
+      "name": "Operator",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 128,
+          "code": null,
+          "label": "<=",
+          "value": "<=",
+          "sort_order": 1,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "<="
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 129,
+          "code": null,
+          "label": "<",
+          "value": "<",
+          "sort_order": 2,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "<"
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 130,
+          "code": null,
+          "label": ">=",
+          "value": ">=",
+          "sort_order": 3,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": ">="
+          },
+          "node_metadata": null,
+          "description": null
+        },
+        {
+          "id": 131,
+          "code": null,
+          "label": ">",
+          "value": ">",
+          "sort_order": 4,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": ">"
+          },
+          "node_metadata": null,
+          "description": null
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "code": "svanen",
+      "name": "Svanen",
+      "description": null,
+      "is_active": true,
+      "items": [
+        {
+          "id": 132,
+          "code": null,
+          "label": "Krav O3",
+          "value": "Krav O3",
+          "sort_order": 1,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Krav O3"
+          },
+          "node_metadata": {},
+          "description": null
+        },
+        {
+          "id": 134,
+          "code": null,
+          "label": "Krav O9",
+          "value": "Krav O9",
+          "sort_order": 2,
+          "level": 0,
+          "parent_item_id": null,
+          "is_active": true,
+          "is_selectable": true,
+          "value_translations": {
+            "en": "Krav O9"
+          },
+          "node_metadata": {},
+          "description": null
+        }
+      ]
+    }
+  ],
+  "instance_type_fields": [
+    {
+      "instance_type_key": "assembly_to_product",
+      "template_field_name": "enhet",
+      "display_order": 0,
+      "is_required": false
+    },
+    {
+      "instance_type_key": "assembly_to_product",
+      "template_field_name": "värde",
+      "display_order": 1,
+      "is_required": false
+    },
+    {
+      "instance_type_key": "assembly_to_product",
+      "template_field_name": "waste_factor",
+      "display_order": 2,
+      "is_required": false
+    },
+    {
+      "instance_type_key": "assembly_to_product",
+      "template_field_name": "quantity",
+      "display_order": 3,
+      "is_required": false
+    }
   ]
 }
