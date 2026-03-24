@@ -1,7 +1,9 @@
 from datetime import date, datetime
 
 from models import db, ObjectType, ObjectField, Object, ObjectData, ObjectRelation
+from models import ClassificationSystem, CategoryNode, ObjectCategoryAssignment
 from utils.default_seed_loader import load_default_seed_payload
+from sqlalchemy import text
 import logging
 
 logger = logging.getLogger(__name__)
@@ -75,6 +77,8 @@ def seed_data(app):
         object_type_specs = payload.get('object_types') if isinstance(payload, dict) else None
         object_specs = payload.get('objects') if isinstance(payload, dict) else None
         relation_specs = payload.get('object_relations') if isinstance(payload, dict) else None
+        classification_system_specs = payload.get('classification_systems') if isinstance(payload, dict) else None
+        category_node_specs = payload.get('category_nodes') if isinstance(payload, dict) else None
         if not isinstance(object_type_specs, list) or not object_type_specs:
             logger.warning("No object type defaults found in defaults/plm-defaults.json; skipping seed")
             return
@@ -89,6 +93,70 @@ def seed_data(app):
             object_types_by_name = {}
             fields_by_type_and_name = {}
             seeded_objects = {}
+
+            # Seed classification systems with preserved IDs so category_node field
+            # references (stored as numeric IDs in object data) remain valid.
+            if isinstance(classification_system_specs, list):
+                engine = db.session.get_bind()
+                for sys_spec in classification_system_specs:
+                    sys_id = sys_spec.get('id')
+                    if not sys_id:
+                        continue
+                    db.session.execute(text("""
+                        INSERT INTO classification_systems
+                            (id, name, description, version, is_active, created_at, updated_at)
+                        VALUES
+                            (:id, :name, :description, :version, :is_active,
+                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """), {
+                        'id': sys_id,
+                        'name': sys_spec.get('name'),
+                        'description': sys_spec.get('description'),
+                        'version': sys_spec.get('version'),
+                        'is_active': bool(sys_spec.get('is_active', True)),
+                    })
+                db.session.flush()
+                if engine.dialect.name == 'postgresql':
+                    db.session.execute(text(
+                        "SELECT setval('classification_systems_id_seq',"
+                        " (SELECT MAX(id) FROM classification_systems))"
+                    ))
+                logger.info("Seeded %d classification systems", len(classification_system_specs))
+
+            # Seed category nodes with preserved IDs (ordered by level to satisfy FK).
+            if isinstance(category_node_specs, list):
+                engine = db.session.get_bind()
+                nodes_ordered = sorted(category_node_specs, key=lambda n: (n.get('level', 1), n.get('id', 0)))
+                for node_spec in nodes_ordered:
+                    node_id = node_spec.get('id')
+                    if not node_id:
+                        continue
+                    db.session.execute(text("""
+                        INSERT INTO category_nodes
+                            (id, system_id, parent_id, code, name, level,
+                             description, sort_order, is_active, created_at, updated_at)
+                        VALUES
+                            (:id, :system_id, :parent_id, :code, :name, :level,
+                             :description, :sort_order, :is_active,
+                             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    """), {
+                        'id': node_id,
+                        'system_id': node_spec.get('system_id'),
+                        'parent_id': node_spec.get('parent_id'),
+                        'code': node_spec.get('code'),
+                        'name': node_spec.get('name'),
+                        'level': node_spec.get('level', 1),
+                        'description': node_spec.get('description'),
+                        'sort_order': node_spec.get('sort_order', 0),
+                        'is_active': bool(node_spec.get('is_active', True)),
+                    })
+                db.session.flush()
+                if engine.dialect.name == 'postgresql':
+                    db.session.execute(text(
+                        "SELECT setval('category_nodes_id_seq',"
+                        " (SELECT MAX(id) FROM category_nodes))"
+                    ))
+                logger.info("Seeded %d category nodes", len(category_node_specs))
 
             for object_type_payload in object_type_specs:
                 name = str(object_type_payload.get('name') or '').strip()
@@ -125,6 +193,9 @@ def seed_data(app):
                     fields_by_type_and_name[name][field_name] = object_field
                     created_fields += 1
 
+            # Track pending category assignments: (object_record, node_id)
+            pending_category_assignments = []
+
             if isinstance(object_specs, list):
                 for object_payload in object_specs:
                     object_type_name = str(object_payload.get('object_type') or '').strip()
@@ -151,10 +222,24 @@ def seed_data(app):
                             if field_record is None:
                                 continue
                             _assign_object_data(object_record, field_record, value)
+                            if field_record.field_type == 'category_node' and value is not None:
+                                raw_val = str(value).strip()
+                                if raw_val.isdigit():
+                                    pending_category_assignments.append((object_record, int(raw_val)))
 
                     seed_key = str(object_payload.get('seed_key') or '').strip()
                     if seed_key:
                         seeded_objects[seed_key] = object_record
+
+            # Create object_category_assignments so the tree-view can find objects
+            for obj_rec, node_id in pending_category_assignments:
+                db.session.add(ObjectCategoryAssignment(
+                    object_id=obj_rec.id,
+                    category_node_id=node_id,
+                    is_primary=True,
+                ))
+            if pending_category_assignments:
+                logger.info("Created %d category assignments", len(pending_category_assignments))
 
             if isinstance(relation_specs, list):
                 for relation_payload in relation_specs:
