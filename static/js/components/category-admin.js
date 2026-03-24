@@ -237,12 +237,12 @@ class CategoryAdmin {
                 <form id="node-editor-form" onsubmit="categoryAdmin.submitNodeForm(event)" autocomplete="off">
                     <div class="managed-list-node-language-grid managed-list-node-language-grid-compact">
                         <label>
-                            <span>Kod</span>
-                            <input type="text" class="form-control" name="code" value="${escapeHtml(node?.code || '')}" placeholder="T.ex. F2">
-                        </label>
-                        <label>
                             <span>Namn *</span>
                             <input type="text" class="form-control" name="name" required value="${escapeHtml(node?.name || '')}" placeholder="T.ex. Klimatskal">
+                        </label>
+                        <label>
+                            <span>Kod</span>
+                            <input type="text" class="form-control" name="code" value="${escapeHtml(node?.code || '')}" placeholder="T.ex. F2">
                         </label>
                         <label style="grid-column: 1 / -1;">
                             <span>Beskrivning</span>
