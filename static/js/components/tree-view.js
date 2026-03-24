@@ -354,15 +354,17 @@ class TreeView {
         };
         collectFromNodes(this._data);
 
-        await Promise.all(Array.from(nodeIds).map(async id => {
-            if (this._categoryNodePathById[id]) return;
-            try {
-                const r = await fetch(`/api/category-nodes/${id}?include_path=true`);
-                if (!r.ok) return;
-                const data = await r.json();
-                this._categoryNodePathById[id] = data.path_string || data.name || id;
-            } catch (_) {}
-        }));
+        const missing = [...nodeIds].filter(id => !this._categoryNodePathById[id]);
+        if (!missing.length) return;
+
+        try {
+            const r = await fetch(`/api/category-nodes/batch?ids=${missing.join(',')}`);
+            if (!r.ok) return;
+            const map = await r.json();
+            Object.entries(map).forEach(([id, node]) => {
+                this._categoryNodePathById[id] = node?.path_string || node?.name || id;
+            });
+        } catch (_) {}
     }
 
     // -------------------------------------------------------------------------

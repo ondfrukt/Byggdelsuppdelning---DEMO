@@ -1,9 +1,16 @@
 from flask import Blueprint, jsonify, request
 from models import db, FieldTemplate
+from extensions import cache
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('field_templates', __name__, url_prefix='/api/field-templates')
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 
 def normalize_template_name(value):
@@ -49,6 +56,7 @@ def validate_field_template_payload(data, template_id=None):
 
 
 @bp.route('', methods=['GET'])
+@cache.cached(timeout=300, query_string=True)
 def list_field_templates():
     try:
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'

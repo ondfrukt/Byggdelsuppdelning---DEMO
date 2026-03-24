@@ -29,14 +29,10 @@ window.sidePanelInstance = null;
 
 // Initialize application
 document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        await checkHealth();
-        console.log('API is healthy');
-    } catch (error) {
-        console.error('API health check failed:', error);
-        showToast('API anslutning misslyckades', 'error');
-    }
-    
+    checkHealth()
+        .then(() => console.log('API is healthy'))
+        .catch(() => showToast('API anslutning misslyckades', 'error'));
+
     initializeNavigation();
     restoreDetailHistory();
     ensureDetailHistoryControls();

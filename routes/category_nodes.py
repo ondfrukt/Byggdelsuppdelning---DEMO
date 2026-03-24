@@ -2,7 +2,9 @@
 import logging
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy.orm import joinedload, subqueryload
 
+from extensions import cache
 from models import db
 from models.category_node import CategoryNode, VALID_LEVELS
 from models.classification_system import ClassificationSystem
@@ -10,6 +12,13 @@ from models.object_category_assignment import ObjectCategoryAssignment
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('category_nodes', __name__, url_prefix='/api/category-nodes')
+
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -151,6 +160,72 @@ def create_node():
 
 
 # ---------------------------------------------------------------------------
+# GET /api/category-nodes/batch?ids=1,2,3
+# ---------------------------------------------------------------------------
+@bp.route('/batch', methods=['GET'])
+def get_nodes_batch():
+    """Return {id: {name, path_string}} for a list of node IDs in one request."""
+    raw = request.args.get('ids', '')
+    node_ids = []
+    for part in raw.split(','):
+        part = part.strip()
+        if part:
+            try:
+                node_ids.append(int(part))
+            except ValueError:
+                pass
+
+    if not node_ids:
+        return jsonify({}), 200
+
+    # Load all requested nodes in one query
+    nodes_by_id = {
+        n.id: n
+        for n in CategoryNode.query.filter(CategoryNode.id.in_(node_ids)).all()
+    }
+
+    # Walk up the ancestor chain level by level until all parents are loaded.
+    # Categories are typically 2-3 levels deep so this is 1-2 extra queries.
+    known_ids = set(nodes_by_id.keys())
+    pending_parent_ids = {
+        n.parent_id for n in nodes_by_id.values() if n.parent_id and n.parent_id not in known_ids
+    }
+    while pending_parent_ids:
+        parents = CategoryNode.query.filter(CategoryNode.id.in_(pending_parent_ids)).all()
+        for p in parents:
+            nodes_by_id[p.id] = p
+        known_ids.update(p.id for p in parents)
+        pending_parent_ids = {
+            p.parent_id for p in parents if p.parent_id and p.parent_id not in known_ids
+        }
+
+    def _path_string(node):
+        chain = [node.name]
+        current = node
+        for _ in range(20):  # guard against cycles
+            if not current.parent_id:
+                break
+            parent = nodes_by_id.get(current.parent_id)
+            if not parent:
+                break
+            chain.append(parent.name)
+            current = parent
+        chain.reverse()
+        return ' › '.join(chain)
+
+    result = {}
+    for node_id in node_ids:
+        node = nodes_by_id.get(node_id)
+        if node:
+            result[node_id] = {
+                'name': node.name,
+                'path_string': _path_string(node),
+            }
+
+    return jsonify(result), 200
+
+
+# ---------------------------------------------------------------------------
 # GET /api/category-nodes/<id>
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>', methods=['GET'])
@@ -233,9 +308,10 @@ def delete_node(node_id):
 # GET /api/category-nodes/object-tree
 # ---------------------------------------------------------------------------
 @bp.route('/object-tree', methods=['GET'])
+@cache.cached(timeout=60, query_string=True)
 def object_tree():
     """Return category nodes with assigned objects and their direct relations as children."""
-    from models import Object as ObjModel, ObjectRelation
+    from models import Object as ObjModel, ObjectRelation, ObjectData
 
     system_name = (request.args.get('system_name') or '').strip()
     if not system_name:
@@ -248,27 +324,25 @@ def object_tree():
         logger.warning('object_tree: no classification system named %r', system_name)
         return jsonify([]), 200
 
-    # Load root nodes; children are lazy-loaded via relationship
-    root_nodes = (
+    # Load ALL nodes for this system in one query (no lazy child traversal)
+    all_nodes = (
         CategoryNode.query
-        .filter_by(system_id=system.id, parent_id=None)
+        .filter_by(system_id=system.id)
         .order_by(CategoryNode.sort_order, CategoryNode.code)
         .all()
     )
-
-    # Collect all node IDs in the system tree
-    all_node_ids = []
-
-    def _collect_ids(nodes):
-        for n in nodes:
-            all_node_ids.append(n.id)
-            _collect_ids(n.children)
-
-    _collect_ids(root_nodes)
-    if not all_node_ids:
+    if not all_nodes:
         return jsonify([]), 200
 
-    # Batch-load all assignments for this system's nodes
+    all_node_ids = [n.id for n in all_nodes]
+
+    # Pre-build children lookup to avoid n.children lazy loads
+    children_by_parent: dict = {}
+    for n in all_nodes:
+        if n.parent_id:
+            children_by_parent.setdefault(n.parent_id, []).append(n)
+
+    # Batch-load all assignments
     assignment_rows = (
         db.session.query(
             ObjectCategoryAssignment.category_node_id,
@@ -278,15 +352,24 @@ def object_tree():
         .all()
     )
 
-    # Batch-load primary objects (assigned to nodes)
     primary_obj_ids = list({row.object_id for row in assignment_rows})
-    objects_map = {}
+    objects_map: dict = {}
+
     if primary_obj_ids:
-        objs = ObjModel.query.filter(ObjModel.id.in_(primary_obj_ids)).all()
+        # Eager-load object_type and object_data in the same round-trip set
+        objs = (
+            ObjModel.query
+            .filter(ObjModel.id.in_(primary_obj_ids))
+            .options(
+                joinedload(ObjModel.object_type),
+                subqueryload(ObjModel.object_data).joinedload(ObjectData.field),
+            )
+            .all()
+        )
         objects_map = {obj.id: obj for obj in objs}
 
-    # Batch-load relations for all primary objects (both directions)
-    relations_by_source = {}  # source_id -> [(target_id, relation_type), ...]
+    # Batch-load source relations
+    relations_by_source: dict = {}
     if primary_obj_ids:
         relation_rows = (
             db.session.query(
@@ -302,7 +385,7 @@ def object_tree():
                 (rel.target_object_id, rel.relation_type)
             )
 
-    # Batch-load all related target objects not already in objects_map
+    # Batch-load related target objects not already in objects_map
     all_related_ids = {
         tid
         for targets in relations_by_source.values()
@@ -310,12 +393,20 @@ def object_tree():
         if tid not in objects_map
     }
     if all_related_ids:
-        related_objs = ObjModel.query.filter(ObjModel.id.in_(all_related_ids)).all()
+        related_objs = (
+            ObjModel.query
+            .filter(ObjModel.id.in_(all_related_ids))
+            .options(
+                joinedload(ObjModel.object_type),
+                subqueryload(ObjModel.object_data).joinedload(ObjectData.field),
+            )
+            .all()
+        )
         for obj in related_objs:
             objects_map[obj.id] = obj
 
     # Group primary objects by node_id
-    objects_by_node = {}
+    objects_by_node: dict = {}
     for row in assignment_rows:
         obj = objects_map.get(row.object_id)
         if obj:
@@ -341,7 +432,6 @@ def object_tree():
 
     def _build_obj_node(obj):
         node = _obj_dict(obj)
-        # Attach direct related objects as children (sorted by id_full)
         related = sorted(
             (
                 objects_map[tid]
@@ -354,7 +444,9 @@ def object_tree():
         return node
 
     def _build_cat_node(cat_node):
-        children = [_build_cat_node(c) for c in cat_node.children]
+        # Use pre-built lookup instead of cat_node.children (avoids lazy loads)
+        child_cat_nodes = children_by_parent.get(cat_node.id, [])
+        children = [_build_cat_node(c) for c in child_cat_nodes]
         for obj in sorted(objects_by_node.get(cat_node.id, []), key=lambda o: o.id_full or ''):
             if obj and obj.object_type:
                 children.append(_build_obj_node(obj))
@@ -365,6 +457,7 @@ def object_tree():
             'children': children,
         }
 
+    root_nodes = [n for n in all_nodes if n.parent_id is None]
     result = [_build_cat_node(n) for n in root_nodes]
     return jsonify(result), 200
 

@@ -1,9 +1,16 @@
 from flask import Blueprint, request, jsonify
 from models import db, ViewConfiguration, ObjectType, ObjectField
+from extensions import cache
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('view_config', __name__, url_prefix='/api/view-config')
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 # Constants
 DEFAULT_DISPLAY_ORDER = 999
@@ -34,6 +41,7 @@ def _normalize_column_order(column_order):
 
 
 @bp.route('/tree-display', methods=['GET'])
+@cache.cached(timeout=300)
 def get_tree_display_config():
     """Get tree display configuration for all object types"""
     try:
@@ -130,6 +138,7 @@ def update_tree_display_config():
 
 
 @bp.route('/list-view', methods=['GET'])
+@cache.cached(timeout=300)
 def get_list_view_config():
     """Get list view configuration for all object types"""
     try:
@@ -260,6 +269,7 @@ def update_list_view_config():
 
 
 @bp.route('/list-view/<int:object_type_id>', methods=['GET'])
+@cache.cached(timeout=300, query_string=True)
 def get_list_view_config_by_type(object_type_id):
     """Get list view configuration for a specific object type"""
     try:

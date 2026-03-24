@@ -282,7 +282,10 @@ def get_managed_list(list_id):
             include_links=include_links
         )), 200
     except Exception as e:
-        logger.error(f"Error getting managed list {list_id}: {str(e)}")
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            raise
+        logger.error(f"Error getting managed list {list_id}: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to get managed list'}), 500
 
 

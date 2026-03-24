@@ -1040,6 +1040,22 @@ body {
     justify-content: flex-end;
 }
 
+.pagination-controls {
+    padding: var(--spacing-sm) 0;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    justify-content: center;
+}
+
+.pagination-info {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary, #666);
+}
+
 .basket-header {
     display: flex;
     justify-content: space-between;

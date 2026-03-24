@@ -1,5 +1,6 @@
 from models import db
 from datetime import datetime
+from sqlalchemy import text
 import re
 
 class ObjectType(db.Model):
@@ -20,17 +21,18 @@ class ObjectType(db.Model):
     objects = db.relationship('Object', back_populates='object_type')
 
     def _calculate_next_base_id_number(self):
-        max_number = 0
-        pattern = re.compile(r'^[A-Za-z0-9_]+-(\d+)$')
-        for obj in self.objects:
-            candidate = str(obj.main_id or '').strip().split('.')[0]
-            match = pattern.match(candidate)
-            if not match:
-                continue
-            number = int(match.group(1))
-            if number > max_number:
-                max_number = number
-        return max_number + 1
+        if not hasattr(self, '_next_id_cache'):
+            result = db.session.execute(
+                text("""
+                    SELECT MAX(CAST(SPLIT_PART(REGEXP_REPLACE(main_id, '^[^-]+-', ''), '.', 1) AS INTEGER))
+                    FROM objects
+                    WHERE object_type_id = :type_id
+                      AND main_id ~ '^[A-Za-z0-9_]+-[0-9]+$'
+                """),
+                {'type_id': self.id}
+            ).scalar()
+            self._next_id_cache = (result or 0) + 1
+        return self._next_id_cache
     
     def to_dict(self, include_fields=False):
         result = {

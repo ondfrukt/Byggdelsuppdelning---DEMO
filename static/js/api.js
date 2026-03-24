@@ -4,33 +4,68 @@
 
 const API_BASE_URL = '/api';
 
+// Endpoints that rarely change and are safe to cache in the browser for the session.
+const CACHEABLE_ENDPOINTS = [
+    '/object-types',
+    '/view-config/tree-display',
+    '/view-config/list-view',
+    '/field-templates',
+    '/relation-type-rules',
+    '/field-bindings',
+];
+const _apiCache = new Map(); // key → { data, expiresAt }
+const API_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function _isCacheable(endpoint, method) {
+    if (method && method !== 'GET') return false;
+    return CACHEABLE_ENDPOINTS.some(prefix => endpoint === prefix || endpoint.startsWith(prefix + '?') || endpoint.startsWith(prefix + '/'));
+}
+
+function _invalidateCache() {
+    _apiCache.clear();
+}
+
 /**
  * Generic fetch wrapper with error handling
  */
 async function fetchAPI(endpoint, options = {}) {
+    const method = (options.method || 'GET').toUpperCase();
     const url = `${API_BASE_URL}${endpoint}`;
-    
+
+    // Return cached response for eligible GET requests
+    if (_isCacheable(endpoint, method)) {
+        const cached = _apiCache.get(endpoint);
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.data;
+        }
+    }
+
+    // Bust cache on any write operation
+    if (method !== 'GET') {
+        _invalidateCache();
+    }
+
     const defaultOptions = {
         headers: {
             'Content-Type': 'application/json',
         },
     };
-    
+
     const config = { ...defaultOptions, ...options };
-    
+
     try {
         showLoading();
         const response = await fetch(url, config);
-        
+
         // Check if response is JSON before parsing
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             // If not JSON, it's likely an error page (404, 500, etc.)
             throw new Error(`Server error: ${response.status} ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!response.ok) {
             const error = new Error(data.error || 'An error occurred');
             // Preserve additional error details from backend
@@ -39,7 +74,12 @@ async function fetchAPI(endpoint, options = {}) {
             }
             throw error;
         }
-        
+
+        // Store successful GET responses in cache
+        if (method === 'GET' && _isCacheable(endpoint, method)) {
+            _apiCache.set(endpoint, { data, expiresAt: Date.now() + API_CACHE_TTL_MS });
+        }
+
         return data;
     } catch (error) {
         console.error('API Error:', error);
@@ -139,6 +179,9 @@ const ObjectsAPI = {
         if (filters.page) params.append('page', filters.page);
         if (filters.per_page) params.append('per_page', filters.per_page);
         if (filters.minimal) params.append('minimal', 'true');
+        if (filters.column_filters && Object.keys(filters.column_filters).length > 0) {
+            params.append('column_filters', JSON.stringify(filters.column_filters));
+        }
 
         const query = params.toString();
         return fetchAPI(`/objects${query ? '?' + query : ''}`);

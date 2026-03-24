@@ -5,6 +5,7 @@ from flask import Flask, abort, render_template
 from flask_cors import CORS
 from flask_migrate import Migrate, upgrade
 from config import Config
+from extensions import cache
 from models import db
 from new_database import seed_data
 from routes import register_blueprints
@@ -42,9 +43,10 @@ def create_app():
     # Enable CORS
     CORS(app)
 
-    # Initialize database and migrations
+    # Initialize database, migrations and cache
     db.init_app(app)
     Migrate(app, db)
+    cache.init_app(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 300})
 
     with app.app_context():
         migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')

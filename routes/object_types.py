@@ -1,11 +1,18 @@
 from flask import Blueprint, request, jsonify
 from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate, RelationTypeRule, RelationType
 from routes.relation_type_rules import ensure_complete_relation_rule_matrix
+from extensions import cache
 import json
 import logging
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('object_types', __name__, url_prefix='/api/object-types')
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 REQUIRED_NAME_FIELD = 'namn'
 ALLOWED_DETAIL_WIDTHS = {'full', 'half', 'third'}
@@ -191,6 +198,7 @@ def has_meaningful_field_data(field):
 
 
 @bp.route('', methods=['GET'])
+@cache.cached(timeout=300, query_string=True)
 def list_object_types():
     """List all object types"""
     try:

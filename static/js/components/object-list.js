@@ -32,6 +32,12 @@ class ObjectListComponent {
             sortColumn: null,
             sortDirection: 'asc'
         };
+        this.currentPage = 1;
+        this.perPage = 50;
+        this.totalObjects = 0;
+        this.totalPages = 0;
+        this._searchDebounceTimer = null;
+        this._columnSearchDebounceTimer = null;
         this.textCollator = new Intl.Collator('sv', {
             sensitivity: 'base',
             numeric: true,
@@ -95,6 +101,7 @@ class ObjectListComponent {
                         </tbody>
                     </table>
                 </div>
+                <div id="pagination-${this.containerId}" class="pagination-controls"></div>
             </div>
         `;
         
@@ -104,12 +111,32 @@ class ObjectListComponent {
         this.renderObjects();
     }
 
+    _activeColumnFilters() {
+        const active = {};
+        for (const [field, value] of Object.entries(this.columnSearches)) {
+            if (value) active[field] = value;
+        }
+        return active;
+    }
+
     async _fetchObjectsOnly() {
         try {
-            const filters = {};
+            const filters = { page: this.currentPage, per_page: this.perPage };
             if (this.selectedType) filters.type = this.selectedType;
             if (this.searchTerm) filters.search = this.searchTerm;
-            this.objects = await ObjectsAPI.getAll(filters);
+            const colFilters = this._activeColumnFilters();
+            if (Object.keys(colFilters).length > 0) filters.column_filters = colFilters;
+            const result = await ObjectsAPI.getAllPaginated(filters);
+            if (result && result.items !== undefined) {
+                this.objects = result.items;
+                this.totalObjects = result.total;
+                this.totalPages = result.total_pages;
+                this.currentPage = result.page;
+            } else {
+                this.objects = Array.isArray(result) ? result : [];
+                this.totalObjects = this.objects.length;
+                this.totalPages = 1;
+            }
             if (!this.selectedType) {
                 this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
             }
@@ -128,7 +155,8 @@ class ObjectListComponent {
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 this.searchTerm = e.target.value;
-                this.filterObjects();
+                clearTimeout(this._searchDebounceTimer);
+                this._searchDebounceTimer = setTimeout(() => this.loadObjects(), 350);
             });
         }
 
@@ -204,15 +232,16 @@ class ObjectListComponent {
         });
         if (!nodeIds.size) return;
 
-        await Promise.all([...nodeIds].map(async (nodeId) => {
-            try {
-                const r = await fetch(`/api/category-nodes/${nodeId}?include_path=true`);
-                if (!r.ok) return;
-                const node = await r.json();
+        try {
+            const ids = [...nodeIds].join(',');
+            const r = await fetch(`/api/category-nodes/batch?ids=${ids}`);
+            if (!r.ok) return;
+            const map = await r.json();
+            Object.entries(map).forEach(([id, node]) => {
                 const display = node?.path_string || node?.name;
-                if (display) this.categoryNodePathById.set(nodeId, display);
-            } catch (_) { /* silent */ }
-        }));
+                if (display) this.categoryNodePathById.set(Number(id), display);
+            });
+        } catch (_) { /* silent */ }
     }
 
     async loadGlobalViewConfig() {
@@ -330,16 +359,23 @@ class ObjectListComponent {
     
     async loadObjects() {
         try {
-            const filters = {};
-            if (this.selectedType) {
-                filters.type = this.selectedType;
+            this.currentPage = 1;
+            const filters = { page: this.currentPage, per_page: this.perPage };
+            if (this.selectedType) filters.type = this.selectedType;
+            if (this.searchTerm) filters.search = this.searchTerm;
+            const colFilters = this._activeColumnFilters();
+            if (Object.keys(colFilters).length > 0) filters.column_filters = colFilters;
+            const result = await ObjectsAPI.getAllPaginated(filters);
+            if (result && result.items !== undefined) {
+                this.objects = result.items;
+                this.totalObjects = result.total;
+                this.totalPages = result.total_pages;
+                this.currentPage = result.page;
+            } else {
+                this.objects = Array.isArray(result) ? result : [];
+                this.totalObjects = this.objects.length;
+                this.totalPages = 1;
             }
-            if (this.searchTerm) {
-                filters.search = this.searchTerm;
-            }
-            
-            this.objects = await ObjectsAPI.getAll(filters);
-            // Keep file objects out of the generic "Objekt" view; they belong in the dedicated Filobjekt view.
             if (!this.selectedType) {
                 this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
             }
@@ -437,21 +473,76 @@ class ObjectListComponent {
             input.addEventListener('input', (e) => {
                 const field = e.target.getAttribute('data-field');
                 this.columnSearches[field] = e.target.value;
-                this.renderFilteredObjects();
+                clearTimeout(this._columnSearchDebounceTimer);
+                this._columnSearchDebounceTimer = setTimeout(() => this.loadObjects(), 350);
             });
         });
         activeSearchRow.querySelectorAll('.column-paperclip-filter').forEach(input => {
             input.addEventListener('change', (e) => {
                 const field = e.target.getAttribute('data-field');
                 this.columnSearches[field] = e.target.checked ? '1' : '';
-                this.renderFilteredObjects();
+                this.loadObjects();
             });
         });
         
         this.renderFilteredObjects();
-        
+        this.renderPagination();
+
         // Render column config panel
         this.renderColumnConfig();
+    }
+
+    renderPagination() {
+        const container = document.getElementById(`pagination-${this.containerId}`);
+        if (!container) return;
+        if (this.totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        const start = (this.currentPage - 1) * this.perPage + 1;
+        const end = Math.min(this.currentPage * this.perPage, this.totalObjects);
+        container.innerHTML = `
+            <div class="pagination">
+                <button class="btn btn-secondary btn-sm" id="prev-page-${this.containerId}" ${this.currentPage <= 1 ? 'disabled' : ''}>‹ Föregående</button>
+                <span class="pagination-info">Sida ${this.currentPage} av ${this.totalPages} &nbsp;(${start}–${end} av ${this.totalObjects})</span>
+                <button class="btn btn-secondary btn-sm" id="next-page-${this.containerId}" ${this.currentPage >= this.totalPages ? 'disabled' : ''}>Nästa ›</button>
+            </div>
+        `;
+        document.getElementById(`prev-page-${this.containerId}`)?.addEventListener('click', () => this.goToPage(this.currentPage - 1));
+        document.getElementById(`next-page-${this.containerId}`)?.addEventListener('click', () => this.goToPage(this.currentPage + 1));
+    }
+
+    async goToPage(page) {
+        if (page < 1 || page > this.totalPages) return;
+        this.currentPage = page;
+        try {
+            const filters = { page: this.currentPage, per_page: this.perPage };
+            if (this.selectedType) filters.type = this.selectedType;
+            if (this.searchTerm) filters.search = this.searchTerm;
+            const colFilters = this._activeColumnFilters();
+            if (Object.keys(colFilters).length > 0) filters.column_filters = colFilters;
+            const result = await ObjectsAPI.getAllPaginated(filters);
+            if (result && result.items !== undefined) {
+                this.objects = result.items;
+                this.totalObjects = result.total;
+                this.totalPages = result.total_pages;
+                this.currentPage = result.page;
+            } else {
+                this.objects = Array.isArray(result) ? result : [];
+            }
+            if (!this.selectedType) {
+                this.objects = this.objects.filter(obj => !this.isFileObjectType(obj?.object_type?.name));
+            }
+            const validIds = new Set(this.objects.map(obj => Number(obj.id)));
+            this.selectedObjectIds = new Set(
+                Array.from(this.selectedObjectIds).filter(id => validIds.has(id))
+            );
+            await this.preloadCategoryNodePaths(this.objects);
+            this.renderObjects();
+        } catch (error) {
+            console.error('Failed to load page:', error);
+            showToast('Kunde inte ladda sida', 'error');
+        }
     }
     
     renderFilteredObjects() {
@@ -2408,8 +2499,8 @@ class ObjectListComponent {
             } else {
                 window.currentSelectedObjectId = objectId;
             }
-            this.renderFilteredObjects();
             viewObjectDetail(objectId);
+            this.renderFilteredObjects();
             return;
         }
 
@@ -2422,8 +2513,8 @@ class ObjectListComponent {
             } else {
                 window.currentSelectedObjectId = objectId;
             }
-            this.renderFilteredObjects();
             viewObjectDetail(objectId);
+            this.renderFilteredObjects();
             return;
         }
 
@@ -2439,8 +2530,8 @@ class ObjectListComponent {
         } else {
             window.currentSelectedObjectId = objectId;
         }
-        this.renderFilteredObjects();
         viewObjectDetail(objectId);
+        this.renderFilteredObjects();
     }
 
     selectRangeTo(objectId, preserveExistingSelection = false) {

@@ -2,8 +2,15 @@ from flask import Blueprint, jsonify, request
 from models import db, RelationTypeRule, RelationType, ObjectType, InstanceTypeField, FieldTemplate
 from routes.relation_type_rules import get_available_relation_types, ensure_complete_relation_rule_matrix
 from utils.instance_types import get_instance_type_specs
+from extensions import cache
 
 bp = Blueprint('relation_type_rules_api', __name__, url_prefix='/api/relation-type-rules')
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 
 def _normalize_relation_type(value):
@@ -76,6 +83,7 @@ def _sync_reverse_rule(source_object_type_id, target_object_type_id, relation_ty
 
 
 @bp.route('', methods=['GET'])
+@cache.cached(timeout=300)
 def list_relation_type_rules():
     created = ensure_complete_relation_rule_matrix()
     if created > 0:

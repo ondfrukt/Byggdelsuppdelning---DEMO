@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify
+from sqlalchemy.orm import joinedload, subqueryload
+from extensions import cache
 from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem, Instance, ObjectCategoryAssignment
 from utils.auto_id_generator import (
     generate_base_id,
@@ -21,6 +23,13 @@ logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
+
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
 
 
 def get_display_name(obj, object_type_name, view_config):
@@ -1092,6 +1101,7 @@ def enrich_object_with_file_metadata(payload, obj, relations_lookup=None):
 
 
 @bp.route('', methods=['GET'])
+@cache.cached(timeout=30, query_string=True)
 def list_objects():
     """List all objects with optional filtering and optional pagination."""
     try:
@@ -1100,8 +1110,19 @@ def list_objects():
         minimal = request.args.get('minimal', 'false').lower() == 'true'
         page = request.args.get('page', type=int)
         per_page = request.args.get('per_page', type=int)
+        column_filters_raw = request.args.get('column_filters')
+        column_filters = {}
+        if column_filters_raw:
+            try:
+                column_filters = json.loads(column_filters_raw)
+            except Exception:
+                pass
 
-        query = Object.query
+        query = Object.query.options(
+            joinedload(Object.object_type),
+            subqueryload(Object.object_data).joinedload(ObjectData.field),
+            subqueryload(Object.documents),
+        )
 
         if object_type_name:
             query = query.join(ObjectType).filter(ObjectType.name == object_type_name)
@@ -1118,12 +1139,33 @@ def list_objects():
                 if search_lower in (obj.id_full or '').lower():
                     filtered_objects.append(obj)
                     continue
-
                 for od in obj.object_data:
                     if od.value_text and search_lower in od.value_text.lower():
                         filtered_objects.append(obj)
                         break
             objects = filtered_objects
+
+        for field_name, term in column_filters.items():
+            if not term:
+                continue
+            term_lower = str(term).lower()
+            if field_name == 'files_indicator':
+                objects = [obj for obj in objects if obj.documents]
+            elif field_name == 'id_full':
+                objects = [obj for obj in objects if term_lower in (obj.id_full or '').lower()]
+            elif field_name == 'object_type':
+                objects = [obj for obj in objects if obj.object_type and term_lower in obj.object_type.name.lower()]
+            elif field_name == 'created_at':
+                objects = [obj for obj in objects if obj.created_at and term_lower in obj.created_at.isoformat().lower()]
+            else:
+                objects = [
+                    obj for obj in objects
+                    if any(
+                        od.field and od.field.field_name == field_name
+                        and od.value_text and term_lower in od.value_text.lower()
+                        for od in obj.object_data
+                    )
+                ]
 
         def to_minimal_payload(obj):
             data = obj.to_dict(include_data=True).get('data', {})
@@ -1184,16 +1226,21 @@ def list_objects():
 
 
 @bp.route('/<int:id>', methods=['GET'])
+@cache.cached(timeout=30)
 def get_object(id):
     """Get a specific object with all data and relations"""
     try:
-        obj = Object.query.get_or_404(id)
-        
+        obj = Object.query.options(
+            joinedload(Object.object_type),
+            subqueryload(Object.object_data).joinedload(ObjectData.field),
+            subqueryload(Object.documents),
+        ).filter_by(id=id).first_or_404()
+
         # Try to serialize the object with detailed error handling
         try:
             result = obj.to_dict(
                 include_data=True,
-                include_relations=True,
+                include_relations=False,
                 include_documents=True,
                 include_object_type_fields=True
             )
@@ -1206,9 +1253,12 @@ def get_object(id):
                 }
                 for field_id, override_value in required_overrides.items()
             ]
-            rel_list_values = compute_relation_list_values(obj)
-            if rel_list_values:
-                result.setdefault('data', {}).update(rel_list_values)
+            # Only compute relation_list field values if the object type has such fields
+            fields = getattr(obj.object_type, 'fields', []) or []
+            if any(f.field_type == 'relation_list' for f in fields):
+                rel_list_values = compute_relation_list_values(obj)
+                if rel_list_values:
+                    result.setdefault('data', {}).update(rel_list_values)
             return jsonify(result), 200
         except Exception as serialize_error:
             logger.error(f"Error serializing object {id}: {str(serialize_error)}", exc_info=True)

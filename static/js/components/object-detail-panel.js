@@ -4,6 +4,10 @@
  * Replaces both side-panel and detail-panel implementations
  */
 
+// Module-level cache for managed list IDs confirmed missing (404), so we don't
+// spam the console with the same 404 on every detail-view open.
+const _missingManagedListIds = new Set();
+
 class ObjectDetailPanel {
     constructor(containerId, options = {}) {
         this.container = document.getElementById(containerId);
@@ -37,8 +41,10 @@ class ObjectDetailPanel {
                 }
                 this.objectData = await response.json();
             }
-            await this.preloadManagedListDisplayMaps();
-            await this.preloadCategoryNodeNames();
+            await Promise.all([
+                this.preloadManagedListDisplayMaps(),
+                this.preloadCategoryNodeNames(),
+            ]);
         } catch (error) {
             console.error('Error loading object:', error);
             throw error;
@@ -68,11 +74,14 @@ class ObjectDetailPanel {
             .map(options => Number(options?.list_id))
             .filter(listId => Number.isFinite(listId) && listId > 0);
 
-        const uniqueListIds = Array.from(new Set(managedListIds));
+        const uniqueListIds = Array.from(new Set(managedListIds)).filter(id => !_missingManagedListIds.has(id));
         await Promise.all(uniqueListIds.map(async (listId) => {
             try {
                 const response = await fetch(`/api/managed-lists/${listId}?include_items=true&include_inactive_items=true`);
-                if (!response.ok) return;
+                if (!response.ok) {
+                    if (response.status === 404) _missingManagedListIds.add(listId);
+                    return;
+                }
                 const payload = await response.json();
                 const items = Array.isArray(payload?.items) ? payload.items : [];
                 const byId = new Map();
@@ -104,20 +113,23 @@ class ObjectDetailPanel {
         const fields = Array.isArray(this.objectData?.object_type?.fields)
             ? this.objectData.object_type.fields : [];
         const data = this.objectData?.data || {};
-        const nodeIds = fields
-            .filter(f => String(f?.field_type || '').toLowerCase() === 'category_node')
-            .map(f => parseInt(data[f.field_name], 10))
-            .filter(id => Number.isFinite(id) && id > 0);
+        const nodeIds = [...new Set(
+            fields
+                .filter(f => String(f?.field_type || '').toLowerCase() === 'category_node')
+                .map(f => parseInt(data[f.field_name], 10))
+                .filter(id => Number.isFinite(id) && id > 0)
+        )];
+        if (!nodeIds.length) return;
 
-        await Promise.all([...new Set(nodeIds)].map(async (nodeId) => {
-            try {
-                const r = await fetch(`/api/category-nodes/${nodeId}?include_path=true`);
-                if (!r.ok) return;
-                const node = await r.json();
+        try {
+            const r = await fetch(`/api/category-nodes/batch?ids=${nodeIds.join(',')}`);
+            if (!r.ok) return;
+            const map = await r.json();
+            Object.entries(map).forEach(([id, node]) => {
                 const display = node?.path_string || node?.name;
-                if (display) this.categoryNodeNameById.set(nodeId, display);
-            } catch (_) { /* keep raw id as fallback */ }
-        }));
+                if (display) this.categoryNodeNameById.set(Number(id), display);
+            });
+        } catch (_) { /* keep raw id as fallback */ }
     }
 
     resolveManagedListDisplayValue(value, field) {
