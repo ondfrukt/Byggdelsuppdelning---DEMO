@@ -26,6 +26,18 @@ def _sqlite_date_to_iso(value):
         return text
 
 
+def _sqlite_datetime_to_iso(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text).isoformat()
+    except ValueError:
+        return text
+
+
 def _make_object_seed_key(row):
     full_id = str(row['id_full'] or '').strip()
     main_id = str(row['main_id'] or '').strip()
@@ -222,6 +234,309 @@ def export_defaults(db_path, output_path):
             'is_allowed': bool(rule['is_allowed']),
         })
 
+    managed_list_rows = cur.execute(
+        """
+        SELECT id, code, name, description, allow_multiselect,
+               language_codes, additional_language_code, is_active,
+               created_at, updated_at
+        FROM managed_lists
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    managed_lists = []
+    for managed_list in managed_list_rows:
+        items = cur.execute(
+            """
+            SELECT id, list_id, code, label, description, value, parent_item_id,
+                   level, value_translations, node_metadata, sort_order,
+                   is_active, is_selectable, created_at, updated_at
+            FROM managed_list_items
+            WHERE list_id = ?
+            ORDER BY sort_order ASC, id ASC
+            """,
+            (managed_list['id'],),
+        ).fetchall()
+
+        managed_lists.append({
+            'id': managed_list['id'],
+            'code': managed_list['code'],
+            'name': managed_list['name'],
+            'description': managed_list['description'],
+            'allow_multiselect': bool(managed_list['allow_multiselect']),
+            'language_codes': _normalize_json(managed_list['language_codes']) or [],
+            'additional_language_code': managed_list['additional_language_code'],
+            'is_active': bool(managed_list['is_active']),
+            'created_at': _sqlite_datetime_to_iso(managed_list['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(managed_list['updated_at']),
+            'items': [
+                {
+                    'id': item['id'],
+                    'list_id': item['list_id'],
+                    'code': item['code'],
+                    'label': item['label'],
+                    'description': item['description'],
+                    'value': item['value'],
+                    'parent_item_id': item['parent_item_id'],
+                    'level': item['level'],
+                    'value_translations': _normalize_json(item['value_translations']) or {},
+                    'node_metadata': _normalize_json(item['node_metadata']) or {},
+                    'sort_order': item['sort_order'],
+                    'is_active': bool(item['is_active']),
+                    'is_selectable': bool(item['is_selectable']),
+                    'created_at': _sqlite_datetime_to_iso(item['created_at']),
+                    'updated_at': _sqlite_datetime_to_iso(item['updated_at']),
+                }
+                for item in items
+            ],
+        })
+
+    managed_list_link_rows = cur.execute(
+        """
+        SELECT id, parent_list_id, child_list_id, relation_key, is_active, created_at, updated_at
+        FROM managed_list_links
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    managed_list_links = [
+        {
+            'id': row['id'],
+            'parent_list_id': row['parent_list_id'],
+            'child_list_id': row['child_list_id'],
+            'relation_key': row['relation_key'],
+            'is_active': bool(row['is_active']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in managed_list_link_rows
+    ]
+
+    managed_list_item_link_rows = cur.execute(
+        """
+        SELECT id, list_link_id, parent_item_id, child_item_id, is_active, created_at, updated_at
+        FROM managed_list_item_links
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    managed_list_item_links = [
+        {
+            'id': row['id'],
+            'list_link_id': row['list_link_id'],
+            'parent_item_id': row['parent_item_id'],
+            'child_item_id': row['child_item_id'],
+            'is_active': bool(row['is_active']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in managed_list_item_link_rows
+    ]
+
+    field_list_binding_rows = cur.execute(
+        """
+        SELECT id, object_type, field_name, list_id, selection_mode,
+               allow_only_leaf_selection, is_required, created_at, updated_at
+        FROM field_list_bindings
+        ORDER BY object_type COLLATE NOCASE ASC, field_name COLLATE NOCASE ASC, id ASC
+        """
+    ).fetchall()
+    field_list_bindings = [
+        {
+            'id': row['id'],
+            'object_type': row['object_type'],
+            'field_name': row['field_name'],
+            'list_id': row['list_id'],
+            'selection_mode': row['selection_mode'],
+            'allow_only_leaf_selection': bool(row['allow_only_leaf_selection']),
+            'is_required': bool(row['is_required']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in field_list_binding_rows
+    ]
+
+    field_template_rows = cur.execute(
+        """
+        SELECT id, template_name, field_name, display_name, display_name_translations,
+               field_type, field_options, is_required, lock_required_setting,
+               force_presence_on_all_objects, is_table_visible, help_text,
+               help_text_translations, is_active, created_at, updated_at
+        FROM field_templates
+        ORDER BY template_name COLLATE NOCASE ASC, id ASC
+        """
+    ).fetchall()
+    field_templates = [
+        {
+            'id': row['id'],
+            'template_name': row['template_name'],
+            'field_name': row['field_name'],
+            'display_name': row['display_name'],
+            'display_name_translations': _normalize_json(row['display_name_translations']) or {},
+            'field_type': row['field_type'],
+            'field_options': _normalize_json(row['field_options']),
+            'is_required': bool(row['is_required']),
+            'lock_required_setting': bool(row['lock_required_setting']),
+            'force_presence_on_all_objects': bool(row['force_presence_on_all_objects']),
+            'is_table_visible': bool(row['is_table_visible']),
+            'help_text': row['help_text'],
+            'help_text_translations': _normalize_json(row['help_text_translations']) or {},
+            'is_active': bool(row['is_active']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in field_template_rows
+    ]
+
+    instance_type_field_rows = cur.execute(
+        """
+        SELECT id, instance_type_key, field_template_id, display_order,
+               is_required, created_at, updated_at
+        FROM instance_type_fields
+        ORDER BY instance_type_key COLLATE NOCASE ASC, display_order ASC, id ASC
+        """
+    ).fetchall()
+    field_template_id_to_name = {
+        row['id']: row['template_name']
+        for row in field_template_rows
+    }
+    instance_type_fields = [
+        {
+            'id': row['id'],
+            'instance_type_key': row['instance_type_key'],
+            'field_template_id': row['field_template_id'],
+            'field_template_name': field_template_id_to_name.get(row['field_template_id']),
+            'display_order': row['display_order'],
+            'is_required': bool(row['is_required']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in instance_type_field_rows
+    ]
+
+    classification_system_rows = cur.execute(
+        """
+        SELECT id, name, description, version, is_active, created_at, updated_at
+        FROM classification_systems
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    classification_systems = [
+        {
+            'id': row['id'],
+            'name': row['name'],
+            'description': row['description'],
+            'version': row['version'],
+            'is_active': bool(row['is_active']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in classification_system_rows
+    ]
+
+    category_node_rows = cur.execute(
+        """
+        SELECT id, system_id, parent_id, code, name, level, description,
+               sort_order, is_active, created_at, updated_at
+        FROM category_nodes
+        ORDER BY system_id ASC, level ASC, sort_order ASC, id ASC
+        """
+    ).fetchall()
+    classification_system_names = {
+        row['id']: row['name']
+        for row in classification_system_rows
+    }
+    category_nodes = [
+        {
+            'id': row['id'],
+            'system_id': row['system_id'],
+            'system_name': classification_system_names.get(row['system_id']),
+            'parent_id': row['parent_id'],
+            'code': row['code'],
+            'name': row['name'],
+            'level': row['level'],
+            'description': row['description'],
+            'sort_order': row['sort_order'],
+            'is_active': bool(row['is_active']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in category_node_rows
+    ]
+
+    object_category_assignment_rows = cur.execute(
+        """
+        SELECT id, object_id, category_node_id, is_primary, created_at
+        FROM object_category_assignments
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    object_category_assignments = [
+        {
+            'id': row['id'],
+            'object_id': row['object_id'],
+            'object_seed_key': object_id_to_seed_key.get(row['object_id']),
+            'category_node_id': row['category_node_id'],
+            'is_primary': bool(row['is_primary']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+        }
+        for row in object_category_assignment_rows
+    ]
+
+    instance_rows = cur.execute(
+        """
+        SELECT id, parent_object_id, child_object_id, instance_type, quantity,
+               unit, formula, role, position, waste_factor,
+               installation_sequence, optional, metadata_json, created_at, updated_at
+        FROM instances
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    instances = [
+        {
+            'id': row['id'],
+            'parent_object_id': row['parent_object_id'],
+            'parent_object_seed_key': object_id_to_seed_key.get(row['parent_object_id']),
+            'child_object_id': row['child_object_id'],
+            'child_object_seed_key': object_id_to_seed_key.get(row['child_object_id']),
+            'instance_type': row['instance_type'],
+            'quantity': row['quantity'],
+            'unit': row['unit'],
+            'formula': row['formula'],
+            'role': row['role'],
+            'position': row['position'],
+            'waste_factor': row['waste_factor'],
+            'installation_sequence': row['installation_sequence'],
+            'optional': bool(row['optional']),
+            'metadata_json': _normalize_json(row['metadata_json']),
+            'created_at': _sqlite_datetime_to_iso(row['created_at']),
+            'updated_at': _sqlite_datetime_to_iso(row['updated_at']),
+        }
+        for row in instance_rows
+    ]
+
+    document_rows = cur.execute(
+        """
+        SELECT id, object_id, filename, original_filename, file_path,
+               file_size, mime_type, uploaded_at, uploaded_by
+        FROM documents
+        ORDER BY id ASC
+        """
+    ).fetchall()
+    documents = [
+        {
+            'id': row['id'],
+            'object_id': row['object_id'],
+            'object_seed_key': object_id_to_seed_key.get(row['object_id']),
+            'filename': row['filename'],
+            'original_filename': row['original_filename'],
+            'file_path': row['file_path'],
+            'file_size': row['file_size'],
+            'mime_type': row['mime_type'],
+            'uploaded_at': _sqlite_datetime_to_iso(row['uploaded_at']),
+            'uploaded_by': row['uploaded_by'],
+        }
+        for row in document_rows
+    ]
+
     relation_rows = cur.execute(
         """
         SELECT id, source_object_id, target_object_id, relation_type, description, relation_metadata, created_at
@@ -253,6 +568,17 @@ def export_defaults(db_path, output_path):
         'object_relations': object_relations,
         'relation_types': relation_types,
         'relation_type_rules': relation_type_rules,
+        'managed_lists': managed_lists,
+        'managed_list_links': managed_list_links,
+        'managed_list_item_links': managed_list_item_links,
+        'field_list_bindings': field_list_bindings,
+        'field_templates': field_templates,
+        'instance_type_fields': instance_type_fields,
+        'classification_systems': classification_systems,
+        'category_nodes': category_nodes,
+        'object_category_assignments': object_category_assignments,
+        'instances': instances,
+        'documents': documents,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
