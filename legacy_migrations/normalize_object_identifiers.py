@@ -86,27 +86,34 @@ def run_migration(db):
             db.session.rollback()
 
         duplicates = db.session.execute(text("""
-            SELECT id_full, COUNT(*) AS c
+            SELECT id_full, COUNT(*) AS cnt
             FROM objects
             GROUP BY id_full
-            HAVING c > 1
+            HAVING COUNT(*) > 1
         """)).fetchall()
         if duplicates:
             logger.warning("Skipped unique index on objects.id_full due to duplicate values")
             return updated
 
-        indexes = db.session.execute(text("PRAGMA index_list('objects')")).fetchall()
-        has_unique_id_full_index = False
-        for index in indexes:
-            index_name = index[1]
-            is_unique = bool(index[2])
-            if not is_unique:
-                continue
-            index_info = db.session.execute(text(f"PRAGMA index_info('{index_name}')")).fetchall()
-            columns = [item[2] for item in index_info]
-            if columns == ['id_full']:
-                has_unique_id_full_index = True
-                break
+        dialect = db.engine.dialect.name
+        if dialect == 'sqlite':
+            indexes = db.session.execute(text("PRAGMA index_list('objects')")).fetchall()
+            has_unique_id_full_index = False
+            for index in indexes:
+                index_name = index[1]
+                is_unique = bool(index[2])
+                if not is_unique:
+                    continue
+                index_info = db.session.execute(text(f"PRAGMA index_info('{index_name}')")).fetchall()
+                columns = [item[2] for item in index_info]
+                if columns == ['id_full']:
+                    has_unique_id_full_index = True
+                    break
+        else:
+            result = db.session.execute(text(
+                "SELECT 1 FROM pg_indexes WHERE tablename = 'objects' AND indexname = 'uq_objects_id_full'"
+            )).fetchone()
+            has_unique_id_full_index = result is not None
 
         if not has_unique_id_full_index:
             db.session.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_objects_id_full ON objects(id_full)"))
