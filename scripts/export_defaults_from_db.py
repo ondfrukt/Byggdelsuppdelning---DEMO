@@ -246,6 +246,109 @@ def export_defaults(db_path, output_path):
             'created_at': relation_row['created_at'],
         })
 
+    system_rows = cur.execute(
+        """
+        SELECT id, name, description, version, is_active
+        FROM classification_systems
+        ORDER BY id ASC
+        """
+    ).fetchall()
+
+    classification_systems = [
+        {
+            'id': row['id'],
+            'name': row['name'],
+            'description': row['description'],
+            'version': row['version'],
+            'is_active': bool(row['is_active']),
+        }
+        for row in system_rows
+    ]
+
+    node_rows = cur.execute(
+        """
+        SELECT id, system_id, parent_id, code, name, level, description, sort_order, is_active
+        FROM category_nodes
+        ORDER BY level ASC, id ASC
+        """
+    ).fetchall()
+
+    category_nodes = [
+        {
+            'id': row['id'],
+            'system_id': row['system_id'],
+            'parent_id': row['parent_id'],
+            'code': row['code'],
+            'name': row['name'],
+            'level': row['level'],
+            'description': row['description'],
+            'sort_order': row['sort_order'],
+            'is_active': bool(row['is_active']),
+        }
+        for row in node_rows
+    ]
+
+    # Managed lists
+    list_rows = cur.execute(
+        "SELECT id, code, name, description, is_active FROM managed_lists ORDER BY id ASC"
+    ).fetchall()
+    managed_lists = []
+    for lst in list_rows:
+        item_rows = cur.execute(
+            """
+            SELECT id, code, label, value, sort_order, level, parent_item_id,
+                   is_active, is_selectable, value_translations, node_metadata, description
+            FROM managed_list_items
+            WHERE list_id = ?
+            ORDER BY sort_order ASC, id ASC
+            """,
+            (lst['id'],),
+        ).fetchall()
+        items = []
+        for item in item_rows:
+            items.append({
+                'id': item['id'],
+                'code': item['code'],
+                'label': item['label'],
+                'value': item['value'],
+                'sort_order': item['sort_order'],
+                'level': item['level'],
+                'parent_item_id': item['parent_item_id'],
+                'is_active': bool(item['is_active']),
+                'is_selectable': bool(item['is_selectable']),
+                'value_translations': _normalize_json(item['value_translations']),
+                'node_metadata': _normalize_json(item['node_metadata']),
+                'description': item['description'],
+            })
+        managed_lists.append({
+            'id': lst['id'],
+            'code': lst['code'],
+            'name': lst['name'],
+            'description': lst['description'],
+            'is_active': bool(lst['is_active']),
+            'items': items,
+        })
+
+    # Instance type fields (reference field templates by field_name for portability)
+    itf_rows = cur.execute(
+        """
+        SELECT itf.id, itf.instance_type_key, itf.display_order, itf.is_required,
+               ft.field_name AS template_field_name
+        FROM instance_type_fields itf
+        JOIN field_templates ft ON itf.field_template_id = ft.id
+        ORDER BY itf.instance_type_key, itf.display_order ASC
+        """
+    ).fetchall()
+    instance_type_fields = [
+        {
+            'instance_type_key': row['instance_type_key'],
+            'template_field_name': row['template_field_name'],
+            'display_order': row['display_order'],
+            'is_required': bool(row['is_required']),
+        }
+        for row in itf_rows
+    ]
+
     payload = {
         'version': 1,
         'object_types': object_types,
@@ -253,6 +356,10 @@ def export_defaults(db_path, output_path):
         'object_relations': object_relations,
         'relation_types': relation_types,
         'relation_type_rules': relation_type_rules,
+        'classification_systems': classification_systems,
+        'category_nodes': category_nodes,
+        'managed_lists': managed_lists,
+        'instance_type_fields': instance_type_fields,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

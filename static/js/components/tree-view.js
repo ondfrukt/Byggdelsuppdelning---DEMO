@@ -70,6 +70,7 @@ class TreeView {
             columnVisibility: true,
             resizableColumns: true,
             reorderableColumns: true,
+            defaultExpanded: false,
             columns: this._buildColumns(),
             onRender: () => this._onAfterRender(),
         });
