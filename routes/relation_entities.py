@@ -78,7 +78,7 @@ def create_relation():
 
     source_object_id = data.get('source_object_id') or data.get('objectA_id')
     target_object_id = data.get('target_object_id') or data.get('objectB_id')
-    relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
+    relation_type = (data.get('relation_type') or 'auto').strip().lower() or 'auto'
 
     if not source_object_id or not target_object_id:
         return jsonify({'error': 'source_object_id/objectA_id and target_object_id/objectB_id are required'}), 400
