@@ -66,7 +66,22 @@ class TreeView {
             emptyText: this._emptyText(),
             globalSearch: true,
             columnSearch: true,
-            selectable: false,
+            selectable: true,
+            getRowId: (row) => row._node?.type === 'category_node' ? null : row._nodeId,
+            batchActions: [
+                {
+                    label: 'Massredigera',
+                    action: (selectedRows) => {
+                        const ids = selectedRows
+                            .filter(r => r._node?.type !== 'category_node')
+                            .map(r => parseInt(r._nodeId, 10))
+                            .filter(id => Number.isFinite(id));
+                        if (ids.length && typeof openBulkEditForObjectIds === 'function') {
+                            openBulkEditForObjectIds(ids);
+                        }
+                    }
+                }
+            ],
             columnVisibility: true,
             resizableColumns: true,
             reorderableColumns: true,
@@ -212,6 +227,16 @@ class TreeView {
                 className: 'col-default',
                 width: 160,
                 hidden: !f.is_tree_visible,
+                // value() is used by _nodeMatchesTable for column search — must return plain text
+                value: (node) => {
+                    if (node.type === 'category_node') return '';
+                    const raw = node.data?.[f.field_name];
+                    if (raw == null || raw === '') return '';
+                    if (f.field_type === 'category_node') {
+                        return this._categoryNodePathById[String(raw)] || String(raw);
+                    }
+                    return Array.isArray(raw) ? raw.join(', ') : String(raw);
+                },
                 render: (node, table) => {
                     if (node.type === 'category_node') return '';
                     const raw = node.data?.[f.field_name];
@@ -260,6 +285,8 @@ class TreeView {
             // Let toggle handle itself
             if (e.target.closest('.tree-toggle')) return;
             if (e.target.closest('a, button')) return;
+            // Modifier keys are handled by the selection mechanism
+            if (e.shiftKey || e.ctrlKey || e.metaKey) return;
 
             const tr = e.target.closest('tr.tree-node');
             if (!tr) return;

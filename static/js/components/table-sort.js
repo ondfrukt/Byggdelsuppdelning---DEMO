@@ -114,7 +114,8 @@ class TableSort {
         if (typeof this.onSortChange === 'function') {
             this.onSortChange({
                 sortColumn: this.sortColumn,
-                sortDirection: this.sortDirection
+                sortDirection: this.sortDirection,
+                sortField: header?.dataset?.columnKey || null
             });
         }
     }

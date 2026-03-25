@@ -118,6 +118,13 @@ class TreeTable {
             ? `<span class="tree-toggle ${_isExpanded ? 'expanded' : ''}" data-toggle-node="${table.escape(_nodeId || '')}">❯</span>`
             : '<span class="tree-spacer"></span>';
 
+        const rowId = table.selectable ? table.getRowId(row) : null;
+        const isSelected = rowId != null && table.selectedRowIds.has(rowId);
+        const selectedClass = isSelected ? ' system-table-row-selected' : '';
+        const selectableAttr = rowId != null
+            ? ` data-row-id="${table.escape(String(rowId))}" data-row-index="${index}" style="cursor:pointer;user-select:none;"`
+            : '';
+
         const rowClasses = ['tree-node', _hasChildren ? 'has-children' : ''].filter(Boolean).join(' ');
 
         const cells = table.getOrderedColumns().map(column => {
@@ -145,7 +152,7 @@ class TreeTable {
             return `<td class="${className}"${styleAttr}${colKey}>${value}</td>`;
         }).join('');
 
-        return `<tr class="${rowClasses}" data-row-index="${index}" data-node-id="${table.escape(_nodeId || '')}" data-tree-level="${_level}">${cells}</tr>`;
+        return `<tr class="${rowClasses}${selectedClass}" data-row-index="${index}"${selectableAttr} data-node-id="${table.escape(_nodeId || '')}" data-tree-level="${_level}">${cells}</tr>`;
     }
 
     // --- Expand / collapse ---

@@ -528,6 +528,31 @@ body {
     min-width: 120px;
 }
 
+/* Cell-innehållswrapper — begränsar bredden till max 3× standardkolumnbredd (360px).
+   Innehåll som inte får plats trunkeras med ellipsis; full text visas via title-attributet. */
+.data-table td .td-cell-content {
+    display: block;
+    max-width: 360px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Richtext-celler renderas som HTML med begränsad höjd (ca 3 rader) */
+.data-table td .td-cell-richtext {
+    white-space: normal;
+    max-height: 4.5em;
+    line-height: 1.5;
+    text-overflow: clip;
+}
+
+/* Richtext-cellinnehåll — nollställ marginaler för block-element inne i cellen */
+.data-table td .td-cell-richtext p,
+.data-table td .td-cell-richtext ul,
+.data-table td .td-cell-richtext ol {
+    margin: 0 0 0.25em;
+}
+
 .data-table thead {
     background-color: var(--bg-tertiary);
     position: relative;

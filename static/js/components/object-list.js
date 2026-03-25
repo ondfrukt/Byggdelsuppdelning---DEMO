@@ -30,7 +30,8 @@ class ObjectListComponent {
         this.bulkManagedMultiImportRowsByField = {};
         this.tableSortState = {
             sortColumn: null,
-            sortDirection: 'asc'
+            sortDirection: 'asc',
+            sortField: null
         };
         this.currentPage = 1;
         this.perPage = 50;
@@ -126,6 +127,10 @@ class ObjectListComponent {
             if (this.searchTerm) filters.search = this.searchTerm;
             const colFilters = this._activeColumnFilters();
             if (Object.keys(colFilters).length > 0) filters.column_filters = colFilters;
+            if (this.tableSortState?.sortField) {
+                filters.sort_field = this.tableSortState.sortField;
+                filters.sort_direction = this.tableSortState.sortDirection || 'asc';
+            }
             const result = await ObjectsAPI.getAllPaginated(filters);
             if (result && result.items !== undefined) {
                 this.objects = result.items;
@@ -595,7 +600,12 @@ class ObjectListComponent {
                     const displayValue = this.formatColumnValue(obj, col.field_name, value, col);
                     const colClass = this.getColumnClass(col);
                     const sortValue = this.getSortableColumnValue(obj, col.field_name, value);
-                    return `<td data-value="${escapeHtml(String(sortValue))}" class="${colClass}">${displayValue}</td>`;
+                    const isRichtext = col.field_type === 'richtext';
+                    const plainText = isRichtext
+                        ? (typeof stripHtmlTags === 'function' ? stripHtmlTags(String(value || '')) : String(value || ''))
+                        : this.getResolvedColumnText(col.field_name, value, col);
+                    const wrapClass = isRichtext ? 'td-cell-content td-cell-richtext' : 'td-cell-content';
+                    return `<td data-value="${escapeHtml(String(sortValue))}" class="${colClass}" title="${escapeHtml(plainText)}"><div class="${wrapClass}">${displayValue}</div></td>`;
                 }).join('')}
             </tr>
         `).join('');
@@ -627,10 +637,17 @@ class ObjectListComponent {
         if (typeof TableSort !== 'undefined' && table.id) {
             this.tableSortInstance = new TableSort(table.id);
             this.tableSortInstance.onSortChange = (state) => {
+                const sortField = state?.sortField || null;
                 this.tableSortState = {
                     sortColumn: Number.isFinite(Number(state?.sortColumn)) ? Number(state.sortColumn) : null,
-                    sortDirection: state?.sortDirection === 'desc' ? 'desc' : 'asc'
+                    sortDirection: state?.sortDirection === 'desc' ? 'desc' : 'asc',
+                    sortField: sortField
                 };
+                if (sortField && this.totalPages > 1) {
+                    // Sort affects all pages — re-fetch from page 1 with server-side sort
+                    this.currentPage = 1;
+                    this._fetchObjectsOnly().then(() => this.renderTable());
+                }
             };
             this.tableSortInstance.setState(this.tableSortState);
             this.tableSortInstance.applyCurrentSort();
@@ -1341,7 +1358,7 @@ class ObjectListComponent {
                 decoder.innerHTML = html;
                 html = decoder.value || '';
             }
-            return this.highlightText(stripHtmlTags(html), fieldName);
+            return html;
         }
 
         if (typeof resolvedValue === 'string' && /<[^>]+>/.test(resolvedValue)) {
@@ -2132,6 +2149,17 @@ class ObjectListComponent {
             `;
         }
 
+        if (field.fieldType === 'tag') {
+            const currentTags = field.varies ? [] : (Array.isArray(value) ? value : (value ? String(value).split(',').map(s => s.trim()).filter(Boolean) : []));
+            return `
+                <div class="form-group">
+                    <label for="${id}">${escapeHtml(field.displayName)}</label>
+                    <input type="text" id="${id}" class="form-control bulk-edit-input" data-field-key="${field.key}" data-field-type="tag" value="${escapeHtml(currentTags.join(', '))}" placeholder="${field.varies ? 'Varierar — ange kommaseparerade taggar' : 'Kommaseparerade taggar'}">
+                    <small class="form-help">${field.varies ? 'Varierar. Ange taggar för att ersätta alla markerade objekts taggar.' : 'Gemensamma taggar. Separera med komma.'}</small>
+                </div>
+            `;
+        }
+
         if (field.fieldType === 'textarea') {
             return `
                 <div class="form-group">
@@ -2214,6 +2242,11 @@ class ObjectListComponent {
                 ${variesLabel}
             </div>
         `;
+    }
+
+    async openBulkEditForIds(ids) {
+        this.selectedObjectIds = new Set((ids || []).map(Number).filter(id => Number.isFinite(id)));
+        await this.openBulkEditModal();
     }
 
     async openBulkEditModal() {
@@ -2346,6 +2379,9 @@ class ObjectListComponent {
                     .filter(Boolean);
                 if (!selectedValues.length) return;
                 parsedValue = selectedValues;
+            } else if (fieldType === 'tag') {
+                if (rawValue === '') return;
+                parsedValue = rawValue.split(',').map(s => s.trim()).filter(Boolean);
             } else if (fieldType === 'number' || fieldType === 'decimal') {
                 if (rawValue === '') return;
                 const num = Number(rawValue);

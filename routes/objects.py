@@ -1110,6 +1110,8 @@ def list_objects():
         minimal = request.args.get('minimal', 'false').lower() == 'true'
         page = request.args.get('page', type=int)
         per_page = request.args.get('per_page', type=int)
+        sort_field = request.args.get('sort_field')
+        sort_direction = request.args.get('sort_direction', 'asc')
         column_filters_raw = request.args.get('column_filters')
         column_filters = {}
         if column_filters_raw:
@@ -1166,6 +1168,23 @@ def list_objects():
                         for od in obj.object_data
                     )
                 ]
+
+        _SKIP_SORT = {'files_indicator', 'files', '__select__', ''}
+        if sort_field and sort_field not in _SKIP_SORT:
+            _reverse = sort_direction == 'desc'
+            if sort_field == 'id_full':
+                objects.sort(key=lambda o: (o.id_full or '').lower(), reverse=_reverse)
+            elif sort_field == 'object_type':
+                objects.sort(key=lambda o: (o.object_type.name if o.object_type else '').lower(), reverse=_reverse)
+            elif sort_field == 'created_at':
+                objects.sort(key=lambda o: o.created_at or '', reverse=_reverse)
+            else:
+                def _data_val(o, _f=sort_field):
+                    for od in o.object_data:
+                        if od.field and od.field.field_name == _f:
+                            return (od.value_text or '').lower()
+                    return ''
+                objects.sort(key=_data_val, reverse=_reverse)
 
         def to_minimal_payload(obj):
             data = obj.to_dict(include_data=True).get('data', {})

@@ -195,6 +195,14 @@ async function loadObjectsView(options = {}) {
     await currentObjectListComponent.render();
 }
 
+async function openBulkEditForObjectIds(objectIds) {
+    if (!Array.isArray(objectIds) || !objectIds.length) return;
+    if (!currentObjectListComponent) {
+        currentObjectListComponent = new ObjectListComponent('objects-container', null);
+    }
+    await currentObjectListComponent.openBulkEditForIds(objectIds);
+}
+
 async function loadFileObjectsView() {
     closeFileObjectDetailPanel();
     currentFileObjectsDetailPanelInstance = null;

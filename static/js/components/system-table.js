@@ -750,6 +750,18 @@ class SystemTable {
         }
 
         if (value === null || value === undefined || value === '') return '-';
+
+        const isRichtext = column.fieldType === 'richtext' || column.field_type === 'richtext';
+        if (isRichtext && typeof value === 'string') {
+            let html = value;
+            if (!/<\s*[a-z][^>]*>/i.test(html) && /&lt;\s*[a-z][^&]*&gt;/i.test(html)) {
+                const decoder = document.createElement('textarea');
+                decoder.innerHTML = html;
+                html = decoder.value || '';
+            }
+            return html;
+        }
+
         const isTextareaColumn = column.multiline === true
             || column.fieldType === 'textarea'
             || column.field_type === 'textarea';
@@ -1058,7 +1070,16 @@ class SystemTable {
 
                 return `
                     <tr data-row-index="${index}"${selectableAttr} class="${this.escape(this.rowClassName)}${selectedClass}">
-                        ${orderedColumns.map(column => `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}">${this.renderCell(row, column)}</td>`).join('')}
+                        ${orderedColumns.map(column => {
+                            const cellContent = this.renderCell(row, column);
+                            const isRichtext = column.fieldType === 'richtext' || column.field_type === 'richtext';
+                            const rawValue = this.getCellValue(row, column);
+                            const plainText = isRichtext && typeof rawValue === 'string'
+                                ? (typeof stripHtmlTags === 'function' ? stripHtmlTags(rawValue) : rawValue)
+                                : this.getCellTextForFilter(row, column);
+                            const wrapClass = isRichtext ? 'td-cell-content td-cell-richtext' : 'td-cell-content';
+                            return `<td class="${column.className || 'col-default'}" data-column-key="${this.escape(column.field)}" title="${this.escape(plainText)}"><div class="${wrapClass}">${cellContent}</div></td>`;
+                        }).join('')}
                     </tr>
                 `;
             }).join('')

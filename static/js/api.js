@@ -182,6 +182,8 @@ const ObjectsAPI = {
         if (filters.column_filters && Object.keys(filters.column_filters).length > 0) {
             params.append('column_filters', JSON.stringify(filters.column_filters));
         }
+        if (filters.sort_field) params.append('sort_field', filters.sort_field);
+        if (filters.sort_direction) params.append('sort_direction', filters.sort_direction);
 
         const query = params.toString();
         return fetchAPI(`/objects${query ? '?' + query : ''}`);
