@@ -232,6 +232,9 @@ class TreeView {
                     if (node.type === 'category_node') return '';
                     const raw = node.data?.[f.field_name];
                     if (raw == null || raw === '') return '';
+                    if (f.field_type === 'richtext') {
+                        return typeof stripHtmlTags === 'function' ? stripHtmlTags(String(raw)) : String(raw);
+                    }
                     if (f.field_type === 'category_node') {
                         return this._categoryNodePathById[String(raw)] || String(raw);
                     }
@@ -243,12 +246,13 @@ class TreeView {
                     if (raw == null || raw === '') return '';
                     if (f.field_type === 'richtext') {
                         let html = String(raw);
-                        if (!/<\s*[a-z][^>]*>/i.test(html) && /&lt;\s*[a-z][^&]*&gt;/i.test(html)) {
+                        // Decode HTML entities if no real HTML tags found
+                        if (!/<[a-z]/i.test(html) && html.includes('&lt;')) {
                             const decoder = document.createElement('textarea');
                             decoder.innerHTML = html;
-                            html = decoder.value || '';
+                            if (decoder.value) html = decoder.value;
                         }
-                        return html;
+                        return `<div class="td-cell-richtext" data-rt-tooltip="${escapeHtml(html)}">${html}</div>`;
                     }
                     let str;
                     if (f.field_type === 'category_node') {

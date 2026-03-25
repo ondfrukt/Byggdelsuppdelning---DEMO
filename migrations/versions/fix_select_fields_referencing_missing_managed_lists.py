@@ -40,6 +40,8 @@ def upgrade():
             options = raw_options if isinstance(raw_options, dict) else json.loads(raw_options or '{}')
         except (ValueError, TypeError):
             continue
+        if not isinstance(options, dict):
+            continue
         if options.get('source') != 'managed_list':
             continue
         list_id = options.get('list_id')

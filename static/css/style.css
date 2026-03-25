@@ -543,7 +543,7 @@ body {
     white-space: normal;
     max-height: 4.5em;
     line-height: 1.5;
-    text-overflow: clip;
+    overflow: hidden;
 }
 
 /* Richtext-cellinnehåll — nollställ marginaler för block-element inne i cellen */
