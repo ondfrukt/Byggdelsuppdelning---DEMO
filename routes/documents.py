@@ -8,12 +8,21 @@ except Exception:  # pragma: no cover - optional dependency handling
 from werkzeug.utils import secure_filename
 from models import db, Object, Document
 from utils.validators import sanitize_filename, validate_file_upload
+from extensions import cache
 import os
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('documents', __name__, url_prefix='/api/objects')
+
+
+@bp.after_request
+def invalidate_cache_on_write(response):
+    if request.method != 'GET' and response.status_code < 400:
+        cache.clear()
+    return response
+
 
 # Configuration
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))

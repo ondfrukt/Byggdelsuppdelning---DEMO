@@ -2131,11 +2131,14 @@ async function openFileObjectDetailPanel(objectId) {
     const panelBody = document.getElementById('file-objects-detail-body');
     const panelTitle = document.getElementById('file-objects-detail-title');
     const panelCategory = document.getElementById('file-objects-detail-category');
+    const deleteBtn = document.getElementById('file-objects-detail-delete-btn');
 
     if (!panel || !panelBody) return;
 
     try {
         panel.classList.add('active');
+        window.currentFileObjectDetailId = objectId;
+        if (deleteBtn) deleteBtn.style.display = '';
 
         const object = await ObjectsAPI.getById(objectId);
         if (panelTitle) {
@@ -2166,16 +2169,37 @@ async function openFileObjectDetailPanel(objectId) {
     }
 }
 
+async function deleteCurrentFileObject() {
+    const objectId = window.currentFileObjectDetailId;
+    if (!Number.isFinite(objectId)) return;
+    if (!confirm('Är du säker på att du vill ta bort detta filobjekt?')) return;
+
+    try {
+        await ObjectsAPI.delete(objectId);
+        showToast('Filobjekt borttaget', 'success');
+        closeFileObjectDetailPanel();
+        if (currentFileObjectsViewComponent) {
+            await currentFileObjectsViewComponent.render();
+        }
+    } catch (error) {
+        console.error('Failed to delete file object:', error);
+        showToast(error.message || 'Kunde inte ta bort filobjekt', 'error');
+    }
+}
+
 function closeFileObjectDetailPanel() {
     const panel = document.getElementById('file-objects-detail-panel');
     const panelTitle = document.getElementById('file-objects-detail-title');
     const panelCategory = document.getElementById('file-objects-detail-category');
     const panelBody = document.getElementById('file-objects-detail-body');
+    const deleteBtn = document.getElementById('file-objects-detail-delete-btn');
 
     if (panel) panel.classList.remove('active');
     if (panelTitle) panelTitle.textContent = 'Objektdetaljer';
     if (panelCategory) panelCategory.textContent = 'Kategori: -';
     if (panelBody) panelBody.innerHTML = '<p class="empty-state">Välj ett filobjekt att visa</p>';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    window.currentFileObjectDetailId = null;
 
     if (currentFileObjectsDetailPanelInstance) {
         currentFileObjectsDetailPanelInstance.close();

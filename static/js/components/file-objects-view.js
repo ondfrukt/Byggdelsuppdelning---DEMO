@@ -87,6 +87,7 @@ class FileObjectsViewComponent {
                             <p id="file-objects-detail-category" class="detail-panel-category">Kategori: -</p>
                         </div>
                         <div class="detail-panel-header-actions">
+                            <button class="btn btn-sm btn-danger" type="button" id="file-objects-detail-delete-btn" style="display:none" onclick="deleteCurrentFileObject()">Ta bort</button>
                             <button class="detail-panel-close" type="button" onclick="closeFileObjectDetailPanel()">&times;</button>
                         </div>
                     </div>
