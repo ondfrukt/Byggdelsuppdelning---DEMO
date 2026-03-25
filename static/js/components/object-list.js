@@ -1039,7 +1039,13 @@ class ObjectListComponent {
 
     normalizeSortableText(value) {
         const asString = String(value ?? '');
-        const stripped = /<[^>]+>/.test(asString) ? stripHtmlTags(asString) : asString;
+        let html = asString;
+        if (!/<\s*[a-z][^>]*>/i.test(html) && /&lt;\s*[a-z][^&]*&gt;/i.test(html)) {
+            const decoder = document.createElement('textarea');
+            decoder.innerHTML = html;
+            html = decoder.value || html;
+        }
+        const stripped = /<[^>]+>/.test(html) ? stripHtmlTags(html) : html;
         return stripped.replace(/\s+/g, ' ').trim();
     }
 
@@ -1326,6 +1332,16 @@ class ObjectListComponent {
 
         if (resolvedValue && typeof resolvedValue === 'object') {
             return this.highlightText(JSON.stringify(resolvedValue), fieldName);
+        }
+
+        if (column?.field_type === 'richtext' && typeof resolvedValue === 'string') {
+            let html = resolvedValue;
+            if (!/<\s*[a-z][^>]*>/i.test(html) && /&lt;\s*[a-z][^&]*&gt;/i.test(html)) {
+                const decoder = document.createElement('textarea');
+                decoder.innerHTML = html;
+                html = decoder.value || '';
+            }
+            return this.highlightText(stripHtmlTags(html), fieldName);
         }
 
         if (typeof resolvedValue === 'string' && /<[^>]+>/.test(resolvedValue)) {
