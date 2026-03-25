@@ -95,7 +95,7 @@ def create_relation(id):
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
-        relation_type = (data.get('relation_type') or DEFAULT_RELATION_TYPE).strip().lower() or DEFAULT_RELATION_TYPE
+        relation_type = (data.get('relation_type') or 'auto').strip().lower() or 'auto'
         relation_type, source_object, target_object, _ = normalize_relation_direction(
             relation_type=relation_type,
             source_object=source_object,
