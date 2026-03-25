@@ -877,7 +877,8 @@ class FileUploadComponent {
 
                 // 3) Koppla filobjektet till aktivt objekt
                 await ObjectsAPI.addRelation(this.objectId, {
-                    target_object_id: createdObject.id
+                    target_object_id: createdObject.id,
+                    relation_type: 'auto'
                 });
                 createdCount += 1;
             }
@@ -926,7 +927,8 @@ class FileUploadComponent {
 
         try {
             await Promise.all(selectedIds.map(targetId => ObjectsAPI.addRelation(this.objectId, {
-                target_object_id: targetId
+                target_object_id: targetId,
+                relation_type: 'auto'
             })));
 
             showToast('Valda filobjekt kopplades', 'success');
