@@ -1373,6 +1373,10 @@ class ObjectListComponent {
     }
 
     getResolvedColumnText(fieldName, value, column = null) {
+        if (fieldName === 'files') {
+            const files = Array.isArray(value) ? value : [];
+            return files.map(f => f.original_filename || f.filename || '').filter(Boolean).join(' ');
+        }
         const resolvedValue = this.resolveFieldDisplayValue(value, fieldName, column);
         return this.stringifyResolvedValue(resolvedValue);
     }

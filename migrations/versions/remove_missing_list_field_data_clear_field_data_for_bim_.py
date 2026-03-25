@@ -30,10 +30,8 @@ def upgrade():
         field_ids = [row[0] for row in result]
         if not field_ids:
             continue
-        conn.execute(
-            text("DELETE FROM object_data WHERE field_id = ANY(:ids)"),
-            {'ids': field_ids}
-        )
+        placeholders = ','.join(str(int(fid)) for fid in field_ids)
+        conn.execute(text(f"DELETE FROM object_data WHERE field_id IN ({placeholders})"))
 
 
 def downgrade():

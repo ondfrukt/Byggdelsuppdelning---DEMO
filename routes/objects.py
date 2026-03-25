@@ -21,7 +21,7 @@ import html
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('objects', __name__, url_prefix='/api/objects')
-PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 
 
@@ -1159,6 +1159,14 @@ def list_objects():
                 objects = [obj for obj in objects if obj.object_type and term_lower in obj.object_type.name.lower()]
             elif field_name == 'created_at':
                 objects = [obj for obj in objects if obj.created_at and term_lower in obj.created_at.isoformat().lower()]
+            elif field_name == 'files':
+                def _file_matches(obj, _t=term_lower):
+                    for doc_dict in collect_tree_files_for_object(obj, relations_lookup):
+                        fn = (doc_dict.get('original_filename') or doc_dict.get('filename') or '').lower()
+                        if _t in fn:
+                            return True
+                    return False
+                objects = [obj for obj in objects if _file_matches(obj)]
             else:
                 objects = [
                     obj for obj in objects

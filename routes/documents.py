@@ -25,7 +25,7 @@ def invalidate_cache_on_write(response):
 
 
 # Configuration
-PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {
     '.xls', '.xlsx',          # Excel

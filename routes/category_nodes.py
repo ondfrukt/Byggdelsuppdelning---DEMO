@@ -430,6 +430,10 @@ def object_tree():
             'file_count': 0,
         }
 
+    def _is_file_type(type_name):
+        normalized = (type_name or '').strip().lower().replace(' ', '')
+        return normalized in {'filobjekt', 'fileobject'}
+
     def _build_obj_node(obj):
         node = _obj_dict(obj)
         related = sorted(
@@ -437,6 +441,7 @@ def object_tree():
                 objects_map[tid]
                 for tid, _ in relations_by_source.get(obj.id, [])
                 if tid in objects_map and objects_map[tid].object_type
+                and not _is_file_type(objects_map[tid].object_type.name)
             ),
             key=lambda o: o.id_full or ''
         )
@@ -448,7 +453,7 @@ def object_tree():
         child_cat_nodes = children_by_parent.get(cat_node.id, [])
         children = [_build_cat_node(c) for c in child_cat_nodes]
         for obj in sorted(objects_by_node.get(cat_node.id, []), key=lambda o: o.id_full or ''):
-            if obj and obj.object_type:
+            if obj and obj.object_type and not _is_file_type(obj.object_type.name):
                 children.append(_build_obj_node(obj))
         return {
             'id': f'cat-{cat_node.id}',
