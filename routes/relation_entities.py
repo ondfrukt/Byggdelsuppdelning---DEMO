@@ -251,7 +251,12 @@ def create_relations_batch():
             description=metadata.get('description') if isinstance(metadata, dict) else None
         )
         db.session.add(relation)
-        db.session.flush()
+        try:
+            db.session.flush()
+        except Exception as exc:
+            db.session.rollback()
+            errors.append({'index': index, 'targetId': target_id, 'error': str(exc)})
+            continue
         created.append(relation.to_dict(include_objects=True))
         if target_id_full:
             batch_linked_id_fulls.add(target_id_full)
