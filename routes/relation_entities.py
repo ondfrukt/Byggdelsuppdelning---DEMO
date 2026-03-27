@@ -129,8 +129,6 @@ def create_relation():
         source_object_id=source_object_id,
         target_object_id=target_object_id,
         relation_type=relation_type,
-        max_targets_per_source=max_targets_per_source,
-        max_sources_per_target=max_sources_per_target,
         description=data.get('description'),
         relation_metadata=data.get('metadata', {})
     )
@@ -249,8 +247,6 @@ def create_relations_batch():
             source_object_id=normalized_source_id,
             target_object_id=normalized_target_id,
             relation_type=relation_type,
-            max_targets_per_source=max_targets_per_source,
-            max_sources_per_target=max_sources_per_target,
             relation_metadata=metadata,
             description=metadata.get('description') if isinstance(metadata, dict) else None
         )
