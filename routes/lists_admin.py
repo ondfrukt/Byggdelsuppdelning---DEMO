@@ -421,7 +421,7 @@ def delete_list_definition(list_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting list definition {list_id}: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Failed to delete list', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to delete list'}), 500
 
 
 @bp.route('/lists/<int:list_id>/tree', methods=['GET'])

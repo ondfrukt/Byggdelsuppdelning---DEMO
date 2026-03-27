@@ -8,7 +8,7 @@ except Exception:  # pragma: no cover - optional dependency handling
 from werkzeug.utils import secure_filename
 from models import db, Object, Document
 from utils.validators import sanitize_filename, validate_file_upload
-from extensions import cache
+from extensions import cache, limiter
 import os
 import logging
 from datetime import datetime
@@ -146,6 +146,7 @@ def list_documents(id):
 
 
 @bp.route('/<int:id>/documents', methods=['POST'])
+@limiter.limit("20 per minute")
 def upload_document(id):
     """Upload a document for an object"""
     try:
@@ -204,7 +205,7 @@ def upload_document(id):
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error uploading document: {str(e)}")
-        return jsonify({'error': 'Failed to upload document', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to upload document'}), 500
 
 
 @bp.route('/documents/<int:doc_id>/download', methods=['GET'])
@@ -300,16 +301,26 @@ def delete_document(doc_id):
     try:
         document = Document.query.get_or_404(doc_id)
 
-        removed_paths = []
-        for candidate in get_document_storage_candidates(document):
-            if os.path.exists(candidate):
-                os.remove(candidate)
-                removed_paths.append(candidate)
+        # Collect file paths before deleting the DB record
+        candidates = get_document_storage_candidates(document)
+        stored_filename = document.filename
 
+        # Commit DB deletion first — if this fails, files remain intact (consistent state)
         db.session.delete(document)
         db.session.commit()
 
-        logger.info(f"Deleted document {document.filename}; removed_files={removed_paths}")
+        # Delete files from disk after successful DB commit.
+        # Orphaned files are acceptable; orphaned DB records are not.
+        removed_paths = []
+        for candidate in candidates:
+            if os.path.exists(candidate):
+                try:
+                    os.remove(candidate)
+                    removed_paths.append(candidate)
+                except OSError as file_err:
+                    logger.warning(f"Could not remove file {candidate}: {file_err}")
+
+        logger.info(f"Deleted document {stored_filename}; removed_files={removed_paths}")
         return jsonify({'message': 'Document deleted successfully'}), 200
     except HTTPException:
         raise
