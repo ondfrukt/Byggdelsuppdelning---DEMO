@@ -16,7 +16,11 @@ class ManagedListItem(db.Model):
     label = db.Column(db.String(255))
     description = db.Column(db.Text)
     value = db.Column(db.String(255), nullable=False)
-    parent_item_id = db.Column(db.Integer, nullable=True)
+    parent_item_id = db.Column(
+        db.Integer,
+        db.ForeignKey('managed_list_items.id', ondelete='SET NULL', name='fk_managed_list_items_parent'),
+        nullable=True
+    )
     level = db.Column(db.Integer, nullable=False, default=0)
     value_translations = db.Column(JSON_TYPE)
     node_metadata = db.Column(JSON_TYPE)

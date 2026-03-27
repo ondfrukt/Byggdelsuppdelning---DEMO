@@ -3,6 +3,8 @@ from datetime import datetime
 from sqlalchemy import text
 import re
 
+_BASE_ID_PATTERN = re.compile(r'^[A-Za-z0-9_]+-(\d+)(?:\..*)?$')
+
 class ObjectType(db.Model):
     """ObjectType model - represents types of objects in the system"""
     __tablename__ = 'object_types'
@@ -22,16 +24,16 @@ class ObjectType(db.Model):
 
     def _calculate_next_base_id_number(self):
         if not hasattr(self, '_next_id_cache'):
-            result = db.session.execute(
-                text("""
-                    SELECT MAX(CAST(SPLIT_PART(REGEXP_REPLACE(main_id, '^[^-]+-', ''), '.', 1) AS INTEGER))
-                    FROM objects
-                    WHERE object_type_id = :type_id
-                      AND main_id ~ '^[A-Za-z0-9_]+-[0-9]+$'
-                """),
+            rows = db.session.execute(
+                text("SELECT main_id FROM objects WHERE object_type_id = :type_id"),
                 {'type_id': self.id}
-            ).scalar()
-            self._next_id_cache = (result or 0) + 1
+            ).fetchall()
+            max_num = 0
+            for (main_id,) in rows:
+                m = _BASE_ID_PATTERN.match(main_id or '')
+                if m:
+                    max_num = max(max_num, int(m.group(1)))
+            self._next_id_cache = max_num + 1
         return self._next_id_cache
     
     def to_dict(self, include_fields=False):

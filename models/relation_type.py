@@ -23,6 +23,8 @@ class RelationType(db.Model):
     )
     is_directed = db.Column(db.Boolean, nullable=False, default=True)
     is_composition = db.Column(db.Boolean, nullable=False, default=False)
+    max_targets_per_source = db.Column(db.Integer, nullable=True)
+    max_sources_per_target = db.Column(db.Integer, nullable=True)
 
     inverse_relation_type_id = db.Column(db.Integer, db.ForeignKey('relation_types.id', ondelete='SET NULL'), nullable=True)
 
@@ -46,5 +48,7 @@ class RelationType(db.Model):
             'cardinality': self.cardinality,
             'is_directed': bool(self.is_directed),
             'is_composition': bool(self.is_composition),
+            'max_targets_per_source': self.max_targets_per_source,
+            'max_sources_per_target': self.max_sources_per_target,
             'inverse_relation_type_id': self.inverse_relation_type_id,
         }
