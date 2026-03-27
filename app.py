@@ -5,7 +5,7 @@ from flask import Flask, abort, render_template
 from flask_cors import CORS
 from flask_migrate import Migrate, upgrade
 from config import Config
-from extensions import cache
+from extensions import cache, limiter
 from models import db
 from new_database import seed_data
 from routes import register_blueprints
@@ -40,13 +40,16 @@ def create_app():
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.jinja_env.auto_reload = True
 
-    # Enable CORS
-    CORS(app)
+    # Enable CORS - restrict to configured origins in production
+    cors_origins = os.environ.get('CORS_ORIGINS', '*')
+    origins = [o.strip() for o in cors_origins.split(',')] if cors_origins != '*' else '*'
+    CORS(app, origins=origins)
 
-    # Initialize database, migrations and cache
+    # Initialize database, migrations, cache and rate limiter
     db.init_app(app)
     Migrate(app, db)
     cache.init_app(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 300})
+    limiter.init_app(app)
 
     with app.app_context():
         migrations_dir = os.path.join(os.path.dirname(__file__), 'migrations')

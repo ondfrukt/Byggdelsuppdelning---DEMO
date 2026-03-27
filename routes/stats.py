@@ -1,7 +1,9 @@
+import logging
 from flask import Blueprint, jsonify
 from models import db, Object, ObjectType
 from sqlalchemy import func
 
+logger = logging.getLogger(__name__)
 stats_bp = Blueprint('stats', __name__)
 
 @stats_bp.route('/health', methods=['GET'])
@@ -15,9 +17,10 @@ def health_check():
             'message': 'API is running and database is connected'
         }), 200
     except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
         return jsonify({
             'status': 'unhealthy',
-            'message': str(e)
+            'message': 'Database connection failed'
         }), 500
 
 @stats_bp.route('/stats', methods=['GET'])
@@ -53,4 +56,5 @@ def get_stats():
             'recent_objects': [obj.to_dict(include_data=True) for obj in recent_objects]
         }), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting stats: {str(e)}")
+        return jsonify({'error': 'Failed to get statistics'}), 500
