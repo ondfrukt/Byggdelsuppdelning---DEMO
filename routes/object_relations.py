@@ -13,17 +13,6 @@ bp = Blueprint('object_relations', __name__, url_prefix='/api/objects')
 DEFAULT_RELATION_TYPE = 'references_object'
 
 
-def _normalize_limit(value, field_name):
-    if value in (None, ''):
-        return None, None
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return None, f'{field_name} must be an integer'
-    if parsed <= 0:
-        return None, f'{field_name} must be greater than 0'
-    return parsed, None
-
 
 def is_file_object(obj):
     type_name = obj.object_type.name if obj and obj.object_type else ''
@@ -101,13 +90,6 @@ def create_relation(id):
             source_object=source_object,
             target_object=target_object,
         )
-        max_targets_per_source, max_targets_error = _normalize_limit(data.get('max_targets_per_source'), 'max_targets_per_source')
-        if max_targets_error:
-            return jsonify({'error': max_targets_error}), 400
-
-        max_sources_per_target, max_sources_error = _normalize_limit(data.get('max_sources_per_target'), 'max_sources_per_target')
-        if max_sources_error:
-            return jsonify({'error': max_sources_error}), 400
 
         relation_type, pair_type_error = enforce_pair_relation_type(
             relation_type=relation_type,
@@ -133,8 +115,6 @@ def create_relation(id):
             source_object_id=canonical_source_id,
             target_object_id=canonical_target_id,
             relation_type=relation_type,
-            max_targets_per_source=max_targets_per_source,
-            max_sources_per_target=max_sources_per_target,
             description=data.get('description'),
             relation_metadata=data.get('metadata')
         )
@@ -191,18 +171,6 @@ def update_relation(id, relation_id):
         
         if 'metadata' in data:
             relation.relation_metadata = data['metadata']
-
-        if 'max_targets_per_source' in data:
-            max_targets_per_source, max_targets_error = _normalize_limit(data.get('max_targets_per_source'), 'max_targets_per_source')
-            if max_targets_error:
-                return jsonify({'error': max_targets_error}), 400
-            relation.max_targets_per_source = max_targets_per_source
-
-        if 'max_sources_per_target' in data:
-            max_sources_per_target, max_sources_error = _normalize_limit(data.get('max_sources_per_target'), 'max_sources_per_target')
-            if max_sources_error:
-                return jsonify({'error': max_sources_error}), 400
-            relation.max_sources_per_target = max_sources_per_target
         
         db.session.commit()
         

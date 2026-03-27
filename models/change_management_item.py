@@ -21,7 +21,7 @@ class ChangeManagementItem(db.Model):
 
     @property
     def display_id(self):
-        return f"CO-{self.id}"
+        return f"{self.item_type}-{self.id}"
 
     def to_dict(self):
         return {
