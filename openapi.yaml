@@ -1,0 +1,3395 @@
+basePath: /
+consumes:
+- application/json
+definitions:
+  CategoryNode:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      level:
+        type: integer
+      name:
+        type: string
+      parent_id:
+        type: integer
+      sort_order:
+        type: integer
+      system_id:
+        type: integer
+    type: object
+  ChangeManagementImpact:
+    properties:
+      change_item_id:
+        type: integer
+      id:
+        type: integer
+      impact_action:
+        enum:
+        - to_be_replaced
+        - cancellation
+        type: string
+      object_id:
+        type: integer
+    type: object
+  ChangeManagementItem:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      item_type:
+        enum:
+        - CRQ
+        - CO
+        - RO
+        type: string
+      status:
+        type: string
+      title:
+        type: string
+    type: object
+  ClassificationSystem:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        type: string
+      node_count:
+        type: integer
+      version:
+        type: string
+    type: object
+  Document:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      file_size:
+        type: integer
+      filename:
+        type: string
+      id:
+        type: integer
+      mime_type:
+        type: string
+      object_id:
+        type: integer
+      original_filename:
+        type: string
+      uploaded_by:
+        type: string
+    type: object
+  Error:
+    properties:
+      error:
+        description: Felmeddelande
+        type: string
+    type: object
+  FieldTemplate:
+    properties:
+      display_name:
+        type: string
+      field_name:
+        type: string
+      field_options:
+        type: object
+      field_type:
+        type: string
+      force_presence_on_all_objects:
+        type: boolean
+      help_text:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      is_required:
+        type: boolean
+      is_table_visible:
+        type: boolean
+      lock_required_setting:
+        type: boolean
+      template_name:
+        type: string
+    type: object
+  Instance:
+    properties:
+      child_object_id:
+        type: integer
+      formula:
+        type: string
+      id:
+        type: integer
+      installation_sequence:
+        type: integer
+      instance_type:
+        type: string
+      metadata_json:
+        type: object
+      optional:
+        type: boolean
+      parent_object_id:
+        type: integer
+      position:
+        type: string
+      quantity:
+        type: number
+      role:
+        type: string
+      unit:
+        type: string
+      waste_factor:
+        type: number
+    type: object
+  ManagedList:
+    properties:
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/ManagedListItem'
+        type: array
+      language_codes:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+    type: object
+  ManagedListItem:
+    properties:
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      list_id:
+        type: integer
+      node_metadata:
+        type: object
+      parent_item_id:
+        type: integer
+      sort_order:
+        type: integer
+      value:
+        type: string
+      value_translations:
+        type: object
+    type: object
+  Object:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      data:
+        description: Fältvärden (nyckel = fältnamn)
+        type: object
+      id:
+        type: integer
+      id_full:
+        description: Unikt sammansatt ID (t.ex. PROD-1.v1)
+        type: string
+      main_id:
+        type: string
+      object_type:
+        type: string
+      object_type_id:
+        type: integer
+      status:
+        type: string
+      updated_at:
+        format: date-time
+        type: string
+      version:
+        type: string
+    type: object
+  ObjectCategoryAssignment:
+    properties:
+      category_node:
+        $ref: '#/definitions/CategoryNode'
+      category_node_id:
+        type: integer
+      id:
+        type: integer
+      is_primary:
+        type: boolean
+      object_id:
+        type: integer
+    type: object
+  ObjectField:
+    properties:
+      detail_width:
+        enum:
+        - full
+        - half
+        - third
+        type: string
+      display_name:
+        type: string
+      display_order:
+        type: integer
+      field_name:
+        type: string
+      field_options:
+        type: object
+      field_type:
+        enum:
+        - text
+        - number
+        - date
+        - boolean
+        - select
+        - computed
+        type: string
+      help_text:
+        type: string
+      id:
+        type: integer
+      is_detail_visible:
+        type: boolean
+      is_required:
+        type: boolean
+      is_table_visible:
+        type: boolean
+      object_type_id:
+        type: integer
+    type: object
+  ObjectRelation:
+    properties:
+      created_at:
+        format: date-time
+        type: string
+      description:
+        type: string
+      direction:
+        description: Sätts när relationer hämtas för ett specifikt objekt
+        enum:
+        - incoming
+        - outgoing
+        type: string
+      id:
+        type: integer
+      relation_metadata:
+        type: object
+      relation_type:
+        type: string
+      source_object_id:
+        type: integer
+      target_object_id:
+        type: integer
+    type: object
+  ObjectType:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      fields:
+        items:
+          $ref: '#/definitions/ObjectField'
+        type: array
+      icon:
+        type: string
+      id:
+        type: integer
+      id_prefix:
+        type: string
+      is_system:
+        type: boolean
+      name:
+        type: string
+    type: object
+  RelationTypeRule:
+    properties:
+      id:
+        type: integer
+      is_allowed:
+        type: boolean
+      relation_type:
+        type: string
+      source_object_type_id:
+        type: integer
+      source_object_type_name:
+        type: string
+      target_object_type_id:
+        type: integer
+      target_object_type_name:
+        type: string
+    type: object
+info:
+  contact:
+    name: Ondfrukt
+    url: https://github.com/ondfrukt/byggdelsuppdelning---demo
+  description: REST API för Byggdelsuppdelning – ett PLM-system (Product Lifecycle
+    Management) för hantering av byggdelar, objekttyper, relationer, dokument, klassificering
+    och ändringshantering. Alla endpoints börjar med `/api/`.
+  title: Byggdelsuppdelning API
+  version: 1.0.0
+paths:
+  /api/category-nodes:
+    get:
+      parameters:
+      - description: Filtrera på klassificeringssystem
+        in: query
+        name: system_id
+        required: false
+        type: integer
+      - description: Filtrera på nivå
+        in: query
+        name: level
+        required: false
+        type: integer
+      - description: Filtrera på föräldernod-ID
+        in: query
+        name: parent_id
+        required: false
+        type: integer
+      responses:
+        '200':
+          description: Lista med kategorinoder
+          schema:
+            items:
+              $ref: '#/definitions/CategoryNode'
+            type: array
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List category nodes
+      tags:
+      - Category Nodes
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            code:
+              description: Klassificeringskod
+              type: string
+            description:
+              type: string
+            name:
+              description: Nodens namn
+              type: string
+            parent_id:
+              description: Föräldernod-ID (null för rotnod)
+              type: integer
+            sort_order:
+              type: integer
+            system_id:
+              description: Klassificeringssystemets ID
+              type: integer
+          required:
+          - name
+          - system_id
+          type: object
+      responses:
+        '201':
+          description: Nod skapad
+          schema:
+            $ref: '#/definitions/CategoryNode'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Föräldernod eller system hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a category node
+      tags:
+      - Category Nodes
+  /api/category-nodes/batch:
+    get:
+      parameters:
+      - description: Kommaseparerade nod-ID:n (t.ex. 1,2,3)
+        in: query
+        name: ids
+        required: true
+        type: string
+      responses:
+        '200':
+          description: Karta med nod-ID som nyckel
+          schema:
+            additionalProperties:
+              properties:
+                name:
+                  type: string
+                path_string:
+                  description: Fullständig sökväg (t.ex. Bygg › Stomme › Betong)
+                  type: string
+              type: object
+            type: object
+      summary: 'Return {id: {name, path_string}} for a list of node IDs in one request.'
+      tags:
+      - Category Nodes
+  /api/category-nodes/object-tree:
+    get:
+      parameters:
+      - description: Klassificeringssystemets namn
+        in: query
+        name: system_name
+        required: true
+        type: string
+      responses:
+        '200':
+          description: Noder med objekt och barn
+          schema:
+            items:
+              type: object
+            type: array
+      summary: Return category nodes with assigned objects and their direct relations
+        as children.
+      tags:
+      - Category Nodes
+  /api/category-nodes/{node_id}:
+    delete:
+      parameters:
+      - description: Nodens ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Nod borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Noden har barn eller kopplade objekt
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a category node
+      tags:
+      - Category Nodes
+    get:
+      parameters:
+      - description: Nodens ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      - default: false
+        description: Inkludera fullständig sökväg
+        in: query
+        name: include_path
+        required: false
+        type: boolean
+      responses:
+        '200':
+          description: Kategorinoden
+          schema:
+            $ref: '#/definitions/CategoryNode'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get a single category node
+      tags:
+      - Category Nodes
+    put:
+      parameters:
+      - description: Nodens ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            code:
+              type: string
+            description:
+              type: string
+            is_active:
+              type: boolean
+            name:
+              type: string
+            sort_order:
+              type: integer
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad nod
+          schema:
+            $ref: '#/definitions/CategoryNode'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a category node
+      tags:
+      - Category Nodes
+  /api/category-nodes/{node_id}/ancestors:
+    get:
+      parameters:
+      - description: Nodens ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista med förfäder (rot → förälder)
+          schema:
+            items:
+              $ref: '#/definitions/CategoryNode'
+            type: array
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get all ancestors of a category node
+      tags:
+      - Category Nodes
+  /api/category-nodes/{node_id}/move:
+    post:
+      parameters:
+      - description: Nodens ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            new_parent_id:
+              description: Ny föräldernod-ID (null för rotnod)
+              type: integer
+          required:
+          - new_parent_id
+          type: object
+      responses:
+        '200':
+          description: Nod flyttad
+          schema:
+            $ref: '#/definitions/CategoryNode'
+        '400':
+          description: Valideringsfel (t.ex. cirkulär referens)
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Move a category node to a new parent
+      tags:
+      - Category Nodes
+  /api/category-nodes/{node_id}/tree:
+    get:
+      parameters:
+      - description: Rotnodensins ID
+        in: path
+        name: node_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Noden med alla descendanter
+          schema:
+            $ref: '#/definitions/CategoryNode'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get a category node tree rooted at this node
+      tags:
+      - Category Nodes
+  /api/change-management:
+    get:
+      parameters:
+      - description: Filtrera på ärendetyp
+        enum:
+        - CRQ
+        - CO
+        - RO
+        in: query
+        name: type
+        required: false
+        type: string
+      - description: Fritextsökning i titel, beskrivning och status
+        in: query
+        name: search
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Lista med ändringsärenden
+          schema:
+            items:
+              $ref: '#/definitions/ChangeManagementItem'
+            type: array
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List change management items.
+      tags:
+      - Change Management
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            status:
+              default: Open
+              type: string
+            title:
+              description: Titel (obligatorisk)
+              type: string
+            type:
+              description: Ärendetyp
+              enum:
+              - CRQ
+              - CO
+              - RO
+              type: string
+          required:
+          - type
+          - title
+          type: object
+      responses:
+        '201':
+          description: Ändringsärende skapat
+          schema:
+            $ref: '#/definitions/ChangeManagementItem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a change management item.
+      tags:
+      - Change Management
+  /api/change-management/{item_key}:
+    delete:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      responses:
+        '200':
+          description: Borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a change management item.
+      tags:
+      - Change Management
+    get:
+      parameters:
+      - description: Ärendets nyckel (t.ex. CO-42 eller 42)
+        in: path
+        name: item_key
+        required: true
+        type: string
+      responses:
+        '200':
+          description: Ändringsärendet
+          schema:
+            $ref: '#/definitions/ChangeManagementItem'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get one change management item.
+      tags:
+      - Change Management
+    put:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            status:
+              type: string
+            title:
+              type: string
+            type:
+              enum:
+              - CRQ
+              - CO
+              - RO
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterat ändringsärende
+          schema:
+            $ref: '#/definitions/ChangeManagementItem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a change management item.
+      tags:
+      - Change Management
+  /api/change-management/{item_key}/impacts:
+    get:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      responses:
+        '200':
+          description: Lista med påverkade objekt
+          schema:
+            items:
+              $ref: '#/definitions/ChangeManagementImpact'
+            type: array
+        '404':
+          description: Ändringsärendet hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List impacted objects for one change item.
+      tags:
+      - Change Management
+    post:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            impact_action:
+              default: to_be_replaced
+              enum:
+              - to_be_replaced
+              - cancellation
+              type: string
+            object_id:
+              description: Påverkat objekts ID
+              type: integer
+          required:
+          - object_id
+          type: object
+      responses:
+        '201':
+          description: Påverkan registrerad
+          schema:
+            $ref: '#/definitions/ChangeManagementImpact'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Ändringsärende eller objekt hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Objektet redan kopplat till detta ärende
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Add impacted object to one change item.
+      tags:
+      - Change Management
+  /api/change-management/{item_key}/impacts/{impact_id}:
+    delete:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      - description: Påverkans ID
+        in: path
+        name: impact_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete impacted object row.
+      tags:
+      - Change Management
+    put:
+      parameters:
+      - description: Ärendets nyckel
+        in: path
+        name: item_key
+        required: true
+        type: string
+      - description: Påverkans ID
+        in: path
+        name: impact_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            impact_action:
+              enum:
+              - to_be_replaced
+              - cancellation
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad påverkan
+          schema:
+            $ref: '#/definitions/ChangeManagementImpact'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update impacted object row.
+      tags:
+      - Change Management
+  /api/classification-systems:
+    get:
+      parameters:
+      - default: false
+        description: Inkludera inaktiva system
+        in: query
+        name: include_inactive
+        required: false
+        type: boolean
+      responses:
+        '200':
+          description: Lista med klassificeringssystem
+          schema:
+            items:
+              $ref: '#/definitions/ClassificationSystem'
+            type: array
+      summary: List all classification systems
+      tags:
+      - Classification Systems
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            is_active:
+              default: true
+              type: boolean
+            name:
+              description: Systemets namn
+              type: string
+            version:
+              type: string
+          required:
+          - name
+          type: object
+      responses:
+        '201':
+          description: System skapat
+          schema:
+            $ref: '#/definitions/ClassificationSystem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a classification system
+      tags:
+      - Classification Systems
+  /api/classification-systems/{system_id}:
+    delete:
+      parameters:
+      - description: Systemets ID
+        in: path
+        name: system_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Systemet har noder och kan ej tas bort
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a classification system
+      tags:
+      - Classification Systems
+    get:
+      parameters:
+      - description: Systemets ID
+        in: path
+        name: system_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Klassificeringssystemet
+          schema:
+            $ref: '#/definitions/ClassificationSystem'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get a single classification system
+      tags:
+      - Classification Systems
+    put:
+      parameters:
+      - description: Systemets ID
+        in: path
+        name: system_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            is_active:
+              type: boolean
+            name:
+              type: string
+            version:
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterat system
+          schema:
+            $ref: '#/definitions/ClassificationSystem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a classification system
+      tags:
+      - Classification Systems
+  /api/field-templates:
+    get:
+      parameters:
+      - default: false
+        description: Inkludera inaktiva mallar
+        in: query
+        name: include_inactive
+        required: false
+        type: boolean
+      responses:
+        '200':
+          description: Lista med fältmallar
+          schema:
+            items:
+              $ref: '#/definitions/FieldTemplate'
+            type: array
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all field templates
+      tags:
+      - Field Templates
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            display_name:
+              type: string
+            field_name:
+              description: Fältnamn (lowercase)
+              type: string
+            field_options:
+              type: object
+            field_type:
+              description: 'Typ: text, number, date, boolean, select, computed'
+              type: string
+            force_presence_on_all_objects:
+              default: false
+              type: boolean
+            help_text:
+              type: string
+            is_active:
+              default: true
+              type: boolean
+            is_required:
+              default: false
+              type: boolean
+            is_table_visible:
+              default: true
+              type: boolean
+            lock_required_setting:
+              default: false
+              type: boolean
+            template_name:
+              description: Unikt mallnamn
+              type: string
+          required:
+          - template_name
+          - field_name
+          - field_type
+          type: object
+      responses:
+        '201':
+          description: Fältmall skapad
+          schema:
+            $ref: '#/definitions/FieldTemplate'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a field template
+      tags:
+      - Field Templates
+  /api/field-templates/{template_id}:
+    delete:
+      parameters:
+      - description: Fältmallens ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a field template
+      tags:
+      - Field Templates
+    put:
+      parameters:
+      - description: Fältmallens ID
+        in: path
+        name: template_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            display_name:
+              type: string
+            field_name:
+              type: string
+            field_options:
+              type: object
+            field_type:
+              type: string
+            force_presence_on_all_objects:
+              type: boolean
+            help_text:
+              type: string
+            is_active:
+              type: boolean
+            is_required:
+              type: boolean
+            is_table_visible:
+              type: boolean
+            lock_required_setting:
+              type: boolean
+            template_name:
+              type: string
+          required:
+          - template_name
+          - field_name
+          - field_type
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad fältmall
+          schema:
+            $ref: '#/definitions/FieldTemplate'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a field template
+      tags:
+      - Field Templates
+  /api/health:
+    get:
+      responses:
+        '200':
+          description: API och databas är igång
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                example: healthy
+                type: string
+            type: object
+        '500':
+          description: Databasanslutning misslyckades
+          schema:
+            properties:
+              message:
+                type: string
+              status:
+                example: unhealthy
+                type: string
+            type: object
+      summary: Health check endpoint
+      tags:
+      - Search & Stats
+  /api/instances:
+    get:
+      parameters:
+      - description: Filtrera på objekt-ID (inkluderar både förälder och barn)
+        in: query
+        name: object_id
+        required: false
+        type: integer
+      responses:
+        '200':
+          description: Lista med instanser
+          schema:
+            items:
+              $ref: '#/definitions/Instance'
+            type: array
+      summary: List instances (structural parent/child relationships)
+      tags:
+      - Instances
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            child_object_id:
+              description: ID för barnobjektet
+              type: integer
+            formula:
+              type: string
+            installation_sequence:
+              description: Monteringsordning (>= 0)
+              type: integer
+            instance_type:
+              description: Typ av instans (se tillåtna värden)
+              type: string
+            metadata_json:
+              type: object
+            optional:
+              type: boolean
+            parent_object_id:
+              description: ID för förälderobjektet
+              type: integer
+            position:
+              type: string
+            quantity:
+              description: Antal (>= 0)
+              type: number
+            role:
+              type: string
+            unit:
+              description: Enhet
+              type: string
+            waste_factor:
+              description: Spilffaktor (>= 0)
+              type: number
+          required:
+          - parent_object_id
+          - child_object_id
+          - instance_type
+          type: object
+      responses:
+        '201':
+          description: Instans skapad
+          schema:
+            $ref: '#/definitions/Instance'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Instansen finns redan
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a structural parent/child instance
+      tags:
+      - Instances
+  /api/instances/{instance_id}:
+    delete:
+      parameters:
+      - description: Instansens ID
+        in: path
+        name: instance_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Instansen borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a structural instance
+      tags:
+      - Instances
+    put:
+      parameters:
+      - description: Instansens ID
+        in: path
+        name: instance_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            child_object_id:
+              type: integer
+            formula:
+              type: string
+            installation_sequence:
+              type: integer
+            instance_type:
+              type: string
+            metadata_json:
+              type: object
+            optional:
+              type: boolean
+            parent_object_id:
+              type: integer
+            position:
+              type: string
+            quantity:
+              type: number
+            role:
+              type: string
+            unit:
+              type: string
+            waste_factor:
+              type: number
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad instans
+          schema:
+            $ref: '#/definitions/Instance'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Instansen finns redan
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a structural instance
+      tags:
+      - Instances
+  /api/managed-lists:
+    get:
+      parameters:
+      - default: false
+        in: query
+        name: include_inactive
+        required: false
+        type: boolean
+      - default: false
+        description: Inkludera listelement
+        in: query
+        name: include_items
+        required: false
+        type: boolean
+      - default: false
+        in: query
+        name: include_inactive_items
+        required: false
+        type: boolean
+      - default: false
+        description: Inkludera listhierarkikopplingar
+        in: query
+        name: include_links
+        required: false
+        type: boolean
+      - description: Språkkod för översättningar (t.ex. sv, en)
+        in: query
+        name: locale
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Lista med hanterade listor
+          schema:
+            items:
+              $ref: '#/definitions/ManagedList'
+            type: array
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all managed lists.
+      tags:
+      - Managed Lists
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            additional_language_code:
+              description: Ytterligare språkkod (t.ex. sv)
+              type: string
+            description:
+              type: string
+            is_active:
+              default: true
+              type: boolean
+            language_codes:
+              description: Språkkoder (engelska alltid inkluderad)
+              items:
+                type: string
+              type: array
+            name:
+              description: Unikt listnamn
+              type: string
+          required:
+          - name
+          type: object
+      responses:
+        '201':
+          description: Lista skapad
+          schema:
+            $ref: '#/definitions/ManagedList'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a managed list.
+      tags:
+      - Managed Lists
+  /api/managed-lists/{list_id}:
+    delete:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Listan används av fält och kan inte tas bort
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a managed list.
+      tags:
+      - Managed Lists
+    get:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - default: true
+        in: query
+        name: include_items
+        required: false
+        type: boolean
+      - default: false
+        in: query
+        name: include_inactive_items
+        required: false
+        type: boolean
+      - default: false
+        in: query
+        name: include_links
+        required: false
+        type: boolean
+      - in: query
+        name: locale
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Den hanterade listan
+          schema:
+            $ref: '#/definitions/ManagedList'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get one managed list.
+      tags:
+      - Managed Lists
+    put:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            is_active:
+              type: boolean
+            name:
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad lista
+          schema:
+            $ref: '#/definitions/ManagedList'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a managed list.
+      tags:
+      - Managed Lists
+  /api/managed-lists/{list_id}/items:
+    get:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - default: false
+        in: query
+        name: include_inactive
+        required: false
+        type: boolean
+      - description: Filtrera på förälderelement (via item-link)
+        in: query
+        name: parent_item_id
+        required: false
+        type: integer
+      - description: Filtrera på hierarkisk förälder (null = rotelement)
+        in: query
+        name: tree_parent_item_id
+        required: false
+        type: integer
+      - in: query
+        name: locale
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Lista med listelement
+          schema:
+            items:
+              $ref: '#/definitions/ManagedListItem'
+            type: array
+        '404':
+          description: Listan hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List rows for one managed list.
+      tags:
+      - Managed Lists
+    post:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            is_active:
+              default: true
+              type: boolean
+            node_metadata:
+              type: object
+            parent_item_id:
+              description: Förälderelement-ID (hierarkisk lista)
+              type: integer
+            value:
+              description: Värde (obligatoriskt om value_translations saknas)
+              type: string
+            value_translations:
+              description: Översättningar (nyckel = språkkod)
+              type: object
+          type: object
+      responses:
+        '201':
+          description: Listelement skapat
+          schema:
+            $ref: '#/definitions/ManagedListItem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Listan hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a row for one managed list.
+      tags:
+      - Managed Lists
+  /api/managed-lists/{list_id}/items/{item_id}:
+    delete:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - description: Elementets ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Elementet borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '400':
+          description: Elementet har barn och kan ej tas bort
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete one list row.
+      tags:
+      - Managed Lists
+    put:
+      parameters:
+      - description: Listans ID
+        in: path
+        name: list_id
+        required: true
+        type: integer
+      - description: Elementets ID
+        in: path
+        name: item_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            is_active:
+              type: boolean
+            node_metadata:
+              type: object
+            parent_item_id:
+              type: integer
+            sort_order:
+              type: integer
+            value:
+              type: string
+            value_translations:
+              type: object
+          type: object
+      responses:
+        '200':
+          description: Uppdaterat element
+          schema:
+            $ref: '#/definitions/ManagedListItem'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update one list row.
+      tags:
+      - Managed Lists
+  /api/object-category-assignments:
+    get:
+      parameters:
+      - description: Filtrera på objekt-ID
+        in: query
+        name: object_id
+        required: false
+        type: integer
+      - description: Filtrera på kategorinod-ID
+        in: query
+        name: category_node_id
+        required: false
+        type: integer
+      responses:
+        '200':
+          description: Lista med kategorikopplingar
+          schema:
+            items:
+              $ref: '#/definitions/ObjectCategoryAssignment'
+            type: array
+      summary: List object–category assignments
+      tags:
+      - Object Category Assignments
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            category_node_id:
+              description: Kategorinodensins ID
+              type: integer
+            is_primary:
+              default: true
+              description: Primär klassificering
+              type: boolean
+            object_id:
+              description: Objektets ID
+              type: integer
+          required:
+          - object_id
+          - category_node_id
+          type: object
+      responses:
+        '201':
+          description: Koppling skapad
+          schema:
+            $ref: '#/definitions/ObjectCategoryAssignment'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Objekt eller nod hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Koppling finns redan (eller objekt redan kopplat i systemet)
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create an object–category assignment
+      tags:
+      - Object Category Assignments
+  /api/object-category-assignments/{assignment_id}:
+    delete:
+      parameters:
+      - description: Kopplingspostens ID
+        in: path
+        name: assignment_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete an object–category assignment
+      tags:
+      - Object Category Assignments
+  /api/object-types:
+    get:
+      parameters:
+      - default: false
+        description: Inkludera fältdefinitioner i svaret
+        in: query
+        name: include_fields
+        required: false
+        type: boolean
+      responses:
+        '200':
+          description: Lista med objekttyper
+          schema:
+            items:
+              $ref: '#/definitions/ObjectType'
+            type: array
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all object types
+      tags:
+      - Object Types
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            color:
+              description: 'Hex-färg från den fasta paletten (t.ex. #0EA5E9)'
+              type: string
+            description:
+              description: Beskrivning
+              type: string
+            icon:
+              description: Ikonidentifierare
+              type: string
+            id_prefix:
+              description: Prefixmall för automatiska ID:n (t.ex. PROD)
+              type: string
+            name:
+              description: Unikt namn på objekttypen
+              type: string
+          required:
+          - name
+          type: object
+      responses:
+        '201':
+          description: Skapad objekttyp
+          schema:
+            $ref: '#/definitions/ObjectType'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a new object type
+      tags:
+      - Object Types
+  /api/object-types/{id}:
+    delete:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttagen
+          schema:
+            properties:
+              cleared_relation_type_scopes:
+                type: integer
+              deleted_relation_rules:
+                type: integer
+              message:
+                type: string
+            type: object
+        '400':
+          description: Valideringsfel (t.ex. objekt finns kvar)
+          schema:
+            $ref: '#/definitions/Error'
+        '403':
+          description: Systemtyper får ej tas bort
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete an object type (only non-system types)
+      tags:
+      - Object Types
+    get:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Objekttypen med alla fält
+          schema:
+            $ref: '#/definitions/ObjectType'
+        '404':
+          description: Objekttypen hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get a specific object type with its fields
+      tags:
+      - Object Types
+    put:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            color:
+              type: string
+            description:
+              type: string
+            icon:
+              type: string
+            id_prefix:
+              type: string
+            name:
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad objekttyp
+          schema:
+            $ref: '#/definitions/ObjectType'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update an object type
+      tags:
+      - Object Types
+  /api/object-types/{id}/fields:
+    get:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista med fält
+          schema:
+            items:
+              $ref: '#/definitions/ObjectField'
+            type: array
+        '404':
+          description: Objekttypen hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all fields for an object type
+      tags:
+      - Object Types
+    post:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            detail_width:
+              description: Bredd i detaljvyn
+              enum:
+              - full
+              - half
+              - third
+              type: string
+            display_order:
+              description: Visningsordning
+              type: integer
+            field_options:
+              description: Alternativ för select-fält (managed_list)
+              type: object
+            field_template_id:
+              description: ID för fältmallen som ska användas
+              type: integer
+            is_required:
+              description: Om fältet är obligatoriskt
+              type: boolean
+          required:
+          - field_template_id
+          type: object
+      responses:
+        '200':
+          description: Computed-fält uppdaterat in-place
+          schema:
+            $ref: '#/definitions/ObjectField'
+        '201':
+          description: Fält skapat
+          schema:
+            $ref: '#/definitions/ObjectField'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Objekttyp eller fältmall hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Add a field to an object type
+      tags:
+      - Object Types
+  /api/object-types/{type_id}/fields/{field_id}:
+    delete:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: type_id
+        required: true
+        type: integer
+      - description: Fältets ID
+        in: path
+        name: field_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Fältet borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '400':
+          description: Valideringsfel (t.ex. fält har data eller är obligatoriskt)
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a field (with type_id in path for compatibility)
+      tags:
+      - Object Types
+    put:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: type_id
+        required: true
+        type: integer
+      - description: Fältets ID
+        in: path
+        name: field_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            detail_width:
+              enum:
+              - full
+              - half
+              - third
+              type: string
+            display_order:
+              type: integer
+            field_options:
+              type: object
+            is_detail_visible:
+              type: boolean
+            is_required:
+              type: boolean
+          type: object
+      responses:
+        '200':
+          description: Uppdaterat fält
+          schema:
+            $ref: '#/definitions/ObjectField'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a field (with type_id in path for compatibility)
+      tags:
+      - Object Types
+  /api/objects:
+    get:
+      parameters:
+      - description: Filtrera på objekttypens namn
+        in: query
+        name: type
+        required: false
+        type: string
+      - description: Fritextsökning i fältvärden
+        in: query
+        name: search
+        required: false
+        type: string
+      - default: false
+        description: Returnera minimalt schema (ej fältdata)
+        in: query
+        name: minimal
+        required: false
+        type: boolean
+      - description: Sidnummer för paginering
+        in: query
+        name: page
+        required: false
+        type: integer
+      - description: Antal objekt per sida
+        in: query
+        name: per_page
+        required: false
+        type: integer
+      - in: query
+        name: sort_field
+        required: false
+        type: string
+      - default: asc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sort_direction
+        required: false
+        type: string
+      - description: JSON-sträng med kolumnfiltrar
+        in: query
+        name: column_filters
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Lista med objekt (ev. paginerad)
+          schema:
+            items:
+              $ref: '#/definitions/Object'
+            type: array
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all objects with optional filtering and optional pagination.
+      tags:
+      - Objects
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            data:
+              description: Fältvärden (nyckel = fältnamn)
+              type: object
+            main_id:
+              description: Manuellt ID (annars auto-genererat)
+              type: string
+            object_type_id:
+              description: Objekttypens ID
+              type: integer
+            status:
+              description: Status
+              type: string
+            version:
+              description: Versionstext (default v1)
+              type: string
+          required:
+          - object_type_id
+          type: object
+      responses:
+        '201':
+          description: Objekt skapat
+          schema:
+            $ref: '#/definitions/Object'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a new object with dynamic data
+      tags:
+      - Objects
+  /api/objects/documents/{doc_id}:
+    delete:
+      parameters:
+      - description: Dokumentets ID
+        in: path
+        name: doc_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Dokumentet borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Dokumentet hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a document
+      tags:
+      - Documents
+  /api/objects/documents/{doc_id}/download:
+    get:
+      parameters:
+      - description: Dokumentets ID
+        in: path
+        name: doc_id
+        required: true
+        type: integer
+      - description: Tvinga nedladdning (annars inline för PDF)
+        in: query
+        name: download
+        required: false
+        type: boolean
+      - description: Tvinga inline-visning
+        in: query
+        name: inline
+        required: false
+        type: boolean
+      produces:
+      - application/octet-stream
+      - application/pdf
+      responses:
+        '200':
+          description: Filinnehållet
+        '404':
+          description: Dokument eller fil hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Download a document
+      tags:
+      - Documents
+  /api/objects/documents/{doc_id}/preview-meta:
+    get:
+      parameters:
+      - description: Dokumentets ID (måste vara PDF)
+        in: path
+        name: doc_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Sidmått för PDF
+          schema:
+            properties:
+              document_id:
+                type: integer
+              orientation:
+                enum:
+                - portrait
+                - landscape
+                - square
+                type: string
+              page_height:
+                type: number
+              page_ratio:
+                type: number
+              page_width:
+                type: number
+            type: object
+        '400':
+          description: Dokumentet är inte en PDF
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Dokument eller fil hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '422':
+          description: PDF saknar sidor
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Return first-page dimensions for PDF preview sizing.
+      tags:
+      - Documents
+  /api/objects/{id}:
+    delete:
+      parameters:
+      - description: Objektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Objektet borttaget
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete an object
+      tags:
+      - Objects
+    get:
+      parameters:
+      - description: Objektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Objektet med fältdata och dokument
+          schema:
+            $ref: '#/definitions/Object'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get a specific object with all data and relations
+      tags:
+      - Objects
+    put:
+      parameters:
+      - description: Objektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            data:
+              description: Fältvärden att uppdatera (nyckel = fältnamn)
+              type: object
+            field_overrides:
+              description: Fältspecifika överskridanden
+              type: object
+            status:
+              type: string
+          type: object
+      responses:
+        '200':
+          description: Uppdaterat objekt
+          schema:
+            $ref: '#/definitions/Object'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update an object's data
+      tags:
+      - Objects
+  /api/objects/{id}/documents:
+    get:
+      parameters:
+      - description: Objektets ID (måste vara av typen FileObject)
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista med dokument
+          schema:
+            items:
+              $ref: '#/definitions/Document'
+            type: array
+        '404':
+          description: Objektet hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '422':
+          description: Objektet är inte av typen FileObject
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: List all documents for an object
+      tags:
+      - Documents
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: Objektets ID (måste vara av typen FileObject)
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 'Tillåtna format: xls, xlsx, doc, docx, pdf, dwg, dxf, rvt, png,
+          jpg, gif, bmp, webp, tif, tiff'
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Uppladdad av (valfri text)
+        in: formData
+        name: uploaded_by
+        required: false
+        type: string
+      responses:
+        '201':
+          description: Dokument uppladdad
+          schema:
+            $ref: '#/definitions/Document'
+        '400':
+          description: Valideringsfel (filtyp, storlek)
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Objektet hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '422':
+          description: Objektet är inte av typen FileObject
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Upload a document for an object
+      tags:
+      - Documents
+  /api/objects/{id}/linked-file-objects:
+    get:
+      parameters:
+      - description: Objektets ID (måste INTE vara FileObject)
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista med länkade filobjekt
+          schema:
+            items:
+              properties:
+                documents_count:
+                  type: integer
+                file_object:
+                  $ref: '#/definitions/Object'
+                relation_id:
+                  type: integer
+              type: object
+            type: array
+        '422':
+          description: Källobjektet är ett FileObject
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get all file objects linked to a non-file object, independent of relation
+        type.
+      tags:
+      - Object Relations
+  /api/objects/{id}/relations:
+    get:
+      parameters:
+      - description: Objektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Lista med relationer (inkl. riktning)
+          schema:
+            items:
+              $ref: '#/definitions/ObjectRelation'
+            type: array
+        '404':
+          description: Objektet hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get all relations for an object
+      tags:
+      - Object Relations
+    post:
+      parameters:
+      - description: Källobjektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            metadata:
+              type: object
+            relation_type:
+              description: Relationstyp (default auto)
+              type: string
+            target_object_id:
+              description: Målobjektets ID
+              type: integer
+          required:
+          - target_object_id
+          type: object
+      responses:
+        '201':
+          description: Relation skapad
+          schema:
+            $ref: '#/definitions/ObjectRelation'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Objekt hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Relation finns redan
+          schema:
+            $ref: '#/definitions/Error'
+        '422':
+          description: Relationstyp inte tillåten
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create a new relation from an object
+      tags:
+      - Object Relations
+  /api/objects/{id}/relations/{relation_id}:
+    delete:
+      parameters:
+      - description: Objektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Relationens ID
+        in: path
+        name: relation_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Relation borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Relation hittades inte för detta objekt
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a relation from an object
+      tags:
+      - Object Relations
+    put:
+      parameters:
+      - description: Källobjektets ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Relationens ID
+        in: path
+        name: relation_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            metadata:
+              type: object
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad relation
+          schema:
+            $ref: '#/definitions/ObjectRelation'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a relation for an object
+      tags:
+      - Object Relations
+  /api/relation-type-rules:
+    get:
+      responses:
+        '200':
+          description: Regelmatris med relationstyper och instanstyper
+          schema:
+            properties:
+              available_relation_types:
+                items:
+                  type: string
+                type: array
+              instance_type_fields:
+                items:
+                  type: object
+                type: array
+              instance_types:
+                items:
+                  type: object
+                type: array
+              items:
+                items:
+                  $ref: '#/definitions/RelationTypeRule'
+                type: array
+              relation_types:
+                items:
+                  type: object
+                type: array
+            type: object
+      summary: List all relation type rules
+      tags:
+      - Relation Type Rules
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            is_allowed:
+              default: true
+              description: Om relationen är tillåten
+              type: boolean
+            relation_type:
+              description: Relationstyp
+              type: string
+            source_object_type_id:
+              description: Källobjekttypens ID
+              type: integer
+            target_object_type_id:
+              description: Målobjekttypens ID
+              type: integer
+          required:
+          - source_object_type_id
+          - target_object_type_id
+          - relation_type
+          type: object
+      responses:
+        '200':
+          description: Befintlig regel uppdaterad
+          schema:
+            $ref: '#/definitions/RelationTypeRule'
+        '201':
+          description: Ny regel skapad
+          schema:
+            $ref: '#/definitions/RelationTypeRule'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create or update a relation type rule
+      tags:
+      - Relation Type Rules
+  /api/relation-type-rules/instance-type-fields/{instance_type_key}:
+    put:
+      parameters:
+      - description: Instanstypens nyckel
+        in: path
+        name: instance_type_key
+        required: true
+        type: string
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            field_template_ids:
+              description: Ordnad lista med fältmall-ID:n
+              items:
+                type: integer
+              type: array
+          required:
+          - field_template_ids
+          type: object
+      responses:
+        '200':
+          description: Uppdaterade fält för instanstypen
+          schema:
+            properties:
+              instance_type_key:
+                type: string
+              items:
+                items:
+                  type: object
+                type: array
+            type: object
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Replace instance type fields for a given instance type key
+      tags:
+      - Relation Type Rules
+  /api/relation-type-rules/{rule_id}:
+    delete:
+      parameters:
+      - description: Regelns ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a relation type rule
+      tags:
+      - Relation Type Rules
+    put:
+      parameters:
+      - description: Regelns ID
+        in: path
+        name: rule_id
+        required: true
+        type: integer
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            is_allowed:
+              type: boolean
+            relation_type:
+              type: string
+            source_object_type_id:
+              type: integer
+            target_object_type_id:
+              type: integer
+          type: object
+      responses:
+        '200':
+          description: Uppdaterad regel
+          schema:
+            $ref: '#/definitions/RelationTypeRule'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Regel finns redan för detta par
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update a relation type rule
+      tags:
+      - Relation Type Rules
+  /api/relations:
+    get:
+      parameters:
+      - description: Filtrera på objekt-ID
+        in: query
+        name: object_id
+        required: false
+        type: integer
+      responses:
+        '200':
+          description: Lista med relationer
+          schema:
+            items:
+              $ref: '#/definitions/ObjectRelation'
+            type: array
+      summary: List all relation entities, optional filter by object_id.
+      tags:
+      - Relations
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            metadata:
+              type: object
+            relation_type:
+              description: Relationstyp (default auto)
+              type: string
+            source_object_id:
+              description: Källobjektets ID (alt. objectA_id)
+              type: integer
+            target_object_id:
+              description: Målobjektets ID (alt. objectB_id)
+              type: integer
+          required:
+          - source_object_id
+          - target_object_id
+          type: object
+      responses:
+        '201':
+          description: Relation skapad
+          schema:
+            $ref: '#/definitions/ObjectRelation'
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '409':
+          description: Relation finns redan
+          schema:
+            $ref: '#/definitions/Error'
+        '422':
+          description: Relationstyp inte tillåten för dessa objekttyper
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create relation entity between two objects.
+      tags:
+      - Relations
+  /api/relations/batch:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            relations:
+              items:
+                properties:
+                  metadata:
+                    type: object
+                  relationType:
+                    type: string
+                  targetId:
+                    type: integer
+                required:
+                - targetId
+                type: object
+              type: array
+            sourceId:
+              description: Källobjektets ID
+              type: integer
+          required:
+          - sourceId
+          - relations
+          type: object
+      responses:
+        '201':
+          description: Alla relationer skapade
+          schema:
+            properties:
+              created:
+                items:
+                  $ref: '#/definitions/ObjectRelation'
+                type: array
+              errors:
+                items:
+                  type: object
+                type: array
+              sourceId:
+                type: integer
+              summary:
+                type: object
+            type: object
+        '207':
+          description: Delvis lyckad (vissa relationer misslyckades)
+          schema:
+            type: object
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Create relation entities in batch format.
+      tags:
+      - Relations
+  /api/relations/{relation_id}:
+    delete:
+      parameters:
+      - description: Relationens ID
+        in: path
+        name: relation_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Relation borttagen
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        '404':
+          description: Hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Delete a relation by ID
+      tags:
+      - Relations
+  /api/search:
+    get:
+      parameters:
+      - description: Sökterm (söker i ID och textfältvärden)
+        in: query
+        name: q
+        required: true
+        type: string
+      - description: Filtrera på objekttypens namn
+        in: query
+        name: type
+        required: false
+        type: string
+      - description: Begränsa sökning till specifikt fältnamn
+        in: query
+        name: field
+        required: false
+        type: string
+      responses:
+        '200':
+          description: Matchande objekt
+          schema:
+            items:
+              $ref: '#/definitions/Object'
+            type: array
+        '500':
+          description: Sökningen misslyckades
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Search across all objects
+      tags:
+      - Search & Stats
+  /api/stats:
+    get:
+      responses:
+        '200':
+          description: Statistik över objekt per typ
+          schema:
+            properties:
+              objects_by_type:
+                additionalProperties:
+                  type: integer
+                description: Antal objekt per objekttyp (nyckel = typnamn)
+                type: object
+              recent_objects:
+                description: De 10 senast skapade objekten
+                items:
+                  $ref: '#/definitions/Object'
+                type: array
+              total_objects:
+                description: Totalt antal objekt
+                type: integer
+            type: object
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get statistics about the object-based system
+      tags:
+      - Search & Stats
+  /api/view-config/list-view:
+    get:
+      responses:
+        '200':
+          description: Listvisningskonfiguration per objekttyp
+          schema:
+            additionalProperties:
+              type: object
+            type: object
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get list view configuration for all object types
+      tags:
+      - View Configuration
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            properties:
+              column_order:
+                items:
+                  type: string
+                type: array
+              column_widths:
+                type: object
+              object_type_id:
+                type: integer
+              visible_columns:
+                items:
+                  type: object
+                type: array
+            type: object
+          description: Nyckel = objekttypnamn, värde = konfiguration
+          type: object
+      responses:
+        '200':
+          description: Uppdaterade konfigurationer
+          schema:
+            properties:
+              configs:
+                items:
+                  type: object
+                type: array
+              message:
+                type: string
+            type: object
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update list view configuration for object types
+      tags:
+      - View Configuration
+  /api/view-config/list-view/{object_type_id}:
+    get:
+      parameters:
+      - description: Objekttypens ID
+        in: path
+        name: object_type_id
+        required: true
+        type: integer
+      responses:
+        '200':
+          description: Listvisningskonfiguration för typen
+          schema:
+            type: object
+        '404':
+          description: Objekttypen hittades inte
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get list view configuration for a specific object type
+      tags:
+      - View Configuration
+  /api/view-config/tree-display:
+    get:
+      responses:
+        '200':
+          description: Trädvisningskonfiguration per objekttyp
+          schema:
+            additionalProperties:
+              properties:
+                available_fields:
+                  items:
+                    type: object
+                  type: array
+                object_type_id:
+                  type: integer
+                object_type_name:
+                  type: string
+                tree_view_name_field:
+                  type: string
+              type: object
+            type: object
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Get tree display configuration for all object types
+      tags:
+      - View Configuration
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties:
+            properties:
+              object_type_id:
+                type: integer
+              tree_view_name_field:
+                description: Fältnamn att visa i trädet (eller 'ID')
+                type: string
+            type: object
+          description: Nyckel = objekttypnamn, värde = konfiguration
+          type: object
+      responses:
+        '200':
+          description: Uppdaterade konfigurationer
+          schema:
+            properties:
+              configs:
+                items:
+                  type: object
+                type: array
+              message:
+                type: string
+            type: object
+        '400':
+          description: Valideringsfel
+          schema:
+            $ref: '#/definitions/Error'
+        '500':
+          description: Serverfel
+          schema:
+            $ref: '#/definitions/Error'
+      summary: Update tree display configuration for object types
+      tags:
+      - View Configuration
+produces:
+- application/json
+schemes:
+- https
+- http
+securityDefinitions: {}
+swagger: '2.0'
+tags:
+- description: Hantering av objekttyper och deras fält
+  name: Object Types
+- description: Hantering av objekt (instanser av objekttyper)
+  name: Objects
+- description: Relationer mellan objekt
+  name: Object Relations
+- description: Filuppladdning och dokumenthantering
+  name: Documents
+- description: Strukturella förälder/barn-kopplingar
+  name: Instances
+- description: Direkta relations-entiteter
+  name: Relations
+- description: Hanterade listor och deras element
+  name: Managed Lists
+- description: Mallar för fältdefinitioner
+  name: Field Templates
+- description: Regler för tillåtna relationstyper
+  name: Relation Type Rules
+- description: Ändringsärenden och påverkade objekt
+  name: Change Management
+- description: Klassificeringssystem
+  name: Classification Systems
+- description: Kategorinoder i klassificeringshierarkier
+  name: Category Nodes
+- description: Kopplingar mellan objekt och kategorier
+  name: Object Category Assignments
+- description: Konfiguration av vyer i gränssnittet
+  name: View Configuration
+- description: Sökning och statistik
+  name: Search & Stats

@@ -9,7 +9,39 @@ bp = Blueprint('search', __name__, url_prefix='/api')
 
 @bp.route('/search', methods=['GET'])
 def search():
-    """Search across all objects"""
+    """Search across all objects
+    ---
+    tags:
+      - Search & Stats
+    summary: Fritextsök objekt
+    parameters:
+      - name: q
+        in: query
+        type: string
+        required: true
+        description: Sökterm (söker i ID och textfältvärden)
+      - name: type
+        in: query
+        type: string
+        required: false
+        description: Filtrera på objekttypens namn
+      - name: field
+        in: query
+        type: string
+        required: false
+        description: Begränsa sökning till specifikt fältnamn
+    responses:
+      200:
+        description: Matchande objekt
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Object'
+      500:
+        description: Sökningen misslyckades
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Get search parameters
         query_string = request.args.get('q', '').strip()

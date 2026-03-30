@@ -43,7 +43,34 @@ def _normalize_column_order(column_order):
 @bp.route('/tree-display', methods=['GET'])
 @cache.cached(timeout=300)
 def get_tree_display_config():
-    """Get tree display configuration for all object types"""
+    """Get tree display configuration for all object types
+    ---
+    tags:
+      - View Configuration
+    summary: Hämta trädvisningskonfiguration
+    responses:
+      200:
+        description: Trädvisningskonfiguration per objekttyp
+        schema:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              object_type_id:
+                type: integer
+              object_type_name:
+                type: string
+              tree_view_name_field:
+                type: string
+              available_fields:
+                type: array
+                items:
+                  type: object
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         configs = ViewConfiguration.query.all()
         
@@ -75,7 +102,49 @@ def get_tree_display_config():
 
 @bp.route('/tree-display', methods=['PUT'])
 def update_tree_display_config():
-    """Update tree display configuration for object types"""
+    """Update tree display configuration for object types
+    ---
+    tags:
+      - View Configuration
+    summary: Uppdatera trädvisningskonfiguration
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          description: "Nyckel = objekttypnamn, värde = konfiguration"
+          additionalProperties:
+            type: object
+            properties:
+              object_type_id:
+                type: integer
+              tree_view_name_field:
+                type: string
+                description: Fältnamn att visa i trädet (eller 'ID')
+    responses:
+      200:
+        description: Uppdaterade konfigurationer
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            configs:
+              type: array
+              items:
+                type: object
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json()
         
@@ -140,7 +209,23 @@ def update_tree_display_config():
 @bp.route('/list-view', methods=['GET'])
 @cache.cached(timeout=300)
 def get_list_view_config():
-    """Get list view configuration for all object types"""
+    """Get list view configuration for all object types
+    ---
+    tags:
+      - View Configuration
+    summary: Hämta listvisningskonfiguration
+    responses:
+      200:
+        description: Listvisningskonfiguration per objekttyp
+        schema:
+          type: object
+          additionalProperties:
+            type: object
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         configs = ViewConfiguration.query.all()
         
@@ -205,7 +290,56 @@ def get_list_view_config():
 
 @bp.route('/list-view', methods=['PUT'])
 def update_list_view_config():
-    """Update list view configuration for object types"""
+    """Update list view configuration for object types
+    ---
+    tags:
+      - View Configuration
+    summary: Uppdatera listvisningskonfiguration
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          description: "Nyckel = objekttypnamn, värde = konfiguration"
+          additionalProperties:
+            type: object
+            properties:
+              object_type_id:
+                type: integer
+              visible_columns:
+                type: array
+                items:
+                  type: object
+              column_order:
+                type: array
+                items:
+                  type: string
+              column_widths:
+                type: object
+    responses:
+      200:
+        description: Uppdaterade konfigurationer
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            configs:
+              type: array
+              items:
+                type: object
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json()
         
@@ -271,7 +405,31 @@ def update_list_view_config():
 @bp.route('/list-view/<int:object_type_id>', methods=['GET'])
 @cache.cached(timeout=300, query_string=True)
 def get_list_view_config_by_type(object_type_id):
-    """Get list view configuration for a specific object type"""
+    """Get list view configuration for a specific object type
+    ---
+    tags:
+      - View Configuration
+    summary: Hämta listvisning för en specifik objekttyp
+    parameters:
+      - name: object_type_id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+    responses:
+      200:
+        description: Listvisningskonfiguration för typen
+        schema:
+          type: object
+      404:
+        description: Objekttypen hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Check if object type exists
         object_type = ObjectType.query.get(object_type_id)

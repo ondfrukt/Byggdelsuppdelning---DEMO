@@ -200,7 +200,30 @@ def has_meaningful_field_data(field):
 @bp.route('', methods=['GET'])
 @cache.cached(timeout=300, query_string=True)
 def list_object_types():
-    """List all object types"""
+    """List all object types
+    ---
+    tags:
+      - Object Types
+    summary: Lista alla objekttyper
+    parameters:
+      - name: include_fields
+        in: query
+        type: boolean
+        required: false
+        description: Inkludera fältdefinitioner i svaret
+        default: false
+    responses:
+      200:
+        description: Lista med objekttyper
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ObjectType'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         include_fields = request.args.get('include_fields', 'false').lower() == 'true'
         object_types = ObjectType.query.all()
@@ -212,7 +235,31 @@ def list_object_types():
 
 @bp.route('/<int:id>', methods=['GET'])
 def get_object_type(id):
-    """Get a specific object type with its fields"""
+    """Get a specific object type with its fields
+    ---
+    tags:
+      - Object Types
+    summary: Hämta en objekttyp med fält
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+    responses:
+      200:
+        description: Objekttypen med alla fält
+        schema:
+          $ref: '#/definitions/ObjectType'
+      404:
+        description: Objekttypen hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type = ObjectType.query.get_or_404(id)
         return jsonify(object_type.to_dict(include_fields=True)), 200
@@ -223,7 +270,51 @@ def get_object_type(id):
 
 @bp.route('', methods=['POST'])
 def create_object_type():
-    """Create a new object type"""
+    """Create a new object type
+    ---
+    tags:
+      - Object Types
+    summary: Skapa ny objekttyp
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              description: Unikt namn på objekttypen
+            description:
+              type: string
+              description: Beskrivning
+            icon:
+              type: string
+              description: Ikonidentifierare
+            id_prefix:
+              type: string
+              description: Prefixmall för automatiska ID:n (t.ex. PROD)
+            color:
+              type: string
+              description: "Hex-färg från den fasta paletten (t.ex. #0EA5E9)"
+    responses:
+      201:
+        description: Skapad objekttyp
+        schema:
+          $ref: '#/definitions/ObjectType'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json() or {}
         
@@ -287,7 +378,51 @@ def create_object_type():
 
 @bp.route('/<int:id>', methods=['PUT'])
 def update_object_type(id):
-    """Update an object type"""
+    """Update an object type
+    ---
+    tags:
+      - Object Types
+    summary: Uppdatera objekttyp
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            icon:
+              type: string
+            id_prefix:
+              type: string
+            color:
+              type: string
+    responses:
+      200:
+        description: Uppdaterad objekttyp
+        schema:
+          $ref: '#/definitions/ObjectType'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type = ObjectType.query.get_or_404(id)
         data = request.get_json() or {}
@@ -327,7 +462,46 @@ def update_object_type(id):
 
 @bp.route('/<int:id>', methods=['DELETE'])
 def delete_object_type(id):
-    """Delete an object type (only non-system types)"""
+    """Delete an object type (only non-system types)
+    ---
+    tags:
+      - Object Types
+    summary: Ta bort objekttyp (ej systemtyper)
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+    responses:
+      200:
+        description: Borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+            deleted_relation_rules:
+              type: integer
+            cleared_relation_type_scopes:
+              type: integer
+      400:
+        description: Valideringsfel (t.ex. objekt finns kvar)
+        schema:
+          $ref: '#/definitions/Error'
+      403:
+        description: Systemtyper får ej tas bort
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type = ObjectType.query.get_or_404(id)
         
@@ -376,7 +550,33 @@ def delete_object_type(id):
 
 @bp.route('/<int:id>/fields', methods=['GET'])
 def list_fields(id):
-    """List all fields for an object type"""
+    """List all fields for an object type
+    ---
+    tags:
+      - Object Types
+    summary: Lista fält för en objekttyp
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+    responses:
+      200:
+        description: Lista med fält
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ObjectField'
+      404:
+        description: Objekttypen hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type = ObjectType.query.get_or_404(id)
         fields = sorted(object_type.fields, key=lambda f: f.display_order or 999)
@@ -388,7 +588,63 @@ def list_fields(id):
 
 @bp.route('/<int:id>/fields', methods=['POST'])
 def add_field(id):
-    """Add a field to an object type"""
+    """Add a field to an object type
+    ---
+    tags:
+      - Object Types
+    summary: Lägg till fält på en objekttyp
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - field_template_id
+          properties:
+            field_template_id:
+              type: integer
+              description: ID för fältmallen som ska användas
+            is_required:
+              type: boolean
+              description: Om fältet är obligatoriskt
+            display_order:
+              type: integer
+              description: Visningsordning
+            detail_width:
+              type: string
+              enum: [full, half, third]
+              description: Bredd i detaljvyn
+            field_options:
+              type: object
+              description: Alternativ för select-fält (managed_list)
+    responses:
+      201:
+        description: Fält skapat
+        schema:
+          $ref: '#/definitions/ObjectField'
+      200:
+        description: Computed-fält uppdaterat in-place
+        schema:
+          $ref: '#/definitions/ObjectField'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Objekttyp eller fältmall hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type = ObjectType.query.get_or_404(id)
         data = request.get_json() or {}
@@ -529,7 +785,57 @@ def _update_field_data(field, field_id, data):
 
 @bp.route('/<int:type_id>/fields/<int:field_id>', methods=['PUT'])
 def update_field_with_type(type_id, field_id):
-    """Update a field (with type_id in path for compatibility)"""
+    """Update a field (with type_id in path for compatibility)
+    ---
+    tags:
+      - Object Types
+    summary: Uppdatera ett fält
+    parameters:
+      - name: type_id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+      - name: field_id
+        in: path
+        type: integer
+        required: true
+        description: Fältets ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            is_required:
+              type: boolean
+            display_order:
+              type: integer
+            detail_width:
+              type: string
+              enum: [full, half, third]
+            is_detail_visible:
+              type: boolean
+            field_options:
+              type: object
+    responses:
+      200:
+        description: Uppdaterat fält
+        schema:
+          $ref: '#/definitions/ObjectField'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Verify the object type exists
         object_type = ObjectType.query.get_or_404(type_id)
@@ -562,7 +868,43 @@ def update_field_with_type(type_id, field_id):
 
 @bp.route('/<int:type_id>/fields/<int:field_id>', methods=['DELETE'])
 def delete_field_with_type(type_id, field_id):
-    """Delete a field (with type_id in path for compatibility)"""
+    """Delete a field (with type_id in path for compatibility)
+    ---
+    tags:
+      - Object Types
+    summary: Ta bort ett fält
+    parameters:
+      - name: type_id
+        in: path
+        type: integer
+        required: true
+        description: Objekttypens ID
+      - name: field_id
+        in: path
+        type: integer
+        required: true
+        description: Fältets ID
+    responses:
+      200:
+        description: Fältet borttaget
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      400:
+        description: Valideringsfel (t.ex. fält har data eller är obligatoriskt)
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Verify the object type exists
         object_type = ObjectType.query.get_or_404(type_id)

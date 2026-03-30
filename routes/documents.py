@@ -129,7 +129,37 @@ def infer_mime_type(filename):
 
 @bp.route('/<int:id>/documents', methods=['GET'])
 def list_documents(id):
-    """List all documents for an object"""
+    """List all documents for an object
+    ---
+    tags:
+      - Documents
+    summary: Lista dokument för ett objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID (måste vara av typen FileObject)
+    responses:
+      200:
+        description: Lista med dokument
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Document'
+      404:
+        description: Objektet hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      422:
+        description: Objektet är inte av typen FileObject
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         obj = Object.query.get_or_404(id)
         file_object_error = ensure_file_object_or_422(obj)
@@ -148,7 +178,51 @@ def list_documents(id):
 @bp.route('/<int:id>/documents', methods=['POST'])
 @limiter.limit("20 per minute")
 def upload_document(id):
-    """Upload a document for an object"""
+    """Upload a document for an object
+    ---
+    tags:
+      - Documents
+    summary: Ladda upp dokument (max 10 MB, rate-limit 20/min)
+    consumes:
+      - multipart/form-data
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID (måste vara av typen FileObject)
+      - name: file
+        in: formData
+        type: file
+        required: true
+        description: "Tillåtna format: xls, xlsx, doc, docx, pdf, dwg, dxf, rvt, png, jpg, gif, bmp, webp, tif, tiff"
+      - name: uploaded_by
+        in: formData
+        type: string
+        required: false
+        description: Uppladdad av (valfri text)
+    responses:
+      201:
+        description: Dokument uppladdad
+        schema:
+          $ref: '#/definitions/Document'
+      400:
+        description: Valideringsfel (filtyp, storlek)
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Objektet hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      422:
+        description: Objektet är inte av typen FileObject
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         obj = Object.query.get_or_404(id)
         file_object_error = ensure_file_object_or_422(obj)
@@ -210,7 +284,42 @@ def upload_document(id):
 
 @bp.route('/documents/<int:doc_id>/download', methods=['GET'])
 def download_document(doc_id):
-    """Download a document"""
+    """Download a document
+    ---
+    tags:
+      - Documents
+    summary: Ladda ned dokument
+    produces:
+      - application/octet-stream
+      - application/pdf
+    parameters:
+      - name: doc_id
+        in: path
+        type: integer
+        required: true
+        description: Dokumentets ID
+      - name: download
+        in: query
+        type: boolean
+        required: false
+        description: Tvinga nedladdning (annars inline för PDF)
+      - name: inline
+        in: query
+        type: boolean
+        required: false
+        description: Tvinga inline-visning
+    responses:
+      200:
+        description: Filinnehållet
+      404:
+        description: Dokument eller fil hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         document = Document.query.get_or_404(doc_id)
         filename = (document.original_filename or document.filename or '').lower()
@@ -242,7 +351,51 @@ def download_document(doc_id):
 
 @bp.route('/documents/<int:doc_id>/preview-meta', methods=['GET'])
 def document_preview_meta(doc_id):
-    """Return first-page dimensions for PDF preview sizing."""
+    """Return first-page dimensions for PDF preview sizing.
+    ---
+    tags:
+      - Documents
+    summary: Hämta PDF-dimensioner för förhandsvisning
+    parameters:
+      - name: doc_id
+        in: path
+        type: integer
+        required: true
+        description: Dokumentets ID (måste vara PDF)
+    responses:
+      200:
+        description: Sidmått för PDF
+        schema:
+          type: object
+          properties:
+            document_id:
+              type: integer
+            page_width:
+              type: number
+            page_height:
+              type: number
+            page_ratio:
+              type: number
+            orientation:
+              type: string
+              enum: [portrait, landscape, square]
+      400:
+        description: Dokumentet är inte en PDF
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Dokument eller fil hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      422:
+        description: PDF saknar sidor
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         document = Document.query.get_or_404(doc_id)
         filename = (document.original_filename or document.filename or '').lower()
@@ -297,7 +450,34 @@ def document_preview_meta(doc_id):
 
 @bp.route('/documents/<int:doc_id>', methods=['DELETE'])
 def delete_document(doc_id):
-    """Delete a document"""
+    """Delete a document
+    ---
+    tags:
+      - Documents
+    summary: Ta bort dokument
+    parameters:
+      - name: doc_id
+        in: path
+        type: integer
+        required: true
+        description: Dokumentets ID
+    responses:
+      200:
+        description: Dokumentet borttaget
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Dokumentet hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         document = Document.query.get_or_404(doc_id)
 
