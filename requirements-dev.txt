@@ -1,0 +1,2 @@
+# Utvecklings- och testberoenden (installeras inte i produktion)
+pytest>=8.0.0
