@@ -45,7 +45,33 @@ def get_linked_id_fulls(source_id):
 
 @bp.route('/<int:id>/relations', methods=['GET'])
 def get_relations(id):
-    """Get all relations for an object"""
+    """Get all relations for an object
+    ---
+    tags:
+      - Object Relations
+    summary: Hämta relationer för ett objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID
+    responses:
+      200:
+        description: Lista med relationer (inkl. riktning)
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ObjectRelation'
+      404:
+        description: Objektet hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         Object.query.get_or_404(id)
 
@@ -70,7 +96,61 @@ def get_relations(id):
 
 @bp.route('/<int:id>/relations', methods=['POST'])
 def create_relation(id):
-    """Create a new relation"""
+    """Create a new relation from an object
+    ---
+    tags:
+      - Object Relations
+    summary: Skapa relation från ett objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Källobjektets ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - target_object_id
+          properties:
+            target_object_id:
+              type: integer
+              description: Målobjektets ID
+            relation_type:
+              type: string
+              description: Relationstyp (default auto)
+            description:
+              type: string
+            metadata:
+              type: object
+    responses:
+      201:
+        description: Relation skapad
+        schema:
+          $ref: '#/definitions/ObjectRelation'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Objekt hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Relation finns redan
+        schema:
+          $ref: '#/definitions/Error'
+      422:
+        description: Relationstyp inte tillåten
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         source_object = Object.query.get_or_404(id)
         data = request.get_json() or {}
@@ -132,7 +212,39 @@ def create_relation(id):
 
 @bp.route('/<int:id>/relations/<int:relation_id>', methods=['DELETE'])
 def delete_relation(id, relation_id):
-    """Delete a relation"""
+    """Delete a relation from an object
+    ---
+    tags:
+      - Object Relations
+    summary: Ta bort relation från ett objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID
+      - name: relation_id
+        in: path
+        type: integer
+        required: true
+        description: Relationens ID
+    responses:
+      200:
+        description: Relation borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Relation hittades inte för detta objekt
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Verify the relation belongs to this object (as source or target)
         relation = ObjectRelation.query.filter(
@@ -156,7 +268,46 @@ def delete_relation(id, relation_id):
 
 @bp.route('/<int:id>/relations/<int:relation_id>', methods=['PUT'])
 def update_relation(id, relation_id):
-    """Update a relation"""
+    """Update a relation for an object
+    ---
+    tags:
+      - Object Relations
+    summary: Uppdatera relation
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Källobjektets ID
+      - name: relation_id
+        in: path
+        type: integer
+        required: true
+        description: Relationens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            description:
+              type: string
+            metadata:
+              type: object
+    responses:
+      200:
+        description: Uppdaterad relation
+        schema:
+          $ref: '#/definitions/ObjectRelation'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Verify the relation belongs to this object
         relation = ObjectRelation.query.filter_by(
@@ -184,7 +335,40 @@ def update_relation(id, relation_id):
 
 @bp.route('/<int:id>/linked-file-objects', methods=['GET'])
 def get_linked_file_objects(id):
-    """Get all file objects linked to a non-file object, independent of relation type."""
+    """Get all file objects linked to a non-file object, independent of relation type.
+    ---
+    tags:
+      - Object Relations
+    summary: Hämta länkade filobjekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID (måste INTE vara FileObject)
+    responses:
+      200:
+        description: Lista med länkade filobjekt
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              relation_id:
+                type: integer
+              file_object:
+                $ref: '#/definitions/Object'
+              documents_count:
+                type: integer
+      422:
+        description: Källobjektet är ett FileObject
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         source_object = Object.query.get_or_404(id)
         if is_file_object(source_object):

@@ -85,6 +85,38 @@ def _sync_reverse_rule(source_object_type_id, target_object_type_id, relation_ty
 @bp.route('', methods=['GET'])
 @cache.cached(timeout=300)
 def list_relation_type_rules():
+    """List all relation type rules
+    ---
+    tags:
+      - Relation Type Rules
+    summary: Lista relationstypregler
+    responses:
+      200:
+        description: Regelmatris med relationstyper och instanstyper
+        schema:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/definitions/RelationTypeRule'
+            available_relation_types:
+              type: array
+              items:
+                type: string
+            relation_types:
+              type: array
+              items:
+                type: object
+            instance_types:
+              type: array
+              items:
+                type: object
+            instance_type_fields:
+              type: array
+              items:
+                type: object
+    """
     created = ensure_complete_relation_rule_matrix()
     if created > 0:
         db.session.commit()
@@ -102,6 +134,47 @@ def list_relation_type_rules():
 
 @bp.route('/instance-type-fields/<string:instance_type_key>', methods=['PUT'])
 def replace_instance_type_fields(instance_type_key):
+    """Replace instance type fields for a given instance type key
+    ---
+    tags:
+      - Relation Type Rules
+    summary: Sätt fältmallar för en instanstyp
+    parameters:
+      - name: instance_type_key
+        in: path
+        type: string
+        required: true
+        description: Instanstypens nyckel
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - field_template_ids
+          properties:
+            field_template_ids:
+              type: array
+              items:
+                type: integer
+              description: Ordnad lista med fältmall-ID:n
+    responses:
+      200:
+        description: Uppdaterade fält för instanstypen
+        schema:
+          type: object
+          properties:
+            instance_type_key:
+              type: string
+            items:
+              type: array
+              items:
+                type: object
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     normalized_key = _normalize_instance_type_key(instance_type_key)
     if not normalized_key:
         return jsonify({'error': 'Invalid instance_type key'}), 400
@@ -169,6 +242,51 @@ def replace_instance_type_fields(instance_type_key):
 
 @bp.route('', methods=['POST'])
 def upsert_relation_type_rule():
+    """Create or update a relation type rule
+    ---
+    tags:
+      - Relation Type Rules
+    summary: Skapa eller uppdatera relationstypregel
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - source_object_type_id
+            - target_object_type_id
+            - relation_type
+          properties:
+            source_object_type_id:
+              type: integer
+              description: Källobjekttypens ID
+            target_object_type_id:
+              type: integer
+              description: Målobjekttypens ID
+            relation_type:
+              type: string
+              description: Relationstyp
+            is_allowed:
+              type: boolean
+              default: true
+              description: Om relationen är tillåten
+    responses:
+      201:
+        description: Ny regel skapad
+        schema:
+          $ref: '#/definitions/RelationTypeRule'
+      200:
+        description: Befintlig regel uppdaterad
+        schema:
+          $ref: '#/definitions/RelationTypeRule'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json() or {}
     source_object_type_id = data.get('source_object_type_id')
     target_object_type_id = data.get('target_object_type_id')
@@ -214,6 +332,49 @@ def upsert_relation_type_rule():
 
 @bp.route('/<int:rule_id>', methods=['PUT'])
 def update_relation_type_rule(rule_id):
+    """Update a relation type rule
+    ---
+    tags:
+      - Relation Type Rules
+    summary: Uppdatera relationstypregel
+    parameters:
+      - name: rule_id
+        in: path
+        type: integer
+        required: true
+        description: Regelns ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            source_object_type_id:
+              type: integer
+            target_object_type_id:
+              type: integer
+            relation_type:
+              type: string
+            is_allowed:
+              type: boolean
+    responses:
+      200:
+        description: Uppdaterad regel
+        schema:
+          $ref: '#/definitions/RelationTypeRule'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Regel finns redan för detta par
+        schema:
+          $ref: '#/definitions/Error'
+    """
     rule = RelationTypeRule.query.get_or_404(rule_id)
     data = request.get_json() or {}
 
@@ -253,6 +414,30 @@ def update_relation_type_rule(rule_id):
 
 @bp.route('/<int:rule_id>', methods=['DELETE'])
 def delete_relation_type_rule(rule_id):
+    """Delete a relation type rule
+    ---
+    tags:
+      - Relation Type Rules
+    summary: Ta bort relationstypregel
+    parameters:
+      - name: rule_id
+        in: path
+        type: integer
+        required: true
+        description: Regelns ID
+    responses:
+      200:
+        description: Borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     rule = RelationTypeRule.query.get_or_404(rule_id)
     db.session.delete(rule)
     db.session.commit()

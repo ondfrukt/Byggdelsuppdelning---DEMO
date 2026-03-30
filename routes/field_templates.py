@@ -58,6 +58,30 @@ def validate_field_template_payload(data, template_id=None):
 @bp.route('', methods=['GET'])
 @cache.cached(timeout=300, query_string=True)
 def list_field_templates():
+    """List all field templates
+    ---
+    tags:
+      - Field Templates
+    summary: Lista fältmallar
+    parameters:
+      - name: include_inactive
+        in: query
+        type: boolean
+        required: false
+        default: false
+        description: Inkludera inaktiva mallar
+    responses:
+      200:
+        description: Lista med fältmallar
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/FieldTemplate'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
         query = FieldTemplate.query
@@ -73,6 +97,68 @@ def list_field_templates():
 
 @bp.route('', methods=['POST'])
 def create_field_template():
+    """Create a field template
+    ---
+    tags:
+      - Field Templates
+    summary: Skapa fältmall
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - template_name
+            - field_name
+            - field_type
+          properties:
+            template_name:
+              type: string
+              description: Unikt mallnamn
+            field_name:
+              type: string
+              description: Fältnamn (lowercase)
+            display_name:
+              type: string
+            field_type:
+              type: string
+              description: "Typ: text, number, date, boolean, select, computed"
+            field_options:
+              type: object
+            is_required:
+              type: boolean
+              default: false
+            lock_required_setting:
+              type: boolean
+              default: false
+            force_presence_on_all_objects:
+              type: boolean
+              default: false
+            is_table_visible:
+              type: boolean
+              default: true
+            help_text:
+              type: string
+            is_active:
+              type: boolean
+              default: true
+    responses:
+      201:
+        description: Fältmall skapad
+        schema:
+          $ref: '#/definitions/FieldTemplate'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json() or {}
         validation_error = validate_field_template_payload(data)
@@ -105,6 +191,67 @@ def create_field_template():
 
 @bp.route('/<int:template_id>', methods=['PUT'])
 def update_field_template(template_id):
+    """Update a field template
+    ---
+    tags:
+      - Field Templates
+    summary: Uppdatera fältmall
+    parameters:
+      - name: template_id
+        in: path
+        type: integer
+        required: true
+        description: Fältmallens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - template_name
+            - field_name
+            - field_type
+          properties:
+            template_name:
+              type: string
+            field_name:
+              type: string
+            display_name:
+              type: string
+            field_type:
+              type: string
+            field_options:
+              type: object
+            is_required:
+              type: boolean
+            lock_required_setting:
+              type: boolean
+            force_presence_on_all_objects:
+              type: boolean
+            is_table_visible:
+              type: boolean
+            help_text:
+              type: string
+            is_active:
+              type: boolean
+    responses:
+      200:
+        description: Uppdaterad fältmall
+        schema:
+          $ref: '#/definitions/FieldTemplate'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = FieldTemplate.query.get_or_404(template_id)
         data = request.get_json() or {}
@@ -138,6 +285,34 @@ def update_field_template(template_id):
 
 @bp.route('/<int:template_id>', methods=['DELETE'])
 def delete_field_template(template_id):
+    """Delete a field template
+    ---
+    tags:
+      - Field Templates
+    summary: Ta bort fältmall
+    parameters:
+      - name: template_id
+        in: path
+        type: integer
+        required: true
+        description: Fältmallens ID
+    responses:
+      200:
+        description: Borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = FieldTemplate.query.get_or_404(template_id)
         db.session.delete(item)

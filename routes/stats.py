@@ -8,7 +8,33 @@ stats_bp = Blueprint('stats', __name__)
 
 @stats_bp.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
+    """Health check endpoint
+    ---
+    tags:
+      - Search & Stats
+    summary: Hälsostatus för API och databas
+    responses:
+      200:
+        description: API och databas är igång
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: healthy
+            message:
+              type: string
+      500:
+        description: Databasanslutning misslyckades
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: unhealthy
+            message:
+              type: string
+    """
     try:
         # Test database connection
         db.session.execute(db.text('SELECT 1'))
@@ -25,7 +51,35 @@ def health_check():
 
 @stats_bp.route('/stats', methods=['GET'])
 def get_stats():
-    """Get statistics about the object-based system"""
+    """Get statistics about the object-based system
+    ---
+    tags:
+      - Search & Stats
+    summary: Hämta objektstatistik
+    responses:
+      200:
+        description: Statistik över objekt per typ
+        schema:
+          type: object
+          properties:
+            total_objects:
+              type: integer
+              description: Totalt antal objekt
+            objects_by_type:
+              type: object
+              additionalProperties:
+                type: integer
+              description: Antal objekt per objekttyp (nyckel = typnamn)
+            recent_objects:
+              type: array
+              description: De 10 senast skapade objekten
+              items:
+                $ref: '#/definitions/Object'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         # Total object count
         total_objects = Object.query.count()

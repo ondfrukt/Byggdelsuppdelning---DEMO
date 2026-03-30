@@ -58,6 +58,39 @@ def _validate_parent(node, parent_id, system_id, exclude_id=None):
 # ---------------------------------------------------------------------------
 @bp.route('', methods=['GET'])
 def list_nodes():
+    """List category nodes
+    ---
+    tags:
+      - Category Nodes
+    summary: Lista kategorinoder
+    parameters:
+      - name: system_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på klassificeringssystem
+      - name: level
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på nivå
+      - name: parent_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på föräldernod-ID
+    responses:
+      200:
+        description: Lista med kategorinoder
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/CategoryNode'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     query = CategoryNode.query
 
     system_id = request.args.get('system_id')
@@ -97,6 +130,53 @@ def list_nodes():
 # ---------------------------------------------------------------------------
 @bp.route('', methods=['POST'])
 def create_node():
+    """Create a category node
+    ---
+    tags:
+      - Category Nodes
+    summary: Skapa kategorinod
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - system_id
+          properties:
+            system_id:
+              type: integer
+              description: Klassificeringssystemets ID
+            parent_id:
+              type: integer
+              description: Föräldernod-ID (null för rotnod)
+            code:
+              type: string
+              description: Klassificeringskod
+            name:
+              type: string
+              description: Nodens namn
+            description:
+              type: string
+            sort_order:
+              type: integer
+    responses:
+      201:
+        description: Nod skapad
+        schema:
+          $ref: '#/definitions/CategoryNode'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Föräldernod eller system hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json()
     if not data:
         return jsonify({'error': 'Request body is required'}), 400
@@ -164,7 +244,31 @@ def create_node():
 # ---------------------------------------------------------------------------
 @bp.route('/batch', methods=['GET'])
 def get_nodes_batch():
-    """Return {id: {name, path_string}} for a list of node IDs in one request."""
+    """Return {id: {name, path_string}} for a list of node IDs in one request.
+    ---
+    tags:
+      - Category Nodes
+    summary: Hämta flera noder och deras sökvägar
+    parameters:
+      - name: ids
+        in: query
+        type: string
+        required: true
+        description: Kommaseparerade nod-ID:n (t.ex. 1,2,3)
+    responses:
+      200:
+        description: Karta med nod-ID som nyckel
+        schema:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              name:
+                type: string
+              path_string:
+                type: string
+                description: "Fullständig sökväg (t.ex. Bygg › Stomme › Betong)"
+    """
     raw = request.args.get('ids', '')
     node_ids = []
     for part in raw.split(','):
@@ -230,6 +334,33 @@ def get_nodes_batch():
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>', methods=['GET'])
 def get_node(node_id):
+    """Get a single category node
+    ---
+    tags:
+      - Category Nodes
+    summary: Hämta kategorinod
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Nodens ID
+      - name: include_path
+        in: query
+        type: boolean
+        default: false
+        required: false
+        description: Inkludera fullständig sökväg
+    responses:
+      200:
+        description: Kategorinoden
+        schema:
+          $ref: '#/definitions/CategoryNode'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
     include_path = request.args.get('include_path', 'false').lower() in ('1', 'true', 'yes')
     result = node.to_dict()
@@ -246,6 +377,47 @@ def get_node(node_id):
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>', methods=['PUT'])
 def update_node(node_id):
+    """Update a category node
+    ---
+    tags:
+      - Category Nodes
+    summary: Uppdatera kategorinod
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Nodens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            code:
+              type: string
+            name:
+              type: string
+            description:
+              type: string
+            sort_order:
+              type: integer
+            is_active:
+              type: boolean
+    responses:
+      200:
+        description: Uppdaterad nod
+        schema:
+          $ref: '#/definitions/CategoryNode'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
     data = request.get_json()
     if not data:
@@ -285,6 +457,34 @@ def update_node(node_id):
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>', methods=['DELETE'])
 def delete_node(node_id):
+    """Delete a category node
+    ---
+    tags:
+      - Category Nodes
+    summary: Ta bort kategorinod
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Nodens ID
+    responses:
+      200:
+        description: Nod borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Noden har barn eller kopplade objekt
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
 
     if node.children:
@@ -310,7 +510,25 @@ def delete_node(node_id):
 @bp.route('/object-tree', methods=['GET'])
 @cache.cached(timeout=60, query_string=True)
 def object_tree():
-    """Return category nodes with assigned objects and their direct relations as children."""
+    """Return category nodes with assigned objects and their direct relations as children.
+    ---
+    tags:
+      - Category Nodes
+    summary: Hämta kategorinodträd med objekt (cachad 60 s)
+    parameters:
+      - name: system_name
+        in: query
+        type: string
+        required: true
+        description: Klassificeringssystemets namn
+    responses:
+      200:
+        description: Noder med objekt och barn
+        schema:
+          type: array
+          items:
+            type: object
+    """
     from models import Object as ObjModel, ObjectRelation, ObjectData
 
     system_name = (request.args.get('system_name') or '').strip()
@@ -472,6 +690,27 @@ def object_tree():
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>/tree', methods=['GET'])
 def get_tree(node_id):
+    """Get a category node tree rooted at this node
+    ---
+    tags:
+      - Category Nodes
+    summary: Hämta nodträd
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Rotnodensins ID
+    responses:
+      200:
+        description: Noden med alla descendanter
+        schema:
+          $ref: '#/definitions/CategoryNode'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
     return jsonify(node.to_dict(include_children=True)), 200
 
@@ -481,6 +720,29 @@ def get_tree(node_id):
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>/ancestors', methods=['GET'])
 def get_ancestors(node_id):
+    """Get all ancestors of a category node
+    ---
+    tags:
+      - Category Nodes
+    summary: Hämta förfäder till en nod
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Nodens ID
+    responses:
+      200:
+        description: Lista med förfäder (rot → förälder)
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/CategoryNode'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
     ancestors = node.get_ancestors()
     return jsonify([a.to_dict() for a in ancestors]), 200
@@ -491,6 +753,42 @@ def get_ancestors(node_id):
 # ---------------------------------------------------------------------------
 @bp.route('/<int:node_id>/move', methods=['POST'])
 def move_node(node_id):
+    """Move a category node to a new parent
+    ---
+    tags:
+      - Category Nodes
+    summary: Flytta kategorinod
+    parameters:
+      - name: node_id
+        in: path
+        type: integer
+        required: true
+        description: Nodens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - new_parent_id
+          properties:
+            new_parent_id:
+              type: integer
+              description: Ny föräldernod-ID (null för rotnod)
+    responses:
+      200:
+        description: Nod flyttad
+        schema:
+          $ref: '#/definitions/CategoryNode'
+      400:
+        description: Valideringsfel (t.ex. cirkulär referens)
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     node = CategoryNode.query.get_or_404(node_id)
     data = request.get_json()
     if not data:

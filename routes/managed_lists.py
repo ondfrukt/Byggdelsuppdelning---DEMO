@@ -239,7 +239,51 @@ def _validate_item_link_membership(list_link, parent_item, child_item):
 
 @bp.route('', methods=['GET'])
 def list_managed_lists():
-    """List all managed lists."""
+    """List all managed lists.
+    ---
+    tags:
+      - Managed Lists
+    summary: Lista alla hanterade listor
+    parameters:
+      - name: include_inactive
+        in: query
+        type: boolean
+        default: false
+        required: false
+      - name: include_items
+        in: query
+        type: boolean
+        default: false
+        required: false
+        description: Inkludera listelement
+      - name: include_inactive_items
+        in: query
+        type: boolean
+        default: false
+        required: false
+      - name: include_links
+        in: query
+        type: boolean
+        default: false
+        required: false
+        description: Inkludera listhierarkikopplingar
+      - name: locale
+        in: query
+        type: string
+        required: false
+        description: Språkkod för översättningar (t.ex. sv, en)
+    responses:
+      200:
+        description: Lista med hanterade listor
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ManagedList'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
         include_items = request.args.get('include_items', 'false').lower() == 'true'
@@ -268,7 +312,50 @@ def list_managed_lists():
 
 @bp.route('/<int:list_id>', methods=['GET'])
 def get_managed_list(list_id):
-    """Get one managed list."""
+    """Get one managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Hämta en hanterad lista
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - name: include_items
+        in: query
+        type: boolean
+        default: true
+        required: false
+      - name: include_inactive_items
+        in: query
+        type: boolean
+        default: false
+        required: false
+      - name: include_links
+        in: query
+        type: boolean
+        default: false
+        required: false
+      - name: locale
+        in: query
+        type: string
+        required: false
+    responses:
+      200:
+        description: Den hanterade listan
+        schema:
+          $ref: '#/definitions/ManagedList'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         include_items = request.args.get('include_items', 'true').lower() == 'true'
         include_inactive_items = request.args.get('include_inactive_items', 'false').lower() == 'true'
@@ -291,7 +378,52 @@ def get_managed_list(list_id):
 
 @bp.route('', methods=['POST'])
 def create_managed_list():
-    """Create a managed list."""
+    """Create a managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Skapa hanterad lista
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+          properties:
+            name:
+              type: string
+              description: Unikt listnamn
+            description:
+              type: string
+            language_codes:
+              type: array
+              items:
+                type: string
+              description: Språkkoder (engelska alltid inkluderad)
+            additional_language_code:
+              type: string
+              description: Ytterligare språkkod (t.ex. sv)
+            is_active:
+              type: boolean
+              default: true
+    responses:
+      201:
+        description: Lista skapad
+        schema:
+          $ref: '#/definitions/ManagedList'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json() or {}
         name = (data.get('name') or '').strip()
@@ -336,7 +468,47 @@ def create_managed_list():
 
 @bp.route('/<int:list_id>', methods=['PUT'])
 def update_managed_list(list_id):
-    """Update a managed list."""
+    """Update a managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Uppdatera hanterad lista
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name:
+              type: string
+            description:
+              type: string
+            is_active:
+              type: boolean
+    responses:
+      200:
+        description: Uppdaterad lista
+        schema:
+          $ref: '#/definitions/ManagedList'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
         data = request.get_json() or {}
@@ -382,7 +554,38 @@ def update_managed_list(list_id):
 
 @bp.route('/<int:list_id>', methods=['DELETE'])
 def delete_managed_list(list_id):
-    """Delete a managed list."""
+    """Delete a managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Ta bort hanterad lista
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+    responses:
+      200:
+        description: Lista borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Listan används av fält och kan inte tas bort
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
         blockers = _get_list_usage_blockers(list_id)
@@ -666,7 +869,52 @@ def delete_managed_list_item_link(item_link_id):
 
 @bp.route('/<int:list_id>/items', methods=['GET'])
 def list_managed_list_items(list_id):
-    """List rows for one managed list."""
+    """List rows for one managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Lista listelement
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - name: include_inactive
+        in: query
+        type: boolean
+        default: false
+        required: false
+      - name: parent_item_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på förälderelement (via item-link)
+      - name: tree_parent_item_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på hierarkisk förälder (null = rotelement)
+      - name: locale
+        in: query
+        type: string
+        required: false
+    responses:
+      200:
+        description: Lista med listelement
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ManagedListItem'
+      404:
+        description: Listan hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
         fallback_language_code = get_fallback_language_code(managed_list)
@@ -723,7 +971,55 @@ def list_managed_list_items(list_id):
 
 @bp.route('/<int:list_id>/items', methods=['POST'])
 def create_managed_list_item(list_id):
-    """Create a row for one managed list."""
+    """Create a row for one managed list.
+    ---
+    tags:
+      - Managed Lists
+    summary: Lägg till listelement
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            value:
+              type: string
+              description: Värde (obligatoriskt om value_translations saknas)
+            value_translations:
+              type: object
+              description: "Översättningar (nyckel = språkkod)"
+            parent_item_id:
+              type: integer
+              description: Förälderelement-ID (hierarkisk lista)
+            node_metadata:
+              type: object
+            is_active:
+              type: boolean
+              default: true
+    responses:
+      201:
+        description: Listelement skapat
+        schema:
+          $ref: '#/definitions/ManagedListItem'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Listan hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
         fallback_language_code = get_fallback_language_code(managed_list)
@@ -771,7 +1067,58 @@ def create_managed_list_item(list_id):
 
 @bp.route('/<int:list_id>/items/<int:item_id>', methods=['PUT'])
 def update_managed_list_item(list_id, item_id):
-    """Update one list row."""
+    """Update one list row.
+    ---
+    tags:
+      - Managed Lists
+    summary: Uppdatera listelement
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - name: item_id
+        in: path
+        type: integer
+        required: true
+        description: Elementets ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            value:
+              type: string
+            value_translations:
+              type: object
+            parent_item_id:
+              type: integer
+            sort_order:
+              type: integer
+            is_active:
+              type: boolean
+            node_metadata:
+              type: object
+    responses:
+      200:
+        description: Uppdaterat element
+        schema:
+          $ref: '#/definitions/ManagedListItem'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         managed_list = ManagedList.query.get_or_404(list_id)
         fallback_language_code = get_fallback_language_code(managed_list)
@@ -838,7 +1185,43 @@ def update_managed_list_item(list_id, item_id):
 
 @bp.route('/<int:list_id>/items/<int:item_id>', methods=['DELETE'])
 def delete_managed_list_item(list_id, item_id):
-    """Delete one list row."""
+    """Delete one list row.
+    ---
+    tags:
+      - Managed Lists
+    summary: Ta bort listelement
+    parameters:
+      - name: list_id
+        in: path
+        type: integer
+        required: true
+        description: Listans ID
+      - name: item_id
+        in: path
+        type: integer
+        required: true
+        description: Elementets ID
+    responses:
+      200:
+        description: Elementet borttaget
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      400:
+        description: Elementet har barn och kan ej tas bort
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         ManagedList.query.get_or_404(list_id)
         item = ManagedListItem.query.filter_by(id=item_id, list_id=list_id).first_or_404()

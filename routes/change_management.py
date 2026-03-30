@@ -40,7 +40,35 @@ def _get_item_by_key(item_key):
 
 @bp.route('', methods=['GET'])
 def list_change_items():
-    """List change management items."""
+    """List change management items.
+    ---
+    tags:
+      - Change Management
+    summary: Lista ändringsärenden
+    parameters:
+      - name: type
+        in: query
+        type: string
+        enum: [CRQ, CO, RO]
+        required: false
+        description: Filtrera på ärendetyp
+      - name: search
+        in: query
+        type: string
+        required: false
+        description: Fritextsökning i titel, beskrivning och status
+    responses:
+      200:
+        description: Lista med ändringsärenden
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ChangeManagementItem'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item_type = _normalize_type(request.args.get('type'))
         search = str(request.args.get('search') or '').strip().lower()
@@ -67,7 +95,31 @@ def list_change_items():
 
 @bp.route('/<item_key>', methods=['GET'])
 def get_change_item(item_key):
-    """Get one change management item."""
+    """Get one change management item.
+    ---
+    tags:
+      - Change Management
+    summary: Hämta ett ändringsärende
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: "Ärendets nyckel (t.ex. CO-42 eller 42)"
+    responses:
+      200:
+        description: Ändringsärendet
+        schema:
+          $ref: '#/definitions/ChangeManagementItem'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -80,7 +132,49 @@ def get_change_item(item_key):
 
 @bp.route('', methods=['POST'])
 def create_change_item():
-    """Create a change management item."""
+    """Create a change management item.
+    ---
+    tags:
+      - Change Management
+    summary: Skapa ändringsärende
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - type
+            - title
+          properties:
+            type:
+              type: string
+              enum: [CRQ, CO, RO]
+              description: Ärendetyp
+            title:
+              type: string
+              description: Titel (obligatorisk)
+            description:
+              type: string
+            status:
+              type: string
+              default: Open
+    responses:
+      201:
+        description: Ändringsärende skapat
+        schema:
+          $ref: '#/definitions/ChangeManagementItem'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         payload = request.get_json() or {}
         item_type = _normalize_type(payload.get('type'))
@@ -108,7 +202,50 @@ def create_change_item():
 
 @bp.route('/<item_key>', methods=['PUT'])
 def update_change_item(item_key):
-    """Update a change management item."""
+    """Update a change management item.
+    ---
+    tags:
+      - Change Management
+    summary: Uppdatera ändringsärende
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [CRQ, CO, RO]
+            title:
+              type: string
+            description:
+              type: string
+            status:
+              type: string
+    responses:
+      200:
+        description: Uppdaterat ändringsärende
+        schema:
+          $ref: '#/definitions/ChangeManagementItem'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -143,7 +280,34 @@ def update_change_item(item_key):
 
 @bp.route('/<item_key>', methods=['DELETE'])
 def delete_change_item(item_key):
-    """Delete a change management item."""
+    """Delete a change management item.
+    ---
+    tags:
+      - Change Management
+    summary: Ta bort ändringsärende
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+    responses:
+      200:
+        description: Borttaget
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -159,7 +323,33 @@ def delete_change_item(item_key):
 
 @bp.route('/<item_key>/impacts', methods=['GET'])
 def list_change_item_impacts(item_key):
-    """List impacted objects for one change item."""
+    """List impacted objects for one change item.
+    ---
+    tags:
+      - Change Management
+    summary: Lista påverkade objekt för ett ändringsärende
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+    responses:
+      200:
+        description: Lista med påverkade objekt
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ChangeManagementImpact'
+      404:
+        description: Ändringsärendet hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -173,7 +363,54 @@ def list_change_item_impacts(item_key):
 
 @bp.route('/<item_key>/impacts', methods=['POST'])
 def add_change_item_impact(item_key):
-    """Add impacted object to one change item."""
+    """Add impacted object to one change item.
+    ---
+    tags:
+      - Change Management
+    summary: Lägg till påverkat objekt
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - object_id
+          properties:
+            object_id:
+              type: integer
+              description: Påverkat objekts ID
+            impact_action:
+              type: string
+              enum: [to_be_replaced, cancellation]
+              default: to_be_replaced
+    responses:
+      201:
+        description: Påverkan registrerad
+        schema:
+          $ref: '#/definitions/ChangeManagementImpact'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Ändringsärende eller objekt hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Objektet redan kopplat till detta ärende
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -215,7 +452,49 @@ def add_change_item_impact(item_key):
 
 @bp.route('/<item_key>/impacts/<int:impact_id>', methods=['PUT'])
 def update_change_item_impact(item_key, impact_id):
-    """Update impacted object row."""
+    """Update impacted object row.
+    ---
+    tags:
+      - Change Management
+    summary: Uppdatera påverkan
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+      - name: impact_id
+        in: path
+        type: integer
+        required: true
+        description: Påverkans ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            impact_action:
+              type: string
+              enum: [to_be_replaced, cancellation]
+    responses:
+      200:
+        description: Uppdaterad påverkan
+        schema:
+          $ref: '#/definitions/ChangeManagementImpact'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:
@@ -244,7 +523,39 @@ def update_change_item_impact(item_key, impact_id):
 
 @bp.route('/<item_key>/impacts/<int:impact_id>', methods=['DELETE'])
 def delete_change_item_impact(item_key, impact_id):
-    """Delete impacted object row."""
+    """Delete impacted object row.
+    ---
+    tags:
+      - Change Management
+    summary: Ta bort påverkan
+    parameters:
+      - name: item_key
+        in: path
+        type: string
+        required: true
+        description: Ärendets nyckel
+      - name: impact_id
+        in: path
+        type: integer
+        required: true
+        description: Påverkans ID
+    responses:
+      200:
+        description: Borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         item = _get_item_by_key(item_key)
         if not item:

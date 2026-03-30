@@ -9,3 +9,4 @@ gunicorn>=21.0.0
 python-dotenv>=1.0.0
 Werkzeug>=3.0.0
 pypdf>=5.1.0
+flasgger>=0.9.7

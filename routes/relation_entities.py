@@ -49,7 +49,25 @@ def get_linked_id_fulls(source_id):
 
 @bp.route('', methods=['GET'])
 def list_relations():
-    """List all relation entities, optional filter by object_id."""
+    """List all relation entities, optional filter by object_id.
+    ---
+    tags:
+      - Relations
+    summary: Lista relationer
+    parameters:
+      - name: object_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på objekt-ID
+    responses:
+      200:
+        description: Lista med relationer
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/ObjectRelation'
+    """
     object_id = request.args.get('object_id', type=int)
 
     query = ObjectRelation.query
@@ -73,7 +91,54 @@ def list_relations():
 
 @bp.route('', methods=['POST'])
 def create_relation():
-    """Create relation entity between two objects."""
+    """Create relation entity between two objects.
+    ---
+    tags:
+      - Relations
+    summary: Skapa relation mellan två objekt
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - source_object_id
+            - target_object_id
+          properties:
+            source_object_id:
+              type: integer
+              description: Källobjektets ID (alt. objectA_id)
+            target_object_id:
+              type: integer
+              description: Målobjektets ID (alt. objectB_id)
+            relation_type:
+              type: string
+              description: Relationstyp (default auto)
+            description:
+              type: string
+            metadata:
+              type: object
+    responses:
+      201:
+        description: Relation skapad
+        schema:
+          $ref: '#/definitions/ObjectRelation'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Relation finns redan
+        schema:
+          $ref: '#/definitions/Error'
+      422:
+        description: Relationstyp inte tillåten för dessa objekttyper
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json() or {}
 
     source_object_id = data.get('source_object_id') or data.get('objectA_id')
@@ -142,7 +207,66 @@ def create_relation():
 
 @bp.route('/batch', methods=['POST'])
 def create_relations_batch():
-    """Create relation entities in batch format."""
+    """Create relation entities in batch format.
+    ---
+    tags:
+      - Relations
+    summary: Skapa flera relationer (batch)
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - sourceId
+            - relations
+          properties:
+            sourceId:
+              type: integer
+              description: Källobjektets ID
+            relations:
+              type: array
+              items:
+                type: object
+                required:
+                  - targetId
+                properties:
+                  targetId:
+                    type: integer
+                  relationType:
+                    type: string
+                  metadata:
+                    type: object
+    responses:
+      201:
+        description: Alla relationer skapade
+        schema:
+          type: object
+          properties:
+            sourceId:
+              type: integer
+            created:
+              type: array
+              items:
+                $ref: '#/definitions/ObjectRelation'
+            errors:
+              type: array
+              items:
+                type: object
+            summary:
+              type: object
+      207:
+        description: Delvis lyckad (vissa relationer misslyckades)
+        schema:
+          type: object
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json() or {}
 
     source_id = data.get('sourceId')
@@ -281,6 +405,30 @@ def create_relations_batch():
 
 @bp.route('/<int:relation_id>', methods=['DELETE'])
 def delete_relation(relation_id):
+    """Delete a relation by ID
+    ---
+    tags:
+      - Relations
+    summary: Ta bort relation
+    parameters:
+      - name: relation_id
+        in: path
+        type: integer
+        required: true
+        description: Relationens ID
+    responses:
+      200:
+        description: Relation borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     relation = ObjectRelation.query.get_or_404(relation_id)
     db.session.delete(relation)
     db.session.commit()

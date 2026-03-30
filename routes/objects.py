@@ -1103,7 +1103,65 @@ def enrich_object_with_file_metadata(payload, obj, relations_lookup=None):
 @bp.route('', methods=['GET'])
 @cache.cached(timeout=30, query_string=True)
 def list_objects():
-    """List all objects with optional filtering and optional pagination."""
+    """List all objects with optional filtering and optional pagination.
+    ---
+    tags:
+      - Objects
+    summary: Lista objekt
+    parameters:
+      - name: type
+        in: query
+        type: string
+        required: false
+        description: Filtrera på objekttypens namn
+      - name: search
+        in: query
+        type: string
+        required: false
+        description: Fritextsökning i fältvärden
+      - name: minimal
+        in: query
+        type: boolean
+        default: false
+        required: false
+        description: Returnera minimalt schema (ej fältdata)
+      - name: page
+        in: query
+        type: integer
+        required: false
+        description: Sidnummer för paginering
+      - name: per_page
+        in: query
+        type: integer
+        required: false
+        description: Antal objekt per sida
+      - name: sort_field
+        in: query
+        type: string
+        required: false
+      - name: sort_direction
+        in: query
+        type: string
+        enum: [asc, desc]
+        default: asc
+        required: false
+      - name: column_filters
+        in: query
+        type: string
+        required: false
+        description: JSON-sträng med kolumnfiltrar
+    responses:
+      200:
+        description: Lista med objekt (ev. paginerad)
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Object'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         object_type_name = request.args.get('type')
         search = request.args.get('search')
@@ -1255,7 +1313,31 @@ def list_objects():
 @bp.route('/<int:id>', methods=['GET'])
 @cache.cached(timeout=30)
 def get_object(id):
-    """Get a specific object with all data and relations"""
+    """Get a specific object with all data and relations
+    ---
+    tags:
+      - Objects
+    summary: Hämta ett objekt med fältdata
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID
+    responses:
+      200:
+        description: Objektet med fältdata och dokument
+        schema:
+          $ref: '#/definitions/Object'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         obj = Object.query.options(
             joinedload(Object.object_type),
@@ -1318,7 +1400,51 @@ def get_object(id):
 
 @bp.route('', methods=['POST'])
 def create_object():
-    """Create a new object with dynamic data"""
+    """Create a new object with dynamic data
+    ---
+    tags:
+      - Objects
+    summary: Skapa nytt objekt
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - object_type_id
+          properties:
+            object_type_id:
+              type: integer
+              description: Objekttypens ID
+            main_id:
+              type: string
+              description: Manuellt ID (annars auto-genererat)
+            version:
+              type: string
+              description: Versionstext (default v1)
+            status:
+              type: string
+              description: Status
+            data:
+              type: object
+              description: "Fältvärden (nyckel = fältnamn)"
+    responses:
+      201:
+        description: Objekt skapat
+        schema:
+          $ref: '#/definitions/Object'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         data = request.get_json()
         
@@ -1403,7 +1529,49 @@ def create_object():
 
 @bp.route('/<int:id>', methods=['PUT'])
 def update_object(id):
-    """Update an object's data"""
+    """Update an object's data
+    ---
+    tags:
+      - Objects
+    summary: Uppdatera objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            data:
+              type: object
+              description: "Fältvärden att uppdatera (nyckel = fältnamn)"
+            field_overrides:
+              type: object
+              description: Fältspecifika överskridanden
+    responses:
+      200:
+        description: Uppdaterat objekt
+        schema:
+          $ref: '#/definitions/Object'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         obj = Object.query.get_or_404(id)
         data = request.get_json()
@@ -1788,7 +1956,34 @@ def files_batch():
 
 @bp.route('/<int:id>', methods=['DELETE'])
 def delete_object(id):
-    """Delete an object"""
+    """Delete an object
+    ---
+    tags:
+      - Objects
+    summary: Ta bort objekt
+    parameters:
+      - name: id
+        in: path
+        type: integer
+        required: true
+        description: Objektets ID
+    responses:
+      200:
+        description: Objektet borttaget
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     try:
         obj = Object.query.get_or_404(id)
         object_id_full = obj.id_full

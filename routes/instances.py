@@ -76,6 +76,25 @@ def _apply_instance_data(instance, data):
 
 @bp.route('', methods=['GET'])
 def list_instances():
+    """List instances (structural parent/child relationships)
+    ---
+    tags:
+      - Instances
+    summary: Lista instanser
+    parameters:
+      - name: object_id
+        in: query
+        type: integer
+        required: false
+        description: Filtrera på objekt-ID (inkluderar både förälder och barn)
+    responses:
+      200:
+        description: Lista med instanser
+        schema:
+          type: array
+          items:
+            $ref: '#/definitions/Instance'
+    """
     object_id = request.args.get('object_id', type=int)
 
     query = Instance.query
@@ -97,6 +116,73 @@ def list_instances():
 
 @bp.route('', methods=['POST'])
 def create_instance():
+    """Create a structural parent/child instance
+    ---
+    tags:
+      - Instances
+    summary: Skapa instans
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - parent_object_id
+            - child_object_id
+            - instance_type
+          properties:
+            parent_object_id:
+              type: integer
+              description: ID för förälderobjektet
+            child_object_id:
+              type: integer
+              description: ID för barnobjektet
+            instance_type:
+              type: string
+              description: Typ av instans (se tillåtna värden)
+            quantity:
+              type: number
+              description: Antal (>= 0)
+            unit:
+              type: string
+              description: Enhet
+            waste_factor:
+              type: number
+              description: Spilffaktor (>= 0)
+            installation_sequence:
+              type: integer
+              description: Monteringsordning (>= 0)
+            optional:
+              type: boolean
+            role:
+              type: string
+            position:
+              type: string
+            formula:
+              type: string
+            metadata_json:
+              type: object
+    responses:
+      201:
+        description: Instans skapad
+        schema:
+          $ref: '#/definitions/Instance'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Instansen finns redan
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     data = request.get_json() or {}
 
     parent_object_id = data.get('parent_object_id')
@@ -147,6 +233,69 @@ def create_instance():
 
 @bp.route('/<int:instance_id>', methods=['PUT'])
 def update_instance(instance_id):
+    """Update a structural instance
+    ---
+    tags:
+      - Instances
+    summary: Uppdatera instans
+    parameters:
+      - name: instance_id
+        in: path
+        type: integer
+        required: true
+        description: Instansens ID
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            parent_object_id:
+              type: integer
+            child_object_id:
+              type: integer
+            instance_type:
+              type: string
+            quantity:
+              type: number
+            unit:
+              type: string
+            waste_factor:
+              type: number
+            installation_sequence:
+              type: integer
+            optional:
+              type: boolean
+            role:
+              type: string
+            position:
+              type: string
+            formula:
+              type: string
+            metadata_json:
+              type: object
+    responses:
+      200:
+        description: Uppdaterad instans
+        schema:
+          $ref: '#/definitions/Instance'
+      400:
+        description: Valideringsfel
+        schema:
+          $ref: '#/definitions/Error'
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+      409:
+        description: Instansen finns redan
+        schema:
+          $ref: '#/definitions/Error'
+      500:
+        description: Serverfel
+        schema:
+          $ref: '#/definitions/Error'
+    """
     instance = Instance.query.get_or_404(instance_id)
     data = request.get_json() or {}
 
@@ -195,6 +344,30 @@ def update_instance(instance_id):
 
 @bp.route('/<int:instance_id>', methods=['DELETE'])
 def delete_instance(instance_id):
+    """Delete a structural instance
+    ---
+    tags:
+      - Instances
+    summary: Ta bort instans
+    parameters:
+      - name: instance_id
+        in: path
+        type: integer
+        required: true
+        description: Instansens ID
+    responses:
+      200:
+        description: Instansen borttagen
+        schema:
+          type: object
+          properties:
+            message:
+              type: string
+      404:
+        description: Hittades inte
+        schema:
+          $ref: '#/definitions/Error'
+    """
     instance = Instance.query.get_or_404(instance_id)
     db.session.delete(instance)
     db.session.commit()
