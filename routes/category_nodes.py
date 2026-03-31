@@ -38,7 +38,7 @@ def _validate_parent(node, parent_id, system_id, exclude_id=None):
     """Return error string or None if parent is valid."""
     if parent_id is None:
         return None
-    parent = CategoryNode.query.get(parent_id)
+    parent = db.session.get(CategoryNode, parent_id)
     if parent is None:
         return f'parent_id {parent_id} not found'
     if parent.system_id != system_id:
@@ -189,7 +189,7 @@ def create_node():
     system_id = data.get('system_id')
     if not system_id:
         return jsonify({'error': 'system_id is required'}), 400
-    if not ClassificationSystem.query.get(system_id):
+    if not db.session.get(ClassificationSystem, system_id):
         return jsonify({'error': f'classification system {system_id} not found'}), 400
 
     level = data.get('level')
@@ -213,7 +213,7 @@ def create_node():
     if level > 1 and parent_id is None:
         return jsonify({'error': f'parent_id is required for level-{level} nodes'}), 400
     if parent_id is not None:
-        parent = CategoryNode.query.get(parent_id)
+        parent = db.session.get(CategoryNode, parent_id)
         if parent.level != level - 1:
             return jsonify({'error': f'parent node must be at level {level - 1}'}), 400
 
@@ -802,7 +802,7 @@ def move_node(node_id):
         return jsonify({'error': f'parent_id is required for level-{node.level} nodes'}), 400
 
     if new_parent_id is not None:
-        new_parent = CategoryNode.query.get(new_parent_id)
+        new_parent = db.session.get(CategoryNode, new_parent_id)
         if new_parent is None:
             return jsonify({'error': f'new_parent_id {new_parent_id} not found'}), 400
         if new_parent.system_id != node.system_id:

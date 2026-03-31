@@ -40,9 +40,8 @@ class TestGetObjectType:
         assert "fields" in resp.get_json()
 
     def test_returns_error_for_nonexistent(self, client):
-        # Routen fångar HTTPException i except Exception – returnerar ≥ 400
         resp = client.get("/api/object-types/999999")
-        assert resp.status_code >= 400
+        assert resp.status_code == 404
 
 
 class TestCreateObjectType:

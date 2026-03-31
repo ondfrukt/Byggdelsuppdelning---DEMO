@@ -67,8 +67,7 @@ class TestGetObject:
         assert "data" in client.get(f"/api/objects/{first_object['id']}").get_json()
 
     def test_returns_error_for_nonexistent(self, client):
-        # Routen fångar HTTPException i except Exception → returnerar ≥ 400
-        assert client.get("/api/objects/999999").status_code >= 400
+        assert client.get("/api/objects/999999").status_code == 404
 
 
 class TestCreateObject:
@@ -184,4 +183,4 @@ class TestUpdateObject:
         assert resp.get_json()["status"] == "Released"
 
     def test_update_nonexistent_returns_error(self, client):
-        assert client.put("/api/objects/999999", json={"status": "Released"}).status_code >= 400
+        assert client.put("/api/objects/999999", json={"status": "Released"}).status_code == 404

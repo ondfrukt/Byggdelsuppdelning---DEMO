@@ -300,8 +300,8 @@ def upsert_relation_type_rule():
     if not relation_type:
         return jsonify({'error': 'Invalid relation_type'}), 400
 
-    source_type = ObjectType.query.get(source_object_type_id)
-    target_type = ObjectType.query.get(target_object_type_id)
+    source_type = db.session.get(ObjectType, source_object_type_id)
+    target_type = db.session.get(ObjectType, target_object_type_id)
     if not source_type or not target_type:
         return jsonify({'error': 'Invalid object type ids'}), 400
 
@@ -388,8 +388,8 @@ def update_relation_type_rule(rule_id):
     if not relation_type:
         return jsonify({'error': 'Invalid relation_type'}), 400
 
-    source_type = ObjectType.query.get(source_object_type_id)
-    target_type = ObjectType.query.get(target_object_type_id)
+    source_type = db.session.get(ObjectType, source_object_type_id)
+    target_type = db.session.get(ObjectType, target_object_type_id)
     if not source_type or not target_type:
         return jsonify({'error': 'Invalid object type ids'}), 400
 

@@ -30,8 +30,7 @@ class TestGetRelations:
         )
 
     def test_returns_error_for_nonexistent_object(self, client):
-        # Routen fångar HTTPException i except Exception → returnerar ≥ 400
-        assert client.get("/api/objects/999999/relations").status_code >= 400
+        assert client.get("/api/objects/999999/relations").status_code == 404
 
 
 class TestCreateRelation:

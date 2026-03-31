@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from sqlalchemy import or_
+from werkzeug.exceptions import HTTPException
 from models import db, Object, ObjectRelation
 from routes.relation_type_rules import (
     validate_relation_type_scope,
@@ -89,6 +90,8 @@ def get_relations(id):
             relation_entities.append(relation_data)
 
         return jsonify(relation_entities), 200
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting relations: {str(e)}")
         return jsonify({'error': 'Failed to get relations'}), 500
@@ -160,7 +163,7 @@ def create_relation(id):
             return jsonify({'error': 'target_object_id is required'}), 400
         
         # Check if target object exists
-        target_object = Object.query.get(data['target_object_id'])
+        target_object = db.session.get(Object, data['target_object_id'])
         if not target_object:
             return jsonify({'error': 'Invalid target_object_id'}), 400
 
@@ -204,6 +207,8 @@ def create_relation(id):
         
         logger.info(f"Created relation from {source_object.id_full} to {target_object.id_full}")
         return jsonify(relation.to_dict(include_objects=True)), 201
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error creating relation: {str(e)}")
@@ -260,6 +265,8 @@ def delete_relation(id, relation_id):
         
         logger.info(f"Deleted relation {relation_id} from object {id}")
         return jsonify({'message': 'Relation deleted successfully'}), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting relation: {str(e)}")
@@ -327,6 +334,8 @@ def update_relation(id, relation_id):
         
         logger.info(f"Updated relation {relation_id} for object {id}")
         return jsonify(relation.to_dict(include_objects=True)), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating relation: {str(e)}")
@@ -394,6 +403,8 @@ def get_linked_file_objects(id):
             })
 
         return jsonify(response), 200
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting linked file objects: {str(e)}")
         return jsonify({'error': 'Failed to get linked file objects'}), 500

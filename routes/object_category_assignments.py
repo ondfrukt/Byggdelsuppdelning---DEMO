@@ -122,9 +122,9 @@ def create_assignment():
     if not category_node_id:
         return jsonify({'error': 'category_node_id is required'}), 400
 
-    if not Object.query.get(object_id):
+    if not db.session.get(Object, object_id):
         return jsonify({'error': f'Object {object_id} not found'}), 404
-    node = CategoryNode.query.get(category_node_id)
+    node = db.session.get(CategoryNode, category_node_id)
     if not node:
         return jsonify({'error': f'CategoryNode {category_node_id} not found'}), 404
 

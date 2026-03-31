@@ -41,9 +41,9 @@ class TestGetManagedList:
         data = client.get(f"/api/managed-lists/{created_list['id']}").get_json()
         assert "items" in data
 
-    def test_returns_404_or_error_for_nonexistent(self, client):
+    def test_returns_404_for_nonexistent(self, client):
         resp = client.get("/api/managed-lists/999999")
-        assert resp.status_code >= 400
+        assert resp.status_code == 404
 
 
 class TestCreateManagedList:

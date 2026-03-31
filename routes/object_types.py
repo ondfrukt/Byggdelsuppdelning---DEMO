@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from werkzeug.exceptions import HTTPException
 from models import db, ObjectType, ObjectField, Object, ObjectData, FieldTemplate, RelationTypeRule, RelationType
 from routes.relation_type_rules import ensure_complete_relation_rule_matrix
 from extensions import cache
@@ -263,6 +264,8 @@ def get_object_type(id):
     try:
         object_type = ObjectType.query.get_or_404(id)
         return jsonify(object_type.to_dict(include_fields=True)), 200
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting object type: {str(e)}")
         return jsonify({'error': 'Failed to get object type'}), 500
@@ -454,6 +457,8 @@ def update_object_type(id):
         
         logger.info(f"Updated object type: {object_type.name}")
         return jsonify(object_type.to_dict(include_fields=True)), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating object type: {str(e)}")
@@ -542,6 +547,8 @@ def delete_object_type(id):
             'deleted_relation_rules': deleted_relation_rules,
             'cleared_relation_type_scopes': len(scoped_relation_types)
         }), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting object type: {str(e)}")
@@ -581,6 +588,8 @@ def list_fields(id):
         object_type = ObjectType.query.get_or_404(id)
         fields = sorted(object_type.fields, key=lambda f: f.display_order or 999)
         return jsonify([field.to_dict() for field in fields]), 200
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing fields: {str(e)}")
         return jsonify({'error': 'Failed to list fields'}), 500
@@ -657,7 +666,7 @@ def add_field(id):
         except (TypeError, ValueError):
             return jsonify({'error': 'field_template_id must be an integer'}), 400
 
-        template = FieldTemplate.query.get(template_id)
+        template = db.session.get(FieldTemplate, template_id)
         if not template:
             return jsonify({'error': 'Field template not found'}), 404
         if template.is_active is False:
@@ -730,6 +739,8 @@ def add_field(id):
         
         logger.info(f"Added field {field.field_name} to object type {object_type.name}")
         return jsonify(field.to_dict()), 201
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error adding field: {str(e)}")
@@ -860,6 +871,8 @@ def update_field_with_type(type_id, field_id):
         
         logger.info(f"Updated field {field.field_name} for object type {object_type.name}")
         return jsonify(field.to_dict()), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating field: {str(e)}")
@@ -935,6 +948,8 @@ def delete_field_with_type(type_id, field_id):
         
         logger.info(f"Deleted field {field.field_name} from object type {object_type.name}")
         return jsonify({'message': 'Field deleted successfully'}), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting field: {str(e)}")

@@ -162,11 +162,11 @@ def update_tree_display_config():
                 continue
             
             # Check if object type exists
-            object_type = ObjectType.query.get(object_type_id)
+            object_type = db.session.get(ObjectType, object_type_id)
             if not object_type:
                 logger.warning(f"Object type {object_type_id} not found")
                 continue
-            
+
             # Check if field exists for this object type (if specified and not "ID")
             if tree_view_name_field and tree_view_name_field != 'ID':
                 field = ObjectField.query.filter_by(
@@ -361,11 +361,11 @@ def update_list_view_config():
                 continue
             
             # Check if object type exists
-            object_type = ObjectType.query.get(object_type_id)
+            object_type = db.session.get(ObjectType, object_type_id)
             if not object_type:
                 logger.warning(f"Object type {object_type_id} not found")
                 continue
-            
+
             # Find or create config
             config = ViewConfiguration.query.filter_by(object_type_id=object_type_id).first()
             
@@ -432,7 +432,7 @@ def get_list_view_config_by_type(object_type_id):
     """
     try:
         # Check if object type exists
-        object_type = ObjectType.query.get(object_type_id)
+        object_type = db.session.get(ObjectType, object_type_id)
         if not object_type:
             return jsonify({'error': 'Object type not found'}), 404
         
