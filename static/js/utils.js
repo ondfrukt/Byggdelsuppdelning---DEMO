@@ -798,6 +798,41 @@ function initializePdfHoverPreview() {
     window.addEventListener('blur', hidePreview);
 }
 
+// Build an appropriate value input for a given instance field type
+function buildInstanceFieldValueInput(fieldType, inputId, placeholder = 'Initialt värde (valfritt)') {
+    switch (fieldType) {
+        case 'number':
+            return `<input type="number" step="any" class="form-input" id="${inputId}" placeholder="${placeholder}">`;
+        case 'date':
+            return `<input type="date" class="form-input" id="${inputId}">`;
+        case 'boolean':
+            return `<select class="form-input" id="${inputId}">
+                <option value="">— Välj —</option>
+                <option value="true">Ja</option>
+                <option value="false">Nej</option>
+            </select>`;
+        case 'textarea':
+            return `<textarea class="form-input" id="${inputId}" rows="3" placeholder="${placeholder}"></textarea>`;
+        default:
+            return `<input type="text" class="form-input" id="${inputId}" placeholder="${placeholder}">`;
+    }
+}
+
+// Swap the value input when a field template dropdown changes
+function attachInstanceFieldValueInputSwap(selectEl, valueWrapperId, valueInputId) {
+    if (!selectEl) return;
+    selectEl.addEventListener('change', () => {
+        const wrapper = document.getElementById(valueWrapperId);
+        if (!wrapper) return;
+        let fieldType = 'text';
+        try {
+            const parsed = selectEl.value ? JSON.parse(selectEl.value) : null;
+            fieldType = parsed?.field_type || 'text';
+        } catch (_) {}
+        wrapper.innerHTML = buildInstanceFieldValueInput(fieldType, valueInputId);
+    });
+}
+
 // Confirmation dialog
 function confirmAction(message) {
     return confirm(message);

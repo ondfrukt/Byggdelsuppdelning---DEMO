@@ -619,7 +619,7 @@ class ObjectDetailPanel {
                             <option value="">Väljer fältmall…</option>
                         </select>
                     </div>
-                    <div class="add-ifield-row">
+                    <div class="add-ifield-row" id="ifield-value-wrapper-${oid}">
                         <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
                     </div>
                     <div class="add-ifield-actions">
@@ -688,6 +688,7 @@ class ObjectDetailPanel {
                 select.appendChild(opt);
             });
             select.dataset.loaded = 'true';
+            attachInstanceFieldValueInputSwap(select, `ifield-value-wrapper-${oid}`, `ifield-value-${oid}`);
         } catch (_) {}
     }
 

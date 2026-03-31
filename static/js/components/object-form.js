@@ -169,7 +169,7 @@ class ObjectFormComponent {
                         <option value="">Välj fältmall…</option>
                     </select>
                 </div>
-                <div class="add-ifield-row">
+                <div class="add-ifield-row" id="form-ifield-value-wrapper-${oid}">
                     <input type="text" class="form-input" id="form-ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
                 </div>
                 <div class="add-ifield-actions">
@@ -228,6 +228,7 @@ class ObjectFormComponent {
                 select.appendChild(opt);
             });
             select.dataset.loaded = 'true';
+            attachInstanceFieldValueInputSwap(select, `form-ifield-value-wrapper-${oid}`, `form-ifield-value-${oid}`);
         } catch (_) {}
     }
 

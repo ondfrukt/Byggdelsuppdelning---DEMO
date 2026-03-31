@@ -2259,7 +2259,7 @@ class ObjectListComponent {
                         <option value="">Välj fältmall (valfritt)…</option>
                     </select>
                 </div>
-                <div class="add-ifield-row" style="margin-top:var(--spacing-xs)">
+                <div class="add-ifield-row" style="margin-top:var(--spacing-xs)" id="bulk-ifield-value-wrapper">
                     <input type="text" class="form-control" id="bulk-ifield-value" placeholder="Initialt värde (valfritt)">
                 </div>
                 <small class="form-help">Om en fältmall valts läggs fältet till på alla markerade objekt som saknar det.</small>
@@ -2280,6 +2280,7 @@ class ObjectListComponent {
                 opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
                 select.appendChild(opt);
             });
+            attachInstanceFieldValueInputSwap(select, 'bulk-ifield-value-wrapper', 'bulk-ifield-value');
         } catch (_) {}
     }
 
