@@ -33,6 +33,7 @@ class Object(db.Model):
     parent_instances = db.relationship('Instance', foreign_keys='Instance.child_object_id',
                                        back_populates='child_object', cascade='all, delete-orphan')
     documents = db.relationship('Document', back_populates='object', cascade='all, delete-orphan')
+    instance_fields = db.relationship('ObjectField', foreign_keys='ObjectField.object_id', back_populates='owner_object', cascade='all, delete-orphan')
     
     @property
     def data(self):
@@ -104,6 +105,7 @@ class Object(db.Model):
         
         if include_data:
             result['data'] = self.data
+            result['instance_fields'] = [f.to_dict() for f in self.instance_fields]
         
         if include_relations:
             relations = {}

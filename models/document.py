@@ -37,9 +37,10 @@ class Document(db.Model):
     object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=False)
     filename = db.Column(db.String(255), nullable=False)
     original_filename = db.Column(db.String(255), nullable=False)
-    file_path = db.Column(db.String(500), nullable=False)
+    file_path = db.Column(db.String(500), nullable=True)
     file_size = db.Column(db.Integer)
     mime_type = db.Column(db.String(100))
+    file_data = db.Column(db.LargeBinary, nullable=True)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
     uploaded_by = db.Column(db.String(100))
     

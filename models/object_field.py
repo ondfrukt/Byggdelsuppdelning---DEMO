@@ -10,7 +10,8 @@ class ObjectField(db.Model):
     __tablename__ = 'object_fields'
     
     id = db.Column(db.Integer, primary_key=True)
-    object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='CASCADE'), nullable=False)
+    object_type_id = db.Column(db.Integer, db.ForeignKey('object_types.id', ondelete='CASCADE'), nullable=True)
+    object_id = db.Column(db.Integer, db.ForeignKey('objects.id', ondelete='CASCADE'), nullable=True)
     field_template_id = db.Column(db.Integer, db.ForeignKey('field_templates.id', ondelete='SET NULL'), nullable=True)
     field_name = db.Column(db.String(100), nullable=False)
     display_name = db.Column(db.String(200))
@@ -29,6 +30,7 @@ class ObjectField(db.Model):
     
     # Relationships
     object_type = db.relationship('ObjectType', back_populates='fields')
+    owner_object = db.relationship('Object', foreign_keys=[object_id], back_populates='instance_fields')
     field_template = db.relationship('FieldTemplate')
     object_data = db.relationship('ObjectData', back_populates='field', cascade='all, delete-orphan')
     overrides = db.relationship('ObjectFieldOverride', back_populates='field', cascade='all, delete-orphan')
