@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from werkzeug.exceptions import HTTPException
 from sqlalchemy.orm import joinedload, subqueryload
 from extensions import cache
 from models import db, Object, ObjectType, ObjectField, ObjectData, ObjectRelation, ObjectFieldOverride, ViewConfiguration, ManagedListItem, Instance, ObjectCategoryAssignment
@@ -703,7 +704,7 @@ def set_object_data_value(record, field_type, value, field_options=None):
 
     def resolve_path_payload(item_id):
         from models import ManagedListItem
-        item = ManagedListItem.query.get(item_id)
+        item = db.session.get(ManagedListItem, item_id)
         if not item:
             return None
 
@@ -720,7 +721,7 @@ def set_object_data_value(record, field_type, value, field_options=None):
             parent_id = int(current.parent_item_id or 0)
             if parent_id <= 0:
                 break
-            current = ManagedListItem.query.get(parent_id)
+            current = db.session.get(ManagedListItem, parent_id)
 
         chain.reverse()
         if not chain:
@@ -1393,6 +1394,8 @@ def get_object(id):
             except Exception as fallback_error:
                 logger.error(f"Error in fallback serialization for object {id}: {str(fallback_error)}", exc_info=True)
                 raise
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting object {id}: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to get object'}), 500
@@ -1453,7 +1456,7 @@ def create_object():
             return jsonify({'error': 'object_type_id is required'}), 400
         
         # Get object type
-        object_type = ObjectType.query.get(data['object_type_id'])
+        object_type = db.session.get(ObjectType, data['object_type_id'])
         if not object_type:
             return jsonify({'error': 'Invalid object_type_id'}), 400
         
@@ -1684,6 +1687,8 @@ def update_object(id):
 
         logger.info(f"Updated object: {obj.id_full}")
         return jsonify(obj.to_dict(include_data=True)), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating object: {str(e)}")
@@ -1711,6 +1716,8 @@ def get_object_field_overrides(id):
             })
 
         return jsonify(payload), 200
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting field overrides for object {id}: {str(e)}")
         return jsonify({'error': 'Failed to get field overrides'}), 500
@@ -1761,6 +1768,8 @@ def update_object_field_overrides(id):
 
         db.session.commit()
         return jsonify({'message': 'Field overrides updated successfully'}), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error updating field overrides for object {id}: {str(e)}")
@@ -1894,7 +1903,7 @@ def duplicate_object(id):
             if target_id == duplicate.id:
                 continue
 
-            target_object = Object.query.get(target_id)
+            target_object = db.session.get(Object, target_id)
             if not target_object:
                 continue
 
@@ -1915,6 +1924,8 @@ def duplicate_object(id):
 
         logger.info(f"Duplicated object {source.id_full} -> {duplicate.id_full}")
         return jsonify(duplicate.to_dict(include_data=True, include_relations=True)), 201
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error duplicating object {id}: {str(e)}", exc_info=True)
@@ -2000,6 +2011,8 @@ def delete_object(id):
         
         logger.info(f"Deleted object: {object_id_full}; removed_files={removed_paths}")
         return jsonify({'message': 'Object deleted successfully'}), 200
+    except HTTPException:
+        raise
     except Exception as e:
         db.session.rollback()
         logger.error(f"Error deleting object: {str(e)}")

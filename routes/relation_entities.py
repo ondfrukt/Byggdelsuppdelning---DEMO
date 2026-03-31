@@ -151,8 +151,8 @@ def create_relation():
     if source_object_id == target_object_id:
         return jsonify({'error': 'Self-relations are not allowed'}), 400
 
-    source_object = Object.query.get(source_object_id)
-    target_object = Object.query.get(target_object_id)
+    source_object = db.session.get(Object, source_object_id)
+    target_object = db.session.get(Object, target_object_id)
 
     if not source_object or not target_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
@@ -275,7 +275,7 @@ def create_relations_batch():
     if not source_id or not isinstance(relations, list):
         return jsonify({'error': 'sourceId and relations[] are required'}), 400
 
-    source_object = Object.query.get(source_id)
+    source_object = db.session.get(Object, source_id)
     if not source_object:
         return jsonify({'error': 'Invalid sourceId'}), 400
 
@@ -307,7 +307,7 @@ def create_relations_batch():
             errors.append({'index': index, 'targetId': target_id, 'error': 'Self-relations are not allowed'})
             continue
 
-        target_object = Object.query.get(target_id)
+        target_object = db.session.get(Object, target_id)
         if not target_object:
             errors.append({'index': index, 'targetId': target_id, 'error': 'Target object not found'})
             continue

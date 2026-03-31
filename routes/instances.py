@@ -192,8 +192,8 @@ def create_instance():
     if parent_object_id == child_object_id:
         return jsonify({'error': 'parent_object_id and child_object_id must differ'}), 400
 
-    parent_object = Object.query.get(parent_object_id)
-    child_object = Object.query.get(child_object_id)
+    parent_object = db.session.get(Object, parent_object_id)
+    child_object = db.session.get(Object, child_object_id)
     if not parent_object or not child_object:
         return jsonify({'error': 'Invalid object IDs'}), 400
 
@@ -307,8 +307,8 @@ def update_instance(instance_id):
         child_object_id = data.get('child_object_id', instance.child_object_id)
         if parent_object_id == child_object_id:
             return jsonify({'error': 'parent_object_id and child_object_id must differ'}), 400
-        parent_object = Object.query.get(parent_object_id)
-        child_object = Object.query.get(child_object_id)
+        parent_object = db.session.get(Object, parent_object_id)
+        child_object = db.session.get(Object, child_object_id)
         if not parent_object or not child_object:
             return jsonify({'error': 'Invalid object IDs'}), 400
 

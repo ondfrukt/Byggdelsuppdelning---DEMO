@@ -741,7 +741,7 @@ def list_managed_list_children(list_id):
         links = query.order_by(ManagedListLink.child_list_id.asc()).all()
         payload = []
         for link in links:
-            child = ManagedList.query.get(link.child_list_id)
+            child = db.session.get(ManagedList, link.child_list_id)
             if not child:
                 continue
             payload.append({
@@ -766,7 +766,7 @@ def list_managed_list_parents(list_id):
         links = query.order_by(ManagedListLink.parent_list_id.asc()).all()
         payload = []
         for link in links:
-            parent = ManagedList.query.get(link.parent_list_id)
+            parent = db.session.get(ManagedList, link.parent_list_id)
             if not parent:
                 continue
             payload.append({

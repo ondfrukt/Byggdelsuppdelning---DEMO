@@ -35,7 +35,7 @@ def _get_item_by_key(item_key):
     item_id = _parse_item_id(item_key)
     if not item_id:
         return None
-    return ChangeManagementItem.query.get(item_id)
+    return db.session.get(ChangeManagementItem, item_id)
 
 
 @bp.route('', methods=['GET'])
@@ -421,7 +421,7 @@ def add_change_item_impact(item_key):
         if not object_id:
             return jsonify({'error': 'object_id is required'}), 400
 
-        obj = Object.query.get(object_id)
+        obj = db.session.get(Object, object_id)
         if not obj:
             return jsonify({'error': 'Invalid object_id'}), 400
 

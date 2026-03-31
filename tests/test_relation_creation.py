@@ -287,7 +287,7 @@ class TestStandaloneRelationDelete:
 
     def test_delete_nonexistent_returns_error(self, client):
         resp = client.delete("/api/relations/999999")
-        assert resp.status_code >= 400
+        assert resp.status_code == 404
 
 
 # ══════════════════════════════════════════════════════════════════════════════

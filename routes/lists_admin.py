@@ -133,7 +133,7 @@ def path_contains_descendant(item_id, candidate_parent_id):
         if current_id in visited:
             return True
         visited.add(current_id)
-        parent_item = ManagedListItem.query.get(current_id)
+        parent_item = db.session.get(ManagedListItem, current_id)
         if not parent_item:
             return False
         current_id = normalize_parent_id(parent_item.parent_item_id)
@@ -581,7 +581,7 @@ def update_list_item(item_id):
                 return jsonify({'error': 'item cannot be parent of itself'}), 400
             parent_item = None
             if new_parent_id is not None:
-                parent_item = ManagedListItem.query.get(new_parent_id)
+                parent_item = db.session.get(ManagedListItem, new_parent_id)
                 if not parent_item or int(parent_item.list_id) != int(item.list_id):
                     return jsonify({'error': 'parent must belong to the same list'}), 400
                 if path_contains_descendant(item.id, new_parent_id):
@@ -626,7 +626,7 @@ def move_list_item(item_id):
 
         parent_item = None
         if new_parent_id is not None:
-            parent_item = ManagedListItem.query.get(new_parent_id)
+            parent_item = db.session.get(ManagedListItem, new_parent_id)
             if not parent_item or int(parent_item.list_id) != int(item.list_id):
                 return jsonify({'error': 'new_parent_id must belong to the same list'}), 400
             if path_contains_descendant(item.id, new_parent_id):
