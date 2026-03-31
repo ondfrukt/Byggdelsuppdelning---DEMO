@@ -9,6 +9,7 @@ from werkzeug.utils import secure_filename
 from models import db, Object, Document
 from utils.validators import sanitize_filename, validate_file_upload
 from extensions import cache, limiter
+import io
 import os
 import logging
 from datetime import datetime
@@ -25,8 +26,6 @@ def invalidate_cache_on_write(response):
 
 
 # Configuration
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UPLOAD_FOLDER = os.path.join(PROJECT_ROOT, 'static', 'uploads')
 ALLOWED_EXTENSIONS = {
     '.xls', '.xlsx',          # Excel
     '.doc', '.docx',          # Word
@@ -35,9 +34,6 @@ ALLOWED_EXTENSIONS = {
     '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.tif', '.tiff'  # Images
 }
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-
-# Ensure upload folder exists
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
 def is_file_object_type(type_name):
@@ -58,50 +54,6 @@ def ensure_file_object_or_422(obj):
         'object_id': obj.id if obj else None,
         'object_type': object_type_name
     }), 422
-
-
-def get_document_storage_candidates(document):
-    """Generate possible storage paths for a document.
-
-    Supports both legacy absolute/relative file_path values and current storage
-    where only filename is persisted in the DB.
-    """
-    candidates = []
-
-    if document.file_path:
-        if os.path.isabs(document.file_path):
-            candidates.append(document.file_path)
-        else:
-            # Legacy relative paths may be project-root based or upload-folder based.
-            candidates.append(os.path.join(PROJECT_ROOT, document.file_path))
-            candidates.append(os.path.join(UPLOAD_FOLDER, document.file_path))
-            basename = os.path.basename(document.file_path)
-            if basename:
-                candidates.append(os.path.join(UPLOAD_FOLDER, basename))
-
-    if document.filename:
-        candidates.append(os.path.join(UPLOAD_FOLDER, document.filename))
-
-    # Keep order, remove duplicates
-    unique = []
-    seen = set()
-    for path in candidates:
-        normalized = os.path.normpath(path)
-        if normalized not in seen:
-            seen.add(normalized)
-            unique.append(normalized)
-
-    return unique
-
-
-def resolve_document_storage_path(document):
-    """Return the first existing storage path for a document."""
-    for candidate in get_document_storage_candidates(document):
-        if os.path.exists(candidate):
-            return candidate
-
-    # Return preferred fallback path for messages/consistency.
-    return os.path.join(UPLOAD_FOLDER, document.filename)
 
 
 def infer_mime_type(filename):
@@ -237,9 +189,8 @@ def upload_document(id):
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
 
-        file.seek(0, os.SEEK_END)
-        file_size = file.tell()
-        file.seek(0)
+        file_bytes = file.read()
+        file_size = len(file_bytes)
 
         is_valid, error_msg = validate_file_upload(
             file.filename,
@@ -255,15 +206,12 @@ def upload_document(id):
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         filename = f"{timestamp}_{sanitize_filename(original_filename)}"
 
-        storage_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(storage_path)
-
         document = Document(
             object_id=id,
             filename=filename,
             original_filename=original_filename,
-            # Persist relative storage reference to avoid deploy path coupling.
-            file_path=filename,
+            file_path=None,
+            file_data=file_bytes,
             file_size=file_size,
             mime_type=infer_mime_type(original_filename),
             uploaded_by=request.form.get('uploaded_by')
@@ -322,6 +270,11 @@ def download_document(doc_id):
     """
     try:
         document = Document.query.get_or_404(doc_id)
+
+        if not document.file_data:
+            logger.warning(f"Document file_data missing for doc_id={doc_id}")
+            return jsonify({'error': 'File not found'}), 404
+
         filename = (document.original_filename or document.filename or '').lower()
         mime_type = (document.mime_type or '').lower()
         is_pdf = filename.endswith('.pdf') or mime_type == 'application/pdf'
@@ -330,14 +283,8 @@ def download_document(doc_id):
         inline_requested = request.args.get('inline', '').lower() in ('1', 'true', 'yes')
         open_inline = is_pdf and (inline_requested or not force_download)
 
-        storage_path = resolve_document_storage_path(document)
-
-        if not os.path.exists(storage_path):
-            logger.warning(f"Document file missing for doc_id={doc_id}, expected={storage_path}, candidates={get_document_storage_candidates(document)}")
-            return jsonify({'error': 'File not found'}), 404
-
         return send_file(
-            storage_path,
+            io.BytesIO(document.file_data),
             as_attachment=not open_inline,
             download_name=document.original_filename,
             mimetype=document.mime_type
@@ -404,20 +351,14 @@ def document_preview_meta(doc_id):
         if not is_pdf:
             return jsonify({'error': 'Preview metadata is only available for PDF files'}), 400
 
-        storage_path = resolve_document_storage_path(document)
-        if not os.path.exists(storage_path):
-            logger.warning(
-                "Document file missing for preview-meta doc_id=%s, expected=%s, candidates=%s",
-                doc_id,
-                storage_path,
-                get_document_storage_candidates(document),
-            )
+        if not document.file_data:
+            logger.warning(f"Document file_data missing for preview-meta doc_id={doc_id}")
             return jsonify({'error': 'File not found'}), 404
 
         if PdfReader is None:
             return jsonify({'error': 'PDF metadata parser is unavailable on server'}), 503
 
-        reader = PdfReader(storage_path, strict=False)
+        reader = PdfReader(io.BytesIO(document.file_data), strict=False)
         if not reader.pages:
             return jsonify({'error': 'PDF contains no pages'}), 422
 
@@ -480,27 +421,12 @@ def delete_document(doc_id):
     """
     try:
         document = Document.query.get_or_404(doc_id)
-
-        # Collect file paths before deleting the DB record
-        candidates = get_document_storage_candidates(document)
         stored_filename = document.filename
 
-        # Commit DB deletion first — if this fails, files remain intact (consistent state)
         db.session.delete(document)
         db.session.commit()
 
-        # Delete files from disk after successful DB commit.
-        # Orphaned files are acceptable; orphaned DB records are not.
-        removed_paths = []
-        for candidate in candidates:
-            if os.path.exists(candidate):
-                try:
-                    os.remove(candidate)
-                    removed_paths.append(candidate)
-                except OSError as file_err:
-                    logger.warning(f"Could not remove file {candidate}: {file_err}")
-
-        logger.info(f"Deleted document {stored_filename}; removed_files={removed_paths}")
+        logger.info(f"Deleted document {stored_filename}")
         return jsonify({'message': 'Document deleted successfully'}), 200
     except HTTPException:
         raise
