@@ -2248,6 +2248,41 @@ class ObjectListComponent {
         `;
     }
 
+    _buildBulkInstanceFieldSection() {
+        return `
+            <div class="instance-fields-section" id="bulk-instance-field-section" style="margin-top:var(--spacing-lg)">
+                <div class="instance-fields-header">
+                    <span class="instance-fields-title">Lägg till eget fält på alla markerade objekt</span>
+                </div>
+                <div class="add-ifield-row">
+                    <select class="form-control" id="bulk-ifield-template">
+                        <option value="">Välj fältmall (valfritt)…</option>
+                    </select>
+                </div>
+                <div class="add-ifield-row" style="margin-top:var(--spacing-xs)">
+                    <input type="text" class="form-control" id="bulk-ifield-value" placeholder="Initialt värde (valfritt)">
+                </div>
+                <small class="form-help">Om en fältmall valts läggs fältet till på alla markerade objekt som saknar det.</small>
+            </div>`;
+    }
+
+    async _populateBulkInstanceFieldTemplates(selectedObjects) {
+        const select = document.getElementById('bulk-ifield-template');
+        if (!select) return;
+        try {
+            const res = await fetch('/api/field-templates?active_only=true');
+            if (!res.ok) return;
+            const templates = await res.json();
+            select.innerHTML = '<option value="">Välj fältmall (valfritt)…</option>';
+            templates.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ display_name: t.display_name || t.field_name, field_name: t.field_name, field_type: t.field_type });
+                opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
+                select.appendChild(opt);
+            });
+        } catch (_) {}
+    }
+
     async openBulkEditForIds(ids) {
         this.selectedObjectIds = new Set((ids || []).map(Number).filter(id => Number.isFinite(id)));
         await this.openBulkEditModal();
@@ -2335,6 +2370,10 @@ class ObjectListComponent {
                     });
                 }
             });
+
+            // Append instance field section
+            fieldsContainer.insertAdjacentHTML('beforeend', this._buildBulkInstanceFieldSection());
+            await this._populateBulkInstanceFieldTemplates(selectedObjects);
 
             form.onsubmit = async (event) => {
                 event.preventDefault();
@@ -2449,6 +2488,23 @@ class ObjectListComponent {
                 } catch (error) {
                     console.error(`Failed to update object ${obj.id}:`, error);
                     errors.push(obj.id_full || String(obj.id));
+                }
+            }
+
+            // Add instance field to all selected objects if a template was chosen
+            const bulkTemplateSelect = document.getElementById('bulk-ifield-template');
+            const bulkTemplateValue = bulkTemplateSelect?.value;
+            if (bulkTemplateValue) {
+                const templateData = JSON.parse(bulkTemplateValue);
+                const bulkValue = document.getElementById('bulk-ifield-value')?.value || null;
+                for (const obj of selectedObjects) {
+                    try {
+                        await fetch(`/api/objects/${obj.id}/instance-fields`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...templateData, value: bulkValue })
+                        });
+                    } catch (_) {}
                 }
             }
 

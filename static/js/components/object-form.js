@@ -113,6 +113,170 @@ class ObjectFormComponent {
         this.applyConnectionNameRules();
         this.setupCategoryNodeFields(container);
         this.setupTagFields(container);
+
+        if (this.existingObject) {
+            this._appendInstanceFieldsSection(container);
+        }
+    }
+
+    _appendInstanceFieldsSection(container) {
+        const obj = this.existingObject;
+        const instanceFields = Array.isArray(obj.instance_fields) ? obj.instance_fields : [];
+        const data = obj.data || {};
+        const oid = obj.id;
+
+        const section = document.createElement('div');
+        section.className = 'instance-fields-section';
+        section.id = `form-instance-fields-${oid}`;
+
+        let html = `
+            <div class="instance-fields-header">
+                <span class="instance-fields-title">Egna fält</span>
+                <button type="button" class="btn btn-sm btn-secondary" id="form-add-ifield-btn-${oid}">+ Lägg till fält</button>
+            </div>`;
+
+        if (instanceFields.length === 0) {
+            html += `<p class="instance-fields-empty">Inga egna fält tillagda.</p>`;
+        } else {
+            html += `<div class="detail-field-grid">`;
+            for (const field of instanceFields) {
+                const rawValue = data[field.field_name] ?? '';
+                const inputType = field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text';
+                html += `
+                    <div class="detail-item detail-item-instance detail-width-half" data-field-id="${field.id}">
+                        <label class="detail-label detail-label-instance" for="ifield-val-${oid}-${field.id}">
+                            ${escapeHtml(field.display_name || field.field_name)}
+                        </label>
+                        <div class="instance-field-value-row">
+                            <input type="${inputType}"
+                                   id="ifield-val-${oid}-${field.id}"
+                                   class="form-input instance-field-form-input"
+                                   value="${escapeHtml(String(rawValue))}"
+                                   data-field-id="${field.id}"
+                                   data-field-type="${field.field_type}">
+                            <button type="button" class="btn btn-xs btn-danger" title="Ta bort fält"
+                                    data-action="form-delete-ifield" data-field-id="${field.id}">✕</button>
+                        </div>
+                    </div>`;
+            }
+            html += `</div>`;
+        }
+
+        html += `
+            <div class="add-instance-field-form" style="display:none" id="form-add-ifield-form-${oid}">
+                <div class="add-ifield-row">
+                    <select class="form-input" id="form-ifield-template-${oid}">
+                        <option value="">Välj fältmall…</option>
+                    </select>
+                </div>
+                <div class="add-ifield-row">
+                    <input type="text" class="form-input" id="form-ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
+                </div>
+                <div class="add-ifield-actions">
+                    <button type="button" class="btn btn-sm btn-primary" id="form-save-ifield-btn-${oid}">Spara</button>
+                    <button type="button" class="btn btn-sm btn-secondary" id="form-cancel-ifield-btn-${oid}">Avbryt</button>
+                </div>
+            </div>`;
+
+        section.innerHTML = html;
+        container.appendChild(section);
+
+        // Attach listeners
+        document.getElementById(`form-add-ifield-btn-${oid}`)?.addEventListener('click', async () => {
+            const form = document.getElementById(`form-add-ifield-form-${oid}`);
+            if (form) form.style.display = '';
+            await this._populateFormInstanceFieldTemplates(oid);
+        });
+
+        document.getElementById(`form-cancel-ifield-btn-${oid}`)?.addEventListener('click', () => {
+            const form = document.getElementById(`form-add-ifield-form-${oid}`);
+            if (form) form.style.display = 'none';
+        });
+
+        document.getElementById(`form-save-ifield-btn-${oid}`)?.addEventListener('click', () => {
+            this._saveFormInstanceField(oid, container);
+        });
+
+        section.querySelectorAll('[data-action="form-delete-ifield"]').forEach(btn => {
+            btn.addEventListener('click', () => this._deleteFormInstanceField(oid, parseInt(btn.dataset.fieldId), container));
+        });
+
+        // Save instance field values on form submit
+        const mainForm = document.getElementById('object-main-form');
+        if (mainForm && !mainForm._instanceFieldHandlerAttached) {
+            mainForm._instanceFieldHandlerAttached = true;
+            mainForm.addEventListener('submit', () => this._saveInstanceFieldValues(oid), { once: true });
+        }
+    }
+
+    async _populateFormInstanceFieldTemplates(oid) {
+        const select = document.getElementById(`form-ifield-template-${oid}`);
+        if (!select || select.dataset.loaded) return;
+        const existingNames = new Set(
+            (this.existingObject?.instance_fields || []).map(f => f.field_name)
+        );
+        try {
+            const res = await fetch('/api/field-templates?active_only=true');
+            if (!res.ok) return;
+            const templates = await res.json();
+            select.innerHTML = '<option value="">Välj fältmall…</option>';
+            templates.forEach(t => {
+                if (existingNames.has(t.field_name)) return;
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ display_name: t.display_name || t.field_name, field_name: t.field_name, field_type: t.field_type });
+                opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
+                select.appendChild(opt);
+            });
+            select.dataset.loaded = 'true';
+        } catch (_) {}
+    }
+
+    async _saveFormInstanceField(oid, container) {
+        const select = document.getElementById(`form-ifield-template-${oid}`);
+        const selected = select?.value ? JSON.parse(select.value) : null;
+        if (!selected) { alert('Välj en fältmall'); return; }
+        const value = document.getElementById(`form-ifield-value-${oid}`)?.value || null;
+        try {
+            const res = await fetch(`/api/objects/${oid}/instance-fields`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...selected, value })
+            });
+            if (!res.ok) { const e = await res.json(); alert(e.error || 'Fel'); return; }
+            // Reload object and re-render section
+            const objRes = await fetch(`/api/objects/${oid}`);
+            this.existingObject = await objRes.json();
+            const old = document.getElementById(`form-instance-fields-${oid}`);
+            if (old) old.remove();
+            this._appendInstanceFieldsSection(container);
+        } catch (_) { alert('Serverfel'); }
+    }
+
+    async _deleteFormInstanceField(oid, fieldId, container) {
+        if (!confirm('Ta bort fältet?')) return;
+        try {
+            await fetch(`/api/objects/${oid}/instance-fields/${fieldId}`, { method: 'DELETE' });
+            const objRes = await fetch(`/api/objects/${oid}`);
+            this.existingObject = await objRes.json();
+            const old = document.getElementById(`form-instance-fields-${oid}`);
+            if (old) old.remove();
+            this._appendInstanceFieldsSection(container);
+        } catch (_) { alert('Serverfel'); }
+    }
+
+    async _saveInstanceFieldValues(oid) {
+        const inputs = document.querySelectorAll(`#form-instance-fields-${oid} .instance-field-form-input`);
+        for (const input of inputs) {
+            const fieldId = parseInt(input.dataset.fieldId);
+            if (!fieldId) continue;
+            try {
+                await fetch(`/api/objects/${oid}/instance-fields/${fieldId}/value`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: input.value })
+                });
+            } catch (_) {}
+        }
     }
 
     getManagedListFieldOptions(field) {

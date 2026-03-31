@@ -6171,3 +6171,14 @@ body.instance-workspace-open {
     color: var(--color-accent, #6366f1);
     font-style: italic;
 }
+
+.instance-field-form-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    font-size: 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
