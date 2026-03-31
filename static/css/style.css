@@ -6158,3 +6158,16 @@ body.instance-workspace-open {
     gap: var(--spacing-xs);
     justify-content: flex-end;
 }
+
+/* Instance fields – visual distinction from type fields */
+.detail-item-instance {
+    background: var(--bg-secondary);
+    border-left: 3px solid var(--color-accent, #6366f1);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding-left: var(--spacing-sm);
+}
+
+.detail-label-instance {
+    color: var(--color-accent, #6366f1);
+    font-style: italic;
+}

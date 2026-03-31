@@ -16,6 +16,7 @@ class ObjectDetailPanel {
         this.activeTab = 'details';
         this.richTextValues = {};
         this.managedListDisplayByListId = new Map();
+        this.editMode = false;
         
         // Configuration options
         this.options = {
@@ -275,6 +276,12 @@ class ObjectDetailPanel {
             });
         }
 
+        // Edit mode toggle
+        this.container.querySelector('[data-action="toggle-edit-mode"]')?.addEventListener('click', () => {
+            this.editMode = !this.editMode;
+            this.render();
+        });
+
         // Instance field handlers
         this._attachInstanceFieldListeners();
 
@@ -305,7 +312,12 @@ class ObjectDetailPanel {
                         <h3>${displayName}</h3>
                         <p class="side-panel-subtitle">${obj.id_full} • ${obj.object_type?.name || 'Objekt'}</p>
                     </div>
-                    <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
+                    <div style="display:flex;gap:4px;align-items:center">
+                        <button class="btn btn-sm ${this.editMode ? 'btn-primary' : 'btn-secondary'}" data-action="toggle-edit-mode">
+                            ${this.editMode ? 'Klar' : 'Redigera'}
+                        </button>
+                        <button class="btn btn-sm btn-secondary close-panel-btn">✕</button>
+                    </div>
                 </div>
             `;
         }
@@ -560,23 +572,24 @@ class ObjectDetailPanel {
         const instanceFields = Array.isArray(obj.instance_fields) ? obj.instance_fields : [];
         const data = obj.data || {};
         const oid = obj.id;
+        const inEdit = this.editMode;
 
         let html = `<div class="instance-fields-section">
             <div class="instance-fields-header">
                 <span class="instance-fields-title">Egna fält</span>
-                <button type="button" class="btn btn-sm btn-secondary" data-action="add-instance-field">+ Lägg till fält</button>
+                ${inEdit ? `<button type="button" class="btn btn-sm btn-secondary" data-action="add-instance-field">+ Lägg till fält</button>` : ''}
             </div>`;
 
         if (instanceFields.length === 0) {
-            html += '<p class="instance-fields-empty">Inga egna fält tillagda</p>';
+            html += `<p class="instance-fields-empty">${inEdit ? 'Inga egna fält – klicka "+ Lägg till fält" för att lägga till.' : 'Inga egna fält tillagda.'}</p>`;
         } else {
             html += `<div class="detail-field-grid">`;
             for (const field of instanceFields) {
                 const rawValue = data[field.field_name];
                 const displayValue = formatFieldValue(rawValue, field.field_type);
                 html += `
-                    <div class="detail-item detail-width-half instance-field-item" data-field-id="${field.id}">
-                        <span class="detail-label">${escapeHtml(field.display_name || field.field_name)}</span>
+                    <div class="detail-item detail-item-instance detail-width-half" data-field-id="${field.id}">
+                        <span class="detail-label detail-label-instance">${escapeHtml(field.display_name || field.field_name)}</span>
                         <div class="instance-field-value-row">
                             <span class="detail-value instance-field-display" data-field-id="${field.id}">${displayValue || '-'}</span>
                             <input class="instance-field-input form-input-sm"
@@ -585,40 +598,38 @@ class ObjectDetailPanel {
                                    style="display:none"
                                    data-field-id="${field.id}"
                                    data-field-type="${field.field_type}">
+                            ${inEdit ? `
                             <div class="instance-field-actions">
                                 <button type="button" class="btn btn-xs btn-secondary" title="Redigera värde"
                                         data-action="edit-instance-field-value" data-field-id="${field.id}">✏</button>
                                 <button type="button" class="btn btn-xs btn-danger" title="Ta bort fält"
                                         data-action="delete-instance-field" data-field-id="${field.id}">✕</button>
-                            </div>
+                            </div>` : ''}
                         </div>
                     </div>`;
             }
             html += `</div>`;
         }
 
-        html += `
-            <div class="add-instance-field-form" style="display:none" id="add-ifield-form-${oid}">
-                <div class="add-ifield-row">
-                    <input type="text" class="form-input" id="ifield-label-${oid}" placeholder="Etikett (t.ex. Artikelnummer)">
-                    <select class="form-input" id="ifield-type-${oid}">
-                        <option value="text">Text</option>
-                        <option value="number">Nummer</option>
-                        <option value="date">Datum</option>
-                        <option value="boolean">Ja/Nej</option>
-                        <option value="textarea">Lång text</option>
-                    </select>
-                </div>
-                <div class="add-ifield-row">
-                    <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
-                </div>
-                <div class="add-ifield-actions">
-                    <button type="button" class="btn btn-sm btn-primary" data-action="save-instance-field">Spara</button>
-                    <button type="button" class="btn btn-sm btn-secondary" data-action="cancel-add-instance-field">Avbryt</button>
-                </div>
-            </div>
-        </div>`;
+        if (inEdit) {
+            html += `
+                <div class="add-instance-field-form" style="display:none" id="add-ifield-form-${oid}">
+                    <div class="add-ifield-row">
+                        <select class="form-input" id="ifield-template-${oid}">
+                            <option value="">Väljer fältmall…</option>
+                        </select>
+                    </div>
+                    <div class="add-ifield-row">
+                        <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
+                    </div>
+                    <div class="add-ifield-actions">
+                        <button type="button" class="btn btn-sm btn-primary" data-action="save-instance-field">Spara</button>
+                        <button type="button" class="btn btn-sm btn-secondary" data-action="cancel-add-instance-field">Avbryt</button>
+                    </div>
+                </div>`;
+        }
 
+        html += `</div>`;
         return html;
     }
 
@@ -631,9 +642,11 @@ class ObjectDetailPanel {
     _attachInstanceFieldListeners() {
         const oid = this.objectId;
 
-        this.container.querySelector('[data-action="add-instance-field"]')?.addEventListener('click', () => {
+        this.container.querySelector('[data-action="add-instance-field"]')?.addEventListener('click', async () => {
             const form = document.getElementById(`add-ifield-form-${oid}`);
-            if (form) form.style.display = '';
+            if (!form) return;
+            form.style.display = '';
+            await this._populateFieldTemplateSelect(oid);
         });
 
         this.container.querySelector('[data-action="cancel-add-instance-field"]')?.addEventListener('click', () => {
@@ -654,21 +667,45 @@ class ObjectDetailPanel {
         });
     }
 
+    async _populateFieldTemplateSelect(oid) {
+        const select = document.getElementById(`ifield-template-${oid}`);
+        if (!select || select.dataset.loaded) return;
+
+        const existingFieldNames = new Set(
+            (this.objectData?.instance_fields || []).map(f => f.field_name)
+        );
+
+        try {
+            const res = await fetch('/api/field-templates?active_only=true');
+            if (!res.ok) return;
+            const templates = await res.json();
+            select.innerHTML = '<option value="">Välj fältmall…</option>';
+            templates.forEach(t => {
+                if (existingFieldNames.has(t.field_name)) return;
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ display_name: t.display_name || t.field_name, field_name: t.field_name, field_type: t.field_type });
+                opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
+                select.appendChild(opt);
+            });
+            select.dataset.loaded = 'true';
+        } catch (_) {}
+    }
+
     async _saveInstanceField() {
         const oid = this.objectId;
-        const displayName = (document.getElementById(`ifield-label-${oid}`)?.value || '').trim();
-        if (!displayName) {
-            alert('Ange en etikett för fältet');
+        const select = document.getElementById(`ifield-template-${oid}`);
+        const selected = select?.value ? JSON.parse(select.value) : null;
+        if (!selected) {
+            alert('Välj en fältmall');
             return;
         }
-        const fieldType = document.getElementById(`ifield-type-${oid}`)?.value || 'text';
         const value = document.getElementById(`ifield-value-${oid}`)?.value || null;
 
         try {
             const res = await fetch(`/api/objects/${oid}/instance-fields`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ display_name: displayName, field_type: fieldType, value })
+                body: JSON.stringify({ ...selected, value })
             });
             if (!res.ok) {
                 const err = await res.json();
