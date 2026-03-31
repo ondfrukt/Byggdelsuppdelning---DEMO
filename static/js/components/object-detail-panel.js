@@ -275,6 +275,9 @@ class ObjectDetailPanel {
             });
         }
 
+        // Instance field handlers
+        this._attachInstanceFieldListeners();
+
         // Rich text open handlers (detail panel layout only)
         const richTextButtons = this.container.querySelectorAll('[data-open-richtext-key]');
         richTextButtons.forEach(node => {
@@ -546,9 +549,178 @@ class ObjectDetailPanel {
         if (objectTypeFields.length === 0 && Object.keys(data).length === 0 && this.options.layout === 'side') {
             html += '<p class="empty-state">Ingen data registrerad</p>';
         }
-        
+
+        html += this.renderInstanceFieldsSection(obj);
+
         html += '</div>';
         return html;
+    }
+
+    renderInstanceFieldsSection(obj) {
+        const instanceFields = Array.isArray(obj.instance_fields) ? obj.instance_fields : [];
+        const data = obj.data || {};
+        const oid = obj.id;
+
+        let html = `<div class="instance-fields-section">
+            <div class="instance-fields-header">
+                <span class="instance-fields-title">Egna fält</span>
+                <button type="button" class="btn btn-sm btn-secondary" data-action="add-instance-field">+ Lägg till fält</button>
+            </div>`;
+
+        if (instanceFields.length === 0) {
+            html += '<p class="instance-fields-empty">Inga egna fält tillagda</p>';
+        } else {
+            html += `<div class="detail-field-grid">`;
+            for (const field of instanceFields) {
+                const rawValue = data[field.field_name];
+                const displayValue = formatFieldValue(rawValue, field.field_type);
+                html += `
+                    <div class="detail-item detail-width-half instance-field-item" data-field-id="${field.id}">
+                        <span class="detail-label">${escapeHtml(field.display_name || field.field_name)}</span>
+                        <div class="instance-field-value-row">
+                            <span class="detail-value instance-field-display" data-field-id="${field.id}">${displayValue || '-'}</span>
+                            <input class="instance-field-input form-input-sm"
+                                   type="${this._instanceFieldInputType(field.field_type)}"
+                                   value="${escapeHtml(String(rawValue ?? ''))}"
+                                   style="display:none"
+                                   data-field-id="${field.id}"
+                                   data-field-type="${field.field_type}">
+                            <div class="instance-field-actions">
+                                <button type="button" class="btn btn-xs btn-secondary" title="Redigera värde"
+                                        data-action="edit-instance-field-value" data-field-id="${field.id}">✏</button>
+                                <button type="button" class="btn btn-xs btn-danger" title="Ta bort fält"
+                                        data-action="delete-instance-field" data-field-id="${field.id}">✕</button>
+                            </div>
+                        </div>
+                    </div>`;
+            }
+            html += `</div>`;
+        }
+
+        html += `
+            <div class="add-instance-field-form" style="display:none" id="add-ifield-form-${oid}">
+                <div class="add-ifield-row">
+                    <input type="text" class="form-input" id="ifield-label-${oid}" placeholder="Etikett (t.ex. Artikelnummer)">
+                    <select class="form-input" id="ifield-type-${oid}">
+                        <option value="text">Text</option>
+                        <option value="number">Nummer</option>
+                        <option value="date">Datum</option>
+                        <option value="boolean">Ja/Nej</option>
+                        <option value="textarea">Lång text</option>
+                    </select>
+                </div>
+                <div class="add-ifield-row">
+                    <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
+                </div>
+                <div class="add-ifield-actions">
+                    <button type="button" class="btn btn-sm btn-primary" data-action="save-instance-field">Spara</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-action="cancel-add-instance-field">Avbryt</button>
+                </div>
+            </div>
+        </div>`;
+
+        return html;
+    }
+
+    _instanceFieldInputType(fieldType) {
+        if (fieldType === 'number') return 'number';
+        if (fieldType === 'date') return 'date';
+        return 'text';
+    }
+
+    _attachInstanceFieldListeners() {
+        const oid = this.objectId;
+
+        this.container.querySelector('[data-action="add-instance-field"]')?.addEventListener('click', () => {
+            const form = document.getElementById(`add-ifield-form-${oid}`);
+            if (form) form.style.display = '';
+        });
+
+        this.container.querySelector('[data-action="cancel-add-instance-field"]')?.addEventListener('click', () => {
+            const form = document.getElementById(`add-ifield-form-${oid}`);
+            if (form) form.style.display = 'none';
+        });
+
+        this.container.querySelector('[data-action="save-instance-field"]')?.addEventListener('click', () => {
+            this._saveInstanceField();
+        });
+
+        this.container.querySelectorAll('[data-action="delete-instance-field"]').forEach(btn => {
+            btn.addEventListener('click', () => this._deleteInstanceField(parseInt(btn.dataset.fieldId)));
+        });
+
+        this.container.querySelectorAll('[data-action="edit-instance-field-value"]').forEach(btn => {
+            btn.addEventListener('click', () => this._startEditInstanceFieldValue(btn.dataset.fieldId));
+        });
+    }
+
+    async _saveInstanceField() {
+        const oid = this.objectId;
+        const displayName = (document.getElementById(`ifield-label-${oid}`)?.value || '').trim();
+        if (!displayName) {
+            alert('Ange en etikett för fältet');
+            return;
+        }
+        const fieldType = document.getElementById(`ifield-type-${oid}`)?.value || 'text';
+        const value = document.getElementById(`ifield-value-${oid}`)?.value || null;
+
+        try {
+            const res = await fetch(`/api/objects/${oid}/instance-fields`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ display_name: displayName, field_type: fieldType, value })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Kunde inte spara fältet');
+                return;
+            }
+            await this.render(oid);
+        } catch (_) {
+            alert('Serverfel, försök igen');
+        }
+    }
+
+    async _deleteInstanceField(fieldId) {
+        if (!confirm('Ta bort det här fältet och dess värde?')) return;
+        try {
+            const res = await fetch(`/api/objects/${this.objectId}/instance-fields/${fieldId}`, { method: 'DELETE' });
+            if (!res.ok) { alert('Kunde inte ta bort fältet'); return; }
+            await this.render(this.objectId);
+        } catch (_) {
+            alert('Serverfel, försök igen');
+        }
+    }
+
+    _startEditInstanceFieldValue(fieldId) {
+        const display = this.container.querySelector(`.instance-field-display[data-field-id="${fieldId}"]`);
+        const input = this.container.querySelector(`.instance-field-input[data-field-id="${fieldId}"]`);
+        const editBtn = this.container.querySelector(`[data-action="edit-instance-field-value"][data-field-id="${fieldId}"]`);
+        if (!display || !input) return;
+
+        display.style.display = 'none';
+        if (editBtn) editBtn.style.display = 'none';
+        input.style.display = '';
+        input.focus();
+
+        const save = async () => {
+            input.removeEventListener('blur', save);
+            input.removeEventListener('keydown', onKey);
+            try {
+                await fetch(`/api/objects/${this.objectId}/instance-fields/${fieldId}/value`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ value: input.value })
+                });
+            } catch (_) {}
+            await this.render(this.objectId);
+        };
+        const onKey = (e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') this.render(this.objectId);
+        };
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', onKey);
     }
 
     normalizeFieldKey(key) {

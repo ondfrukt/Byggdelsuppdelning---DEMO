@@ -6068,3 +6068,93 @@ body.instance-workspace-open {
     font-size: 12px;
     color: var(--text-primary);
 }
+
+/* ── Instance (per-object) custom fields ─────────────────────────── */
+.instance-fields-section {
+    margin-top: var(--spacing-lg);
+    border-top: 1px solid var(--border-color);
+    padding-top: var(--spacing-md);
+}
+
+.instance-fields-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-sm);
+}
+
+.instance-fields-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.instance-fields-empty {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0 0 var(--spacing-sm);
+}
+
+.instance-field-value-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.instance-field-value-row .detail-value {
+    flex: 1;
+    min-width: 0;
+}
+
+.instance-field-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.btn-xs {
+    padding: 1px 5px;
+    font-size: 0.7rem;
+    line-height: 1.4;
+    border-radius: var(--radius-sm);
+}
+
+.form-input-sm {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 6px;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.add-instance-field-form {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.add-ifield-row {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.add-ifield-row .form-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.add-ifield-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    justify-content: flex-end;
+}

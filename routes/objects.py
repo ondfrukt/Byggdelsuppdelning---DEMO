@@ -1344,6 +1344,7 @@ def get_object(id):
             joinedload(Object.object_type),
             subqueryload(Object.object_data).joinedload(ObjectData.field),
             subqueryload(Object.documents),
+            subqueryload(Object.instance_fields),
         ).filter_by(id=id).first_or_404()
 
         # Try to serialize the object with detailed error handling
@@ -1774,6 +1775,110 @@ def update_object_field_overrides(id):
         db.session.rollback()
         logger.error(f"Error updating field overrides for object {id}: {str(e)}")
         return jsonify({'error': 'Failed to update field overrides'}), 500
+
+
+@bp.route('/<int:id>/instance-fields', methods=['POST'])
+def add_instance_field(id):
+    """Add a custom field to a specific object instance."""
+    try:
+        obj = Object.query.get_or_404(id)
+        data = request.get_json() or {}
+
+        display_name = str(data.get('display_name') or '').strip()
+        if not display_name:
+            return jsonify({'error': 'display_name is required'}), 400
+
+        field_name = str(data.get('field_name') or '').strip()
+        if not field_name:
+            field_name = re.sub(r'[^a-z0-9åäö]', '_', display_name.lower())
+            field_name = re.sub(r'_+', '_', field_name).strip('_') or 'falt'
+
+        valid_types = {'text', 'textarea', 'number', 'date', 'boolean'}
+        field_type = str(data.get('field_type') or 'text').strip()
+        if field_type not in valid_types:
+            return jsonify({'error': f'field_type must be one of: {", ".join(sorted(valid_types))}'}), 400
+
+        existing = ObjectField.query.filter_by(object_id=obj.id, field_name=field_name).first()
+        if existing:
+            return jsonify({'error': f'A field named "{field_name}" already exists on this object'}), 409
+
+        field = ObjectField(
+            object_id=obj.id,
+            object_type_id=None,
+            field_name=field_name,
+            display_name=display_name,
+            field_type=field_type,
+            is_required=False,
+            is_table_visible=False,
+            is_detail_visible=True,
+            is_tree_visible=False,
+        )
+        db.session.add(field)
+        db.session.flush()
+
+        initial_value = data.get('value')
+        if initial_value is not None and initial_value != '':
+            od = ObjectData(object_id=obj.id, field_id=field.id)
+            set_object_data_value(od, field_type, initial_value, None)
+            db.session.add(od)
+
+        db.session.commit()
+        logger.info(f"Added instance field '{field_name}' to object {obj.id_full}")
+        return jsonify(field.to_dict()), 201
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error adding instance field to object {id}: {str(e)}")
+        return jsonify({'error': 'Failed to add instance field'}), 500
+
+
+@bp.route('/<int:id>/instance-fields/<int:field_id>', methods=['DELETE'])
+def delete_instance_field(id, field_id):
+    """Delete a custom field (and its value) from a specific object instance."""
+    try:
+        obj = Object.query.get_or_404(id)
+        field = ObjectField.query.filter_by(id=field_id, object_id=obj.id).first_or_404()
+        db.session.delete(field)
+        db.session.commit()
+        logger.info(f"Deleted instance field '{field.field_name}' from object {obj.id_full}")
+        return jsonify({'message': 'Field deleted successfully'}), 200
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting instance field {field_id} from object {id}: {str(e)}")
+        return jsonify({'error': 'Failed to delete instance field'}), 500
+
+
+@bp.route('/<int:id>/instance-fields/<int:field_id>/value', methods=['PUT'])
+def update_instance_field_value(id, field_id):
+    """Update the value of a custom field on a specific object instance."""
+    try:
+        obj = Object.query.get_or_404(id)
+        field = ObjectField.query.filter_by(id=field_id, object_id=obj.id).first_or_404()
+        data = request.get_json() or {}
+        value = data.get('value')
+
+        existing = ObjectData.query.filter_by(object_id=obj.id, field_id=field.id).first()
+        if value is None or value == '':
+            if existing:
+                db.session.delete(existing)
+        else:
+            if not existing:
+                existing = ObjectData(object_id=obj.id, field_id=field.id)
+                db.session.add(existing)
+            set_object_data_value(existing, field.field_type, value, None)
+            existing.updated_at = datetime.utcnow()
+
+        db.session.commit()
+        return jsonify({'message': 'Value updated successfully'}), 200
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating instance field value {field_id} on object {id}: {str(e)}")
+        return jsonify({'error': 'Failed to update instance field value'}), 500
 
 
 @bp.route('/<int:id>/duplicate', methods=['POST'])
