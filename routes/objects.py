@@ -1793,10 +1793,15 @@ def add_instance_field(id):
             field_name = re.sub(r'[^a-z0-9åäö]', '_', display_name.lower())
             field_name = re.sub(r'_+', '_', field_name).strip('_') or 'falt'
 
-        valid_types = {'text', 'textarea', 'number', 'date', 'boolean'}
+        known_types = {
+            'text', 'textarea', 'richtext', 'number', 'decimal', 'date', 'datetime',
+            'boolean', 'select', 'computed', 'tag', 'relation_list', 'category_node'
+        }
         field_type = str(data.get('field_type') or 'text').strip()
-        if field_type not in valid_types:
-            return jsonify({'error': f'field_type must be one of: {", ".join(sorted(valid_types))}'}), 400
+        if field_type not in known_types:
+            field_type = 'text'
+
+        field_options = data.get('field_options') or None
 
         existing = ObjectField.query.filter_by(object_id=obj.id, field_name=field_name).first()
         if existing:
@@ -1808,6 +1813,7 @@ def add_instance_field(id):
             field_name=field_name,
             display_name=display_name,
             field_type=field_type,
+            field_options=field_options,
             is_required=False,
             is_table_visible=False,
             is_detail_visible=True,

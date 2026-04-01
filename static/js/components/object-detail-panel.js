@@ -683,30 +683,41 @@ class ObjectDetailPanel {
             templates.forEach(t => {
                 if (existingFieldNames.has(t.field_name)) return;
                 const opt = document.createElement('option');
-                opt.value = JSON.stringify({ display_name: t.display_name || t.field_name, field_name: t.field_name, field_type: t.field_type });
+                opt.value = JSON.stringify(t);
                 opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
                 select.appendChild(opt);
             });
             select.dataset.loaded = 'true';
-            attachInstanceFieldValueInputSwap(select, `ifield-value-wrapper-${oid}`, `ifield-value-${oid}`);
+            attachInstanceFieldValueRender(select, `ifield-value-wrapper-${oid}`);
         } catch (_) {}
     }
 
     async _saveInstanceField() {
         const oid = this.objectId;
         const select = document.getElementById(`ifield-template-${oid}`);
-        const selected = select?.value ? JSON.parse(select.value) : null;
-        if (!selected) {
+        let template = select?._ifieldTemplate || null;
+        if (!template && select?.value) {
+            try { template = JSON.parse(select.value); } catch (_) {}
+        }
+        if (!template) {
             alert('Välj en fältmall');
             return;
         }
-        const value = document.getElementById(`ifield-value-${oid}`)?.value || null;
+
+        // Extract value from whichever widget was rendered
+        const value = extractInstanceFieldValue(template, `ifield-value-wrapper-${oid}`);
 
         try {
             const res = await fetch(`/api/objects/${oid}/instance-fields`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...selected, value })
+                body: JSON.stringify({
+                    display_name: template.display_name || template.field_name,
+                    field_name: template.field_name,
+                    field_type: template.field_type,
+                    field_options: template.field_options || null,
+                    value
+                })
             });
             if (!res.ok) {
                 const err = await res.json();

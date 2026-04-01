@@ -798,39 +798,77 @@ function initializePdfHoverPreview() {
     window.addEventListener('blur', hidePreview);
 }
 
-// Build an appropriate value input for a given instance field type
-function buildInstanceFieldValueInput(fieldType, inputId, placeholder = 'Initialt värde (valfritt)') {
-    switch (fieldType) {
-        case 'number':
-            return `<input type="number" step="any" class="form-input" id="${inputId}" placeholder="${placeholder}">`;
-        case 'date':
-            return `<input type="date" class="form-input" id="${inputId}">`;
-        case 'boolean':
-            return `<select class="form-input" id="${inputId}">
-                <option value="">— Välj —</option>
-                <option value="true">Ja</option>
-                <option value="false">Nej</option>
-            </select>`;
-        case 'textarea':
-            return `<textarea class="form-input" id="${inputId}" rows="3" placeholder="${placeholder}"></textarea>`;
-        default:
-            return `<input type="text" class="form-input" id="${inputId}" placeholder="${placeholder}">`;
-    }
+// Render the appropriate value input for a field template using ObjectFormComponent.
+// Replaces the contents of valueWrapperId with a fully-functional field widget.
+// Returns a Promise that resolves to the temporary ObjectFormComponent (or null on failure).
+async function renderInstanceFieldValueAsync(template, valueWrapperId) {
+    const wrapper = document.getElementById(valueWrapperId);
+    if (!wrapper || !template) return null;
+
+    // Create a temporary form component that knows about just this one field
+    const syntheticType = { id: 0, name: '__ifield_temp__', fields: [template] };
+    const tempForm = new ObjectFormComponent(syntheticType, null);
+    tempForm.fields = [template];
+
+    // Fetch managed list items etc. before rendering
+    await tempForm.loadDynamicSelectOptions();
+
+    // renderField() returns a full <div class="form-group"> with label + input
+    wrapper.innerHTML = tempForm.renderField(template);
+
+    // Wire up interactive widgets (managed lists, category pickers, tags, rich text…)
+    tempForm.setupManagedListMultiSelects(wrapper);
+    tempForm.setupManagedListDependencies(wrapper);
+    tempForm.setupManagedListHierarchySelectors(wrapper);
+    await tempForm.initializeRichTextEditors(wrapper);
+    tempForm.setupCategoryNodeFields(wrapper);
+    tempForm.setupTagFields(wrapper);
+
+    return tempForm;
 }
 
-// Swap the value input when a field template dropdown changes
-function attachInstanceFieldValueInputSwap(selectEl, valueWrapperId, valueInputId) {
+// Attach a change listener on a field-template <select> that re-renders the value
+// input widget whenever the user picks a different template.
+// The resolved tempForm is stored on selectEl._ifieldTempForm for later value extraction.
+function attachInstanceFieldValueRender(selectEl, valueWrapperId) {
     if (!selectEl) return;
-    selectEl.addEventListener('change', () => {
+    selectEl.addEventListener('change', async () => {
+        let template = null;
+        try { template = selectEl.value ? JSON.parse(selectEl.value) : null; } catch (_) {}
         const wrapper = document.getElementById(valueWrapperId);
         if (!wrapper) return;
-        let fieldType = 'text';
-        try {
-            const parsed = selectEl.value ? JSON.parse(selectEl.value) : null;
-            fieldType = parsed?.field_type || 'text';
-        } catch (_) {}
-        wrapper.innerHTML = buildInstanceFieldValueInput(fieldType, valueInputId);
+        if (!template) {
+            wrapper.innerHTML = '';
+            selectEl._ifieldTempForm = null;
+            selectEl._ifieldTemplate = null;
+            return;
+        }
+        selectEl._ifieldTempForm = await renderInstanceFieldValueAsync(template, valueWrapperId);
+        selectEl._ifieldTemplate = template;
     });
+}
+
+// Extract the current value from a rendered instance-field widget.
+// Pass the template and the container element (or element id string) where it was rendered.
+function extractInstanceFieldValue(template, containerOrId) {
+    if (!template) return null;
+    const container = typeof containerOrId === 'string'
+        ? document.getElementById(containerOrId)
+        : containerOrId;
+    const fieldName = template.field_name;
+    const el = (container || document).querySelector(`#field-${CSS.escape(fieldName)}`) ||
+                document.getElementById(`field-${fieldName}`);
+    if (!el) return null;
+
+    switch (template.field_type) {
+        case 'boolean':
+            return el.type === 'checkbox' ? (el.checked ? 'true' : 'false') : (el.value || null);
+        case 'number':
+        case 'decimal':
+            return el.value !== '' ? el.value : null;
+        default:
+            return el.value || null;
+    }
 }
 
 // Confirmation dialog

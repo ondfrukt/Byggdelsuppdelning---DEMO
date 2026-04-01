@@ -2276,11 +2276,11 @@ class ObjectListComponent {
             select.innerHTML = '<option value="">Välj fältmall (valfritt)…</option>';
             templates.forEach(t => {
                 const opt = document.createElement('option');
-                opt.value = JSON.stringify({ display_name: t.display_name || t.field_name, field_name: t.field_name, field_type: t.field_type });
+                opt.value = JSON.stringify(t);
                 opt.textContent = `${t.display_name || t.field_name} (${t.field_type})`;
                 select.appendChild(opt);
             });
-            attachInstanceFieldValueInputSwap(select, 'bulk-ifield-value-wrapper', 'bulk-ifield-value');
+            attachInstanceFieldValueRender(select, 'bulk-ifield-value-wrapper');
         } catch (_) {}
     }
 
@@ -2494,16 +2494,22 @@ class ObjectListComponent {
 
             // Add instance field to all selected objects if a template was chosen
             const bulkTemplateSelect = document.getElementById('bulk-ifield-template');
-            const bulkTemplateValue = bulkTemplateSelect?.value;
-            if (bulkTemplateValue) {
-                const templateData = JSON.parse(bulkTemplateValue);
-                const bulkValue = document.getElementById('bulk-ifield-value')?.value || null;
+            const bulkTemplate = bulkTemplateSelect?._ifieldTemplate ||
+                (bulkTemplateSelect?.value ? (() => { try { return JSON.parse(bulkTemplateSelect.value); } catch (_) { return null; } })() : null);
+            if (bulkTemplate) {
+                const bulkValue = extractInstanceFieldValue(bulkTemplate, 'bulk-ifield-value-wrapper');
                 for (const obj of selectedObjects) {
                     try {
                         await fetch(`/api/objects/${obj.id}/instance-fields`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ...templateData, value: bulkValue })
+                            body: JSON.stringify({
+                                display_name: bulkTemplate.display_name || bulkTemplate.field_name,
+                                field_name: bulkTemplate.field_name,
+                                field_type: bulkTemplate.field_type,
+                                field_options: bulkTemplate.field_options || null,
+                                value: bulkValue
+                            })
                         });
                     } catch (_) {}
                 }
