@@ -86,6 +86,7 @@ class TreeView {
             resizableColumns: true,
             reorderableColumns: true,
             columns: this._buildColumns(),
+            defaultExpanded: false,
             onRender: () => this._onAfterRender(),
         });
 
