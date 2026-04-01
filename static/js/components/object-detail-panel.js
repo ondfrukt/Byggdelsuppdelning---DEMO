@@ -500,6 +500,10 @@ class ObjectDetailPanel {
             `;
         }
 
+        // Build a map of instance fields for quick lookup
+        const instanceFields = Array.isArray(obj.instance_fields) ? obj.instance_fields : [];
+        const instanceFieldMap = new Map(instanceFields.map(f => [this.normalizeFieldKey(f.field_name), f]));
+
         // Render any unknown data keys after configured fields.
         for (const [key, rawValue] of Object.entries(data)) {
             const normalizedKey = this.normalizeFieldKey(key);
@@ -515,9 +519,6 @@ class ObjectDetailPanel {
             const resolvedFieldType = field?.field_type || (looksLikeHtml ? 'richtext' : undefined);
             const isRichText = this.options.layout === 'detail' && resolvedFieldType === 'richtext';
             const detailWidthClass = this.getDetailWidthClass(field, isRichText);
-            const detailItemClass = isRichText
-                ? `detail-item detail-item-richtext ${detailWidthClass}`
-                : `detail-item ${detailWidthClass}`;
             const formattedValue = formatFieldValue(value, resolvedFieldType);
             const valueClass = isRichText ? 'detail-value richtext-value' : 'detail-value';
             const richTextKey = isRichText ? `richtext-${richTextCounter++}` : '';
@@ -546,12 +547,42 @@ class ObjectDetailPanel {
                 `
                 : this.formatDetailValueMarkup(value, resolvedFieldType);
 
-            html += `
-                <div class="${detailItemClass}">
-                    <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
-                    ${valueMarkup}
-                </div>
-            `;
+            const instanceField = instanceFieldMap.get(normalizedKey);
+            if (instanceField) {
+                const inEdit = this.editMode;
+                const displayValue = formatFieldValue(rawValue, instanceField.field_type);
+                html += `
+                    <div class="detail-item detail-item-instance ${detailWidthClass}" data-field-id="${instanceField.id}">
+                        <span class="detail-label detail-label-instance">${escapeHtml(instanceField.display_name || instanceField.field_name)}</span>
+                        <div class="instance-field-value-row">
+                            <span class="detail-value instance-field-display" data-field-id="${instanceField.id}">${displayValue || '-'}</span>
+                            <input class="instance-field-input form-input-sm"
+                                   type="${this._instanceFieldInputType(instanceField.field_type)}"
+                                   value="${escapeHtml(String(rawValue ?? ''))}"
+                                   style="display:none"
+                                   data-field-id="${instanceField.id}"
+                                   data-field-type="${instanceField.field_type}">
+                            ${inEdit ? `
+                            <div class="instance-field-actions">
+                                <button type="button" class="btn btn-xs btn-secondary" title="Redigera värde"
+                                        data-action="edit-instance-field-value" data-field-id="${instanceField.id}">✏</button>
+                                <button type="button" class="btn btn-xs btn-danger" title="Ta bort fält"
+                                        data-action="delete-instance-field" data-field-id="${instanceField.id}">✕</button>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `;
+            } else {
+                const detailItemClass = isRichText
+                    ? `detail-item detail-item-richtext ${detailWidthClass}`
+                    : `detail-item ${detailWidthClass}`;
+                html += `
+                    <div class="${detailItemClass}">
+                        <span class="detail-label">${label}${isRichText ? '<span class="detail-richtext-hint"> (öppnas i egen ruta)</span>' : ''}</span>
+                        ${valueMarkup}
+                    </div>
+                `;
+            }
         }
 
         if (this.options.layout === 'detail') {
@@ -569,67 +600,34 @@ class ObjectDetailPanel {
     }
 
     renderInstanceFieldsSection(obj) {
-        const instanceFields = Array.isArray(obj.instance_fields) ? obj.instance_fields : [];
-        const data = obj.data || {};
         const oid = obj.id;
         const inEdit = this.editMode;
+
+        // In view mode, instance fields are already shown in the main field grid with
+        // special styling (detail-label-instance). No separate section needed.
+        if (!inEdit) return '';
 
         let html = `<div class="instance-fields-section">
             <div class="instance-fields-header">
                 <span class="instance-fields-title">Egna fält</span>
-                ${inEdit ? `<button type="button" class="btn btn-sm btn-secondary" data-action="add-instance-field">+ Lägg till fält</button>` : ''}
-            </div>`;
+                <button type="button" class="btn btn-sm btn-secondary" data-action="add-instance-field">+ Lägg till fält</button>
+            </div>
+            <div class="add-instance-field-form" style="display:none" id="add-ifield-form-${oid}">
+                <div class="add-ifield-row">
+                    <select class="form-input" id="ifield-template-${oid}">
+                        <option value="">Väljer fältmall…</option>
+                    </select>
+                </div>
+                <div class="add-ifield-row" id="ifield-value-wrapper-${oid}">
+                    <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
+                </div>
+                <div class="add-ifield-actions">
+                    <button type="button" class="btn btn-sm btn-primary" data-action="save-instance-field">Spara</button>
+                    <button type="button" class="btn btn-sm btn-secondary" data-action="cancel-add-instance-field">Avbryt</button>
+                </div>
+            </div>
+        </div>`;
 
-        if (instanceFields.length === 0) {
-            html += `<p class="instance-fields-empty">${inEdit ? 'Inga egna fält – klicka "+ Lägg till fält" för att lägga till.' : 'Inga egna fält tillagda.'}</p>`;
-        } else {
-            html += `<div class="detail-field-grid">`;
-            for (const field of instanceFields) {
-                const rawValue = data[field.field_name];
-                const displayValue = formatFieldValue(rawValue, field.field_type);
-                html += `
-                    <div class="detail-item detail-item-instance detail-width-half" data-field-id="${field.id}">
-                        <span class="detail-label detail-label-instance">${escapeHtml(field.display_name || field.field_name)}</span>
-                        <div class="instance-field-value-row">
-                            <span class="detail-value instance-field-display" data-field-id="${field.id}">${displayValue || '-'}</span>
-                            <input class="instance-field-input form-input-sm"
-                                   type="${this._instanceFieldInputType(field.field_type)}"
-                                   value="${escapeHtml(String(rawValue ?? ''))}"
-                                   style="display:none"
-                                   data-field-id="${field.id}"
-                                   data-field-type="${field.field_type}">
-                            ${inEdit ? `
-                            <div class="instance-field-actions">
-                                <button type="button" class="btn btn-xs btn-secondary" title="Redigera värde"
-                                        data-action="edit-instance-field-value" data-field-id="${field.id}">✏</button>
-                                <button type="button" class="btn btn-xs btn-danger" title="Ta bort fält"
-                                        data-action="delete-instance-field" data-field-id="${field.id}">✕</button>
-                            </div>` : ''}
-                        </div>
-                    </div>`;
-            }
-            html += `</div>`;
-        }
-
-        if (inEdit) {
-            html += `
-                <div class="add-instance-field-form" style="display:none" id="add-ifield-form-${oid}">
-                    <div class="add-ifield-row">
-                        <select class="form-input" id="ifield-template-${oid}">
-                            <option value="">Väljer fältmall…</option>
-                        </select>
-                    </div>
-                    <div class="add-ifield-row" id="ifield-value-wrapper-${oid}">
-                        <input type="text" class="form-input" id="ifield-value-${oid}" placeholder="Initialt värde (valfritt)">
-                    </div>
-                    <div class="add-ifield-actions">
-                        <button type="button" class="btn btn-sm btn-primary" data-action="save-instance-field">Spara</button>
-                        <button type="button" class="btn btn-sm btn-secondary" data-action="cancel-add-instance-field">Avbryt</button>
-                    </div>
-                </div>`;
-        }
-
-        html += `</div>`;
         return html;
     }
 
