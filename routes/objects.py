@@ -2002,8 +2002,6 @@ def duplicate_object(id):
                 source_object_id=new_source_id,
                 target_object_id=new_target_id,
                 relation_type=relation.relation_type,
-                max_targets_per_source=relation.max_targets_per_source,
-                max_sources_per_target=relation.max_sources_per_target,
                 description=relation.description,
                 relation_metadata=deepcopy(relation.relation_metadata)
             )
