@@ -280,7 +280,6 @@ def create_relations_batch():
         return jsonify({'error': 'Invalid sourceId'}), 400
 
     existing_linked_id_fulls = get_linked_id_fulls(source_id)
-    batch_linked_id_fulls = set()
     linked_id_fulls_by_source = {source_id: existing_linked_id_fulls}
 
     created = []
@@ -350,7 +349,7 @@ def create_relations_batch():
             get_linked_id_fulls(normalized_source_id),
         )
         target_id_full = normalize_id_full(normalized_target_object.id_full)
-        if target_id_full and (target_id_full in source_linked_id_fulls or target_id_full in batch_linked_id_fulls):
+        if target_id_full and target_id_full in source_linked_id_fulls:
             errors.append({
                 'index': index,
                 'targetId': target_id,
@@ -383,7 +382,6 @@ def create_relations_batch():
             continue
         created.append(relation.to_dict(include_objects=True))
         if target_id_full:
-            batch_linked_id_fulls.add(target_id_full)
             source_linked_id_fulls.add(target_id_full)
 
     if created:

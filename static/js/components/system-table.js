@@ -759,7 +759,10 @@ class SystemTable {
                 decoder.innerHTML = html;
                 html = decoder.value || '';
             }
-            return html;
+            if (typeof stripHtmlTags === 'function') {
+                return stripHtmlTags(html).trim() || '-';
+            }
+            return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || '-';
         }
 
         const isTextareaColumn = column.multiline === true
